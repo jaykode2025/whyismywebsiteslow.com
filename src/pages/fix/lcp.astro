@@ -1,0 +1,23 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Card from "../../components/ui/Card.astro";
+
+const title = "How to fix LCP";
+const description = "Speed up your Largest Contentful Paint and improve perceived load time.";
+---
+<BaseLayout title={title} description={description}>
+  <section class="pt-10">
+    <Card>
+      <h1 class="text-3xl text-slate-100">Fixing Largest Contentful Paint (LCP)</h1>
+      <p class="mt-3 text-slate-300">
+        LCP is driven by your hero image, font rendering, and server response time. Focus on the biggest
+        element in the viewport.
+      </p>
+      <ol class="mt-6 list-decimal space-y-3 pl-6 text-sm text-slate-300">
+        <li>Compress and resize hero imagery.</li>
+        <li>Inline critical CSS and defer the rest.</li>
+        <li>Reduce third-party scripts before first paint.</li>
+      </ol>
+    </Card>
+  </section>
+</BaseLayout>

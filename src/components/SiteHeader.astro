@@ -1,0 +1,19 @@
+---
+import Logo from "./Logo.astro";
+import Button from "./ui/Button.astro";
+const isHome = Astro.url.pathname === "/";
+---
+<header class="flex items-center justify-between py-8">
+  <a href="/" class="flex items-center gap-3 text-slate-100">
+    <Logo />
+  </a>
+  <nav class="hidden items-center gap-6 text-sm text-slate-300 md:flex">
+    <a href="/scan" class="transition hover:text-slate-100">Scan</a>
+    <a href="/about" class="transition hover:text-slate-100">About</a>
+    <a href="/api" class="transition hover:text-slate-100">API</a>
+    <a href="/report/example" class="transition hover:text-slate-100">Examples</a>
+  </nav>
+  <div class="flex items-center gap-3">
+    <Button href="/scan" variant={isHome ? "primary" : "ghost"}>Start a scan</Button>
+  </div>
+</header>

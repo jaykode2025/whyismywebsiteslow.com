@@ -1,0 +1,53 @@
+---
+import "../styles/global.css";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+
+const {
+  title = "Why Is My Website Slow?",
+  description = "Instant performance reports with real fixes, powered by Core Web Vitals.",
+  noindex = false,
+  canonical = undefined,
+  ogImage = undefined,
+} = Astro.props;
+
+const metaTitle = title;
+const metaDescription = description;
+const canonicalUrl = canonical ?? Astro.url.origin + Astro.url.pathname;
+const ogImageUrl = ogImage ?? `${Astro.url.origin}/og-default.svg`;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{metaTitle}</title>
+    <meta name="description" content={metaDescription} />
+    <link rel="canonical" href={canonicalUrl} />
+    {noindex ? <meta name="robots" content="noindex,nofollow" /> : null}
+    <meta property="og:title" content={metaTitle} />
+    <meta property="og:description" content={metaDescription} />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#05070d" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <slot name="head" />
+  </head>
+  <body class="min-h-screen bg-[#05070d]">
+    <div class="relative overflow-hidden">
+      <div class="pointer-events-none absolute inset-0 bg-grid opacity-25"></div>
+      <div class="pointer-events-none absolute -top-40 right-[-10%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.35),rgba(5,7,13,0))]"></div>
+      <div class="pointer-events-none absolute bottom-[-220px] left-[-10%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.25),rgba(5,7,13,0))]"></div>
+      <div class="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 pb-16">
+        <SiteHeader />
+        <main class="flex-1">
+          <slot />
+        </main>
+        <SiteFooter />
+      </div>
+    </div>
+  </body>
+</html>

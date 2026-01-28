@@ -1,0 +1,23 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Card from "../../components/ui/Card.astro";
+
+const title = "Fix render-blocking CSS";
+const description = "Reduce render-blocking resources and improve first paint.";
+---
+<BaseLayout title={title} description={description}>
+  <section class="pt-10">
+    <Card>
+      <h1 class="text-3xl text-slate-100">Fixing render-blocking CSS</h1>
+      <p class="mt-3 text-slate-300">
+        Render-blocking CSS stops the browser from painting until stylesheets load. Prioritize critical
+        styles and defer the rest.
+      </p>
+      <ol class="mt-6 list-decimal space-y-3 pl-6 text-sm text-slate-300">
+        <li>Inline above-the-fold CSS in the document head.</li>
+        <li>Split CSS by route and lazy-load non-critical bundles.</li>
+        <li>Audit unused styles and remove dead CSS.</li>
+      </ol>
+    </Card>
+  </section>
+</BaseLayout>

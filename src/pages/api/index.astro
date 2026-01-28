@@ -1,0 +1,34 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Card from "../../components/ui/Card.astro";
+
+const title = "API";
+const description = "Minimal API docs for scan, report retrieval, and delete.";
+---
+<BaseLayout title={title} description={description}>
+  <section class="pt-10">
+    <Card>
+      <h1 class="text-3xl text-slate-100">API endpoints</h1>
+      <p class="mt-2 text-slate-300">Use these endpoints to programmatically create reports.</p>
+      <div class="mt-6 space-y-4 text-sm text-slate-300">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">POST /api/scan</p>
+          <pre class="mt-2 rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-slate-200">{
+  "url": "https://example.com",
+  "device": "mobile",
+  "crawl": { "enabled": true, "maxLinks": 5 },
+  "visibility": "unlisted"
+}</pre>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">GET /api/report/:id</p>
+          <p class="mt-2">Returns status or full report JSON.</p>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">POST /api/report/:id/delete</p>
+          <p class="mt-2">Requires manageToken from the scan response.</p>
+        </div>
+      </div>
+    </Card>
+  </section>
+</BaseLayout>

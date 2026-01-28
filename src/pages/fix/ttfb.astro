@@ -1,0 +1,23 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Card from "../../components/ui/Card.astro";
+
+const title = "How to fix TTFB";
+const description = "Improve server response time and reduce Time to First Byte.";
+---
+<BaseLayout title={title} description={description}>
+  <section class="pt-10">
+    <Card>
+      <h1 class="text-3xl text-slate-100">Fixing Time to First Byte (TTFB)</h1>
+      <p class="mt-3 text-slate-300">
+        TTFB measures how quickly your server responds. High TTFB often means slow backend processing,
+        caching gaps, or overloaded infrastructure.
+      </p>
+      <ol class="mt-6 list-decimal space-y-3 pl-6 text-sm text-slate-300">
+        <li>Enable full-page caching for repeat visitors.</li>
+        <li>Optimize database queries and reduce server-side work.</li>
+        <li>Use a CDN to serve cached HTML from the edge.</li>
+      </ol>
+    </Card>
+  </section>
+</BaseLayout>

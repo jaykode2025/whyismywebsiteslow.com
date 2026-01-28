@@ -1,0 +1,10 @@
+---
+const { size = "md" } = Astro.props;
+const textSize = size === "lg" ? "text-2xl" : "text-xl";
+---
+<div class="flex items-center gap-2">
+  <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 via-emerald-300 to-violet-400 text-slate-950 shadow-lg">
+    <span class="text-sm font-bold">WM</span>
+  </div>
+  <span class={`font-semibold tracking-tight text-slate-100 ${textSize}`}>whyismywebsiteslow</span>
+</div>

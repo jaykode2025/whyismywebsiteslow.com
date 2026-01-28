@@ -1,0 +1,187 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Card from "../../components/ui/Card.astro";
+import Badge from "../../components/ui/Badge.astro";
+import ScoreDonut from "../../components/ScoreDonut.svelte";
+import ReportFilters from "../../components/ReportFilters.svelte";
+import ScanProgress from "../../components/ScanProgress.svelte";
+import { getReport } from "../../lib/store";
+import { exampleReport } from "../../lib/example";
+
+const { id } = Astro.params;
+const stored = id === "example" ? { status: "done", report: exampleReport() } : getReport(id ?? "");
+const report = stored?.report;
+const status = stored?.status ?? "failed";
+
+const title = report
+  ? `Why is ${report.canonicalHost} slow? Report + Fixes`
+  : "Report in progress";
+const description = report
+  ? `Performance report for ${report.canonicalHost} with grade ${report.summary.grade} and top fixes.`
+  : "We are generating your performance report.";
+
+const noindex = !report || report.visibility !== "public";
+const jsonLd = report
+  ? {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: `Why is ${report.canonicalHost} slow?`,
+      description,
+      url: `${Astro.url.origin}/report/${report.id}`,
+      isPartOf: {
+        "@type": "SoftwareApplication",
+        name: "whyismywebsiteslow",
+        applicationCategory: "DeveloperApplication",
+        operatingSystem: "Web",
+      },
+    }
+  : null;
+---
+<BaseLayout title={title} description={description} noindex={noindex}>
+  {jsonLd ? (
+    <script slot="head" type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+  ) : null}
+  <section class="pt-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <Badge tone="info">Report</Badge>
+        <h1 class="mt-3 text-3xl text-slate-100">{report ? report.url : "Generating report"}</h1>
+        <p class="mt-2 text-sm text-slate-400">
+          {report ? `Created ${new Date(report.createdAt).toLocaleString()}` : "This usually takes under 90 seconds."}
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        {report?.crawl.enabled ? (
+          <a class="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300" href={`/compare/${report.id}`}>Compare pages</a>
+        ) : null}
+        <a class="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300" href="/scan">Run another scan</a>
+      </div>
+    </div>
+  </section>
+
+  {report ? (
+    <section class="mt-10 grid gap-6 lg:grid-cols-[0.35fr_0.65fr]">
+      <div class="space-y-6">
+        <Card class="text-center">
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Overall score</p>
+          <div class="mt-4 flex justify-center">
+            <ScoreDonut client:load score={report.summary.score100} />
+          </div>
+          <div class="mt-4 flex items-center justify-center gap-2">
+            <span class="text-2xl text-slate-100">Grade {report.summary.grade}</span>
+            <span class="text-sm text-slate-400">({report.summary.score100}/100)</span>
+          </div>
+        </Card>
+        <Card>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Core Web Vitals</p>
+          <div class="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-200">
+            <div>
+              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">LCP</p>
+              <p>{report.psi.cwv.lcp_ms ? `${Math.round(report.psi.cwv.lcp_ms)} ms` : "-"}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">INP</p>
+              <p>{report.psi.cwv.inp_ms ? `${Math.round(report.psi.cwv.inp_ms)} ms` : "-"}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">CLS</p>
+              <p>{report.psi.cwv.cls ?? "-"}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Status</p>
+              <p class={report.psi.cwv.status === "pass" ? "text-emerald-200" : "text-rose-200"}>
+                {report.psi.cwv.status}
+              </p>
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top bottlenecks</p>
+          <ul class="mt-4 space-y-2 text-sm text-slate-200">
+            {report.summary.topIssues.map((issue) => (
+              <li class="rounded-xl border border-white/10 px-3 py-2">{issue}</li>
+            ))}
+          </ul>
+        </Card>
+        <Card>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Share</p>
+          <p class="mt-2 text-sm text-slate-300">Copy this link to share the report.</p>
+          <code class="mt-3 block break-all rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200">
+            {Astro.url.origin + `/report/${report.id}`}
+          </code>
+        </Card>
+      </div>
+      <div class="space-y-6">
+        <Card>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Lighthouse categories</p>
+              <h2 class="mt-2 text-2xl text-slate-100">Performance breakdown</h2>
+            </div>
+            <Badge tone={report.psi.cwv.status === "pass" ? "success" : "danger"}>
+              {report.psi.cwv.status === "pass" ? "CWV pass" : "CWV fail"}
+            </Badge>
+          </div>
+          <div class="mt-6 grid gap-4 md:grid-cols-2">
+            {Object.entries(report.psi.lighthouse).map(([key, value]) => (
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">{key}</p>
+                <p class="mt-2 text-2xl text-slate-100">{Math.round(value * 100)}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <h2 class="text-2xl text-slate-100">Prioritized fixes</h2>
+          <p class="mt-2 text-sm text-slate-400">Filter by severity or category to focus on quick wins.</p>
+          <div class="mt-6">
+            <ReportFilters client:load insights={report.insights} />
+          </div>
+        </Card>
+      </div>
+    </section>
+  ) : (
+    <section class="mt-10">
+      <Card>
+        <h2 class="text-2xl text-slate-100">Report is in progress</h2>
+        <p class="mt-2 text-slate-300">We are running a scan and building your report.</p>
+        <div class="mt-4">
+          <ScanProgress client:load id={id} />
+        </div>
+      </Card>
+    </section>
+  )}
+
+  {report?.crawl.enabled ? (
+    <section class="mt-12">
+      <Card>
+        <h2 class="text-2xl text-slate-100">Crawl summary</h2>
+        <p class="mt-2 text-sm text-slate-400">Scanned {report.crawl.scannedUrls.length} internal pages.</p>
+        <div class="mt-6 overflow-hidden rounded-2xl border border-white/10">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="bg-white/5 text-xs uppercase tracking-[0.2em] text-slate-500">
+              <tr>
+                <th class="px-4 py-3">URL</th>
+                <th class="px-4 py-3">Performance</th>
+                <th class="px-4 py-3">LCP</th>
+                <th class="px-4 py-3">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.crawl.scannedUrls.map((url, index) => (
+                <tr class="border-t border-white/5">
+                  <td class="px-4 py-3 text-slate-200">{url}</td>
+                  <td class="px-4 py-3">{index === 0 ? Math.round(report.psi.lighthouse.performance * 100) : "-"}</td>
+                  <td class="px-4 py-3">{index === 0 ? `${Math.round(report.psi.cwv.lcp_ms ?? 0)} ms` : "-"}</td>
+                  <td class="px-4 py-3 text-slate-400">
+                    {index === 0 ? "Primary scan" : "Queued for deeper scan"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </section>
+  ) : null}
+</BaseLayout>

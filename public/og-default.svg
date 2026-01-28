@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#a78bfa" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#05070d" />
+  <circle cx="900" cy="-40" r="380" fill="url(#g)" opacity="0.25" />
+  <circle cx="200" cy="630" r="340" fill="url(#g)" opacity="0.2" />
+  <text x="90" y="280" font-family="Space Grotesk, sans-serif" font-size="64" fill="#f8fafc" font-weight="700">
+    whyismywebsiteslow
+  </text>
+  <text x="90" y="360" font-family="Space Grotesk, sans-serif" font-size="28" fill="#cbd5f5">
+    Performance reports with real fixes.
+  </text>
+</svg>

@@ -1,0 +1,59 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Card from "../../components/ui/Card.astro";
+import { getReport } from "../../lib/store";
+import { exampleReport } from "../../lib/example";
+
+const { id } = Astro.params;
+const stored = id === "example" ? { status: "done", report: exampleReport() } : getReport(id ?? "");
+const report = stored?.report;
+const title = report ? `Compare pages for ${report.canonicalHost}` : "Compare pages";
+const description = "Compare internal pages and spot the slowest routes.";
+---
+<BaseLayout title={title} description={description} noindex={!report || report.visibility !== "public"}>
+  <section class="pt-10">
+    <Card>
+      <h1 class="text-3xl text-slate-100">Crawl comparison</h1>
+      <p class="mt-2 text-slate-300">Track the slowest pages across the crawl.</p>
+    </Card>
+  </section>
+
+  {report ? (
+    <section class="mt-8">
+      <Card>
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl text-slate-100">Scanned pages</h2>
+          <span class="text-sm text-slate-400">{report.crawl.scannedUrls.length} URLs</span>
+        </div>
+        <div class="mt-4 overflow-hidden rounded-2xl border border-white/10">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="bg-white/5 text-xs uppercase tracking-[0.2em] text-slate-500">
+              <tr>
+                <th class="px-4 py-3">URL</th>
+                <th class="px-4 py-3">Performance</th>
+                <th class="px-4 py-3">CWV status</th>
+                <th class="px-4 py-3">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.crawl.scannedUrls.map((url, index) => (
+                <tr class="border-t border-white/5">
+                  <td class="px-4 py-3 text-slate-200">{url}</td>
+                  <td class="px-4 py-3">{index === 0 ? Math.round(report.psi.lighthouse.performance * 100) : "-"}</td>
+                  <td class="px-4 py-3">{index === 0 ? report.psi.cwv.status : "-"}</td>
+                  <td class="px-4 py-3 text-slate-400">{index === 0 ? "Primary scan" : "Queued"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </section>
+  ) : (
+    <section class="mt-8">
+      <Card>
+        <p class="text-slate-300">This report isn’t ready yet.</p>
+      </Card>
+    </section>
+  )}
+</BaseLayout>

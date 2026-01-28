@@ -1,0 +1,22 @@
+:root {
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", "Times New Roman", serif;
+  --color-ink: #05070d;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5f5;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-700: #334155;
+  --color-emerald: #34d399;
+  --color-sky: #38bdf8;
+  --color-violet: #a78bfa;
+  --color-amber: #fbbf24;
+  --color-rose: #fb7185;
+}
+
+@layer base {
+  .bg-ink {
+    background-color: var(--color-ink);
+  }
+}
