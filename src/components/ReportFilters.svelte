@@ -1,4 +1,6 @@
 <script>
+  import Button from "./ui/Button.svelte";
+
   let { insights = [] } = $props();
   const severities = ["critical", "high", "medium", "low"];
   let activeSeverities = $state(new Set(severities));
@@ -33,34 +35,38 @@
   <div class="flex flex-wrap items-center gap-2 text-xs text-slate-300">
     <span class="text-slate-400">Severity</span>
     {#each severities as severity}
-      <button
-        class={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.14em] ${
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.14em] ${
           activeSeverities.has(severity)
             ? "border-sky-400/50 bg-sky-400/10 text-sky-100"
             : "border-white/10 text-slate-400"
         }`}
-        type="button"
         on:click={() => toggleSeverity(severity)}
       >
         {severity}
-      </button>
+      </Button>
     {/each}
   </div>
 
   <div class="flex flex-wrap items-center gap-2 text-xs text-slate-300">
     <span class="text-slate-400">Category</span>
     {#each categories as category}
-      <button
-        class={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.14em] ${
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.14em] ${
           activeCategories.has(category)
             ? "border-emerald-300/50 bg-emerald-400/10 text-emerald-100"
             : "border-white/10 text-slate-400"
         }`}
-        type="button"
         on:click={() => toggleCategory(category)}
       >
         {category.replace(/-/g, " ")}
-      </button>
+      </Button>
     {/each}
   </div>
 

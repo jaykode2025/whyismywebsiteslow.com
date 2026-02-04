@@ -3,6 +3,13 @@ import { env } from "../../../lib/env";
 import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
 import { runEnhancedScan } from "../../../lib/scan.enhanced";
 
+interface WorkerRequestBody {
+  scanId?: string;
+  targetKeyword?: string;
+  includeSeoAnalysis?: boolean;
+  includeImageAudit?: boolean;
+}
+
 export const POST: APIRoute = async ({ request }) => {
   const expected = env.QSTASH_TOKEN();
   const auth = request.headers.get("authorization");
@@ -21,17 +28,18 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
-  const body = await request.json().catch(() => ({}));
-  const scanId = String((body as any).scanId ?? "");
-  const targetKeyword = typeof (body as any).targetKeyword === "string" ? String((body as any).targetKeyword) : undefined;
-  const includeSeoAnalysis = (body as any).includeSeoAnalysis !== false;
-  const includeImageAudit = (body as any).includeImageAudit !== false;
+  const body = await request.json().catch(() => ({})) as WorkerRequestBody;
+  const scanId = body.scanId;
   if (!scanId) {
     return new Response(JSON.stringify({ error: "scanId required" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  const targetKeyword = body.targetKeyword;
+  const includeSeoAnalysis = body.includeSeoAnalysis !== false;
+  const includeImageAudit = body.includeImageAudit !== false;
 
   const { data: scan, error: scanError } = await admin
     .from("scans")

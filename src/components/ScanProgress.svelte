@@ -1,4 +1,6 @@
 <script>
+  import Button from "./ui/Button.svelte";
+
   let { id } = $props();
   let status = $state("queued");
   let error = $state("");
@@ -77,12 +79,9 @@
       </div>
       <form method="post" action="/api/billing/report-checkout">
         <input type="hidden" name="reportId" value={id} />
-        <button
-          class="w-full rounded-xl bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5"
-          type="submit"
-        >
+        <Button type="submit" size="lg" className="w-full rounded-xl">
           Unlock Full Report — $19
-        </button>
+        </Button>
       </form>
       <form method="post" action="/api/leads/preview" class="flex flex-col gap-2 sm:flex-row">
         <input type="hidden" name="reportId" value={id} />
@@ -95,12 +94,9 @@
           placeholder="Email me the preview"
           required
         />
-        <button
-          class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-white/10"
-          type="submit"
-        >
+        <Button type="submit" size="sm" variant="ghost" className="rounded-xl border-white/10 text-xs">
           Send preview
-        </button>
+        </Button>
       </form>
       <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
         <span>One-time payment • Instant access • No account required</span>

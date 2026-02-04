@@ -2,10 +2,12 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Card from "../../components/ui/Card.astro";
 import Badge from "../../components/ui/Badge.astro";
+import Button from "../../components/ui/Button.astro";
 import ScoreDonut from "../../components/ScoreDonut.svelte";
 import ReportFilters from "../../components/ReportFilters.svelte";
 import ScanProgress from "../../components/ScanProgress.svelte";
 import ShareActions from "../../components/ShareActions.svelte";
+import LockedOverlay from "../../components/LockedOverlay.astro";
 import { loadStoredReport } from "../../lib/reports";
 import { exampleReport } from "../../lib/example";
 import { getUserPlan, isPro } from "../../lib/plan";
@@ -104,6 +106,7 @@ const kscore = report?.kscore;
 const kscoreCategories = kscore ? Object.entries(kscore.categories) : [];
 const seoAnalysis = report?.seoAnalysis;
 const imageAudit = report?.imageAudit;
+const topIssue = report?.summary.topIssues?.[0] ?? "No major bottlenecks detected.";
 
 const formatPercent = (value?: number) => {
   if (value === undefined || value === null || Number.isNaN(value)) return "-";
@@ -130,12 +133,47 @@ const formatPercent = (value?: number) => {
         </div>
       <div class="flex items-center gap-3">
         {report?.crawl.enabled ? (
-          <a class="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300" href={`/compare/${report.id}`}>Compare pages</a>
+          <Button href={`/compare/${report.id}`} variant="ghost" size="sm" class="border-white/10">
+            Compare pages
+          </Button>
         ) : null}
-        <a class="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300" href="/scan">Run another scan</a>
+        <Button href="/scan" variant="ghost" size="sm" class="border-white/10">
+          Run another scan
+        </Button>
       </div>
     </div>
   </section>
+
+  {report ? (
+    <section class="mt-6">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <div class="grid gap-4 md:grid-cols-[0.9fr_0.8fr_1.6fr_auto] md:items-center">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Score</p>
+            <p class="mt-2 text-2xl text-slate-100">{report.summary.score100}/100</p>
+            <p class="text-xs text-slate-400">Grade {report.summary.grade}</p>
+          </div>
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">CWV status</p>
+            <p class={report.psi.cwv.status === "pass" ? "mt-2 text-emerald-200" : "mt-2 text-rose-200"}>
+              {report.psi.cwv.status}
+            </p>
+            <p class="text-xs text-slate-400">LCP {formatMs(report.psi.cwv.lcp_ms)}</p>
+          </div>
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top issue</p>
+            <p class="mt-2 text-sm text-slate-200">{topIssue}</p>
+            <p class="text-xs text-slate-500">Prioritized in the fixes below.</p>
+          </div>
+          <div class="flex md:justify-end">
+            <Button href="#share" variant="ghost" size="sm" class="rounded-xl border-white/10">
+              Share report
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
+  ) : null}
 
   {report && !unlocked ? (
     <section class="mt-6">
@@ -151,12 +189,9 @@ const formatPercent = (value?: number) => {
           </div>
           <form method="post" action="/api/billing/report-checkout">
             <input type="hidden" name="reportId" value={report.id} />
-            <button
-              class="w-full rounded-xl bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5"
-              type="submit"
-            >
+            <Button type="submit" size="lg" class="w-full rounded-xl">
               Unlock Full Report — $19
-            </button>
+            </Button>
           </form>
         </div>
           <div class="grid gap-3 md:grid-cols-2">
@@ -192,9 +227,9 @@ const formatPercent = (value?: number) => {
             <p class="text-sm text-slate-200">Want to save this report and track scan history?</p>
             <p class="mt-1 text-xs text-slate-400">Create an account to claim reports and manage projects.</p>
           </div>
-          <a class="rounded-xl bg-sky-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-sky-400" href="/signup">
+          <Button href="/signup" size="sm" class="rounded-xl">
             Create account
-          </a>
+          </Button>
         </div>
       ) : !planInfo || !isPro(planInfo) ? (
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -202,9 +237,9 @@ const formatPercent = (value?: number) => {
             <p class="text-sm text-slate-200">Upgrade to Pro for monitoring + deeper scans.</p>
             <p class="mt-1 text-xs text-slate-400">Weekly scans & alerts coming soon (gated for Pro).</p>
           </div>
-          <a class="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-300" href="/billing">
+          <Button href="/billing" size="sm" class="rounded-xl">
             Upgrade to Pro
-          </a>
+          </Button>
         </div>
       ) : (
         <div class="flex flex-col gap-1">
@@ -331,7 +366,7 @@ const formatPercent = (value?: number) => {
             ))}
           </ul>
         </Card>
-        <Card>
+        <Card id="share">
           <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Share & embed</p>
           <p class="mt-2 text-sm text-slate-300">Use a direct link or embed this report.</p>
           <div class="mt-4">
@@ -456,23 +491,12 @@ const formatPercent = (value?: number) => {
               </div>
             </div>
             {!unlocked ? (
-              <div class="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/70 p-6 text-center backdrop-blur-sm">
-                <div class="max-w-sm space-y-3">
-                  <p class="text-sm uppercase tracking-[0.2em] text-slate-400">SEO details locked</p>
-                  <p class="text-sm text-slate-300">
-                    Unlock to see full SEO recommendations and keyword insights.
-                  </p>
-                  <form method="post" action="/api/billing/report-checkout">
-                    <input type="hidden" name="reportId" value={report.id} />
-                    <button
-                      class="w-full rounded-xl bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5"
-                      type="submit"
-                    >
-                      Unlock Full Report — $19
-                    </button>
-                  </form>
-                </div>
-              </div>
+              <LockedOverlay
+                reportId={report.id}
+                title="SEO details locked"
+                description="Unlock to see full SEO recommendations and keyword insights."
+                footnote={null}
+              />
             ) : null}
           </Card>
         ) : null}
@@ -519,23 +543,12 @@ const formatPercent = (value?: number) => {
               </div>
             </div>
             {!unlocked ? (
-              <div class="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/70 p-6 text-center backdrop-blur-sm">
-                <div class="max-w-sm space-y-3">
-                  <p class="text-sm uppercase tracking-[0.2em] text-slate-400">Image audit locked</p>
-                  <p class="text-sm text-slate-300">
-                    Unlock to see full image optimization details.
-                  </p>
-                  <form method="post" action="/api/billing/report-checkout">
-                    <input type="hidden" name="reportId" value={report.id} />
-                    <button
-                      class="w-full rounded-xl bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5"
-                      type="submit"
-                    >
-                      Unlock Full Report — $19
-                    </button>
-                  </form>
-                </div>
-              </div>
+              <LockedOverlay
+                reportId={report.id}
+                title="Image audit locked"
+                description="Unlock to see full image optimization details."
+                footnote={null}
+              />
             ) : null}
           </Card>
         ) : null}
@@ -547,24 +560,7 @@ const formatPercent = (value?: number) => {
               <ReportFilters client:load insights={report.insights} />
             </div>
             {!unlocked ? (
-              <div class="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/70 p-6 text-center backdrop-blur-sm">
-                <div class="max-w-sm space-y-3">
-                  <p class="text-sm uppercase tracking-[0.2em] text-slate-400">This section is locked</p>
-                  <p class="text-sm text-slate-300">
-                    Unlock the full report to see exactly what to fix first and how to fix it.
-                  </p>
-                  <form method="post" action="/api/billing/report-checkout">
-                    <input type="hidden" name="reportId" value={report.id} />
-                    <button
-                      class="w-full rounded-xl bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5"
-                      type="submit"
-                    >
-                      Unlock Full Report — $19
-                    </button>
-                  </form>
-                  <p class="text-xs text-slate-400">One-time payment • Instant access • No account required</p>
-                </div>
-              </div>
+              <LockedOverlay reportId={report.id} />
             ) : null}
           </div>
         </Card>
@@ -597,24 +593,7 @@ const formatPercent = (value?: number) => {
               )}
             </div>
             {!unlocked ? (
-              <div class="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/70 p-6 text-center backdrop-blur-sm">
-                <div class="max-w-sm space-y-3">
-                  <p class="text-sm uppercase tracking-[0.2em] text-slate-400">This section is locked</p>
-                  <p class="text-sm text-slate-300">
-                    Unlock the full report to see exactly what to fix first and how to fix it.
-                  </p>
-                  <form method="post" action="/api/billing/report-checkout">
-                    <input type="hidden" name="reportId" value={report.id} />
-                    <button
-                      class="w-full rounded-xl bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5"
-                      type="submit"
-                    >
-                      Unlock Full Report — $19
-                    </button>
-                  </form>
-                  <p class="text-xs text-slate-400">One-time payment • Instant access • No account required</p>
-                </div>
-              </div>
+              <LockedOverlay reportId={report.id} />
             ) : null}
           </div>
         </Card>
@@ -644,8 +623,8 @@ const formatPercent = (value?: number) => {
             <p class="mt-1 text-xs text-slate-400">{crawlSpotlight.note}</p>
           </div>
         ) : null}
-        <div class="mt-6 overflow-hidden rounded-2xl border border-white/10">
-          <table class="w-full text-left text-sm text-slate-300">
+        <div class="mt-6 overflow-x-auto rounded-2xl border border-white/10">
+          <table class="w-full min-w-[640px] text-left text-sm text-slate-300">
             <thead class="bg-white/5 text-xs uppercase tracking-[0.2em] text-slate-500">
               <tr>
                 <th class="px-4 py-3">URL</th>

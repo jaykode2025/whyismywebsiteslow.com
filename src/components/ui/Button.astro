@@ -3,16 +3,22 @@ const {
   href,
   type = "button",
   variant = "primary",
+  size = "md",
   class: className = "",
 } = Astro.props;
 
-const base = "inline-flex items-center justify-center rounded-full px-5 py-2 text-sm font-semibold transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300/60";
+const base = "inline-flex items-center justify-center rounded-full font-semibold transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300/60 disabled:pointer-events-none disabled:opacity-60";
+const sizes = {
+  sm: "px-4 py-2 text-xs",
+  md: "px-5 py-2 text-sm",
+  lg: "px-6 py-3 text-sm",
+};
 const variants = {
   primary: "bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 text-slate-950 shadow-lg shadow-sky-500/20 hover:-translate-y-0.5",
   ghost: "border border-white/15 text-slate-200 hover:border-white/30 hover:text-white",
   dark: "bg-slate-900 text-slate-100 hover:bg-slate-800",
 };
-const classes = `${base} ${variants[variant] ?? variants.primary} ${className}`;
+const classes = `${base} ${sizes[size] ?? sizes.md} ${variants[variant] ?? variants.primary} ${className}`;
 ---
 {href ? (
   <a href={href} class={classes}><slot /></a>

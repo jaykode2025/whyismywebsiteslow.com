@@ -57,7 +57,20 @@ function hasSecurityHeaders(res: Response) {
 
 export async function runChecks(url: string, options: RunChecksOptions = {}): Promise<Report["checks"]> {
   try {
-    const res = options.response ?? (await fetch(url, { headers: { "User-Agent": "WMSSBot/0.1" } }));
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    const res = options.response ?? (await fetch(url, { 
+      headers: { "User-Agent": "WMSSBot/0.1" },
+      signal: controller.signal 
+    }));
+    
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    
     const html = options.html ?? (await res.text());
     const encoding = res.headers.get("content-encoding") ?? "";
     const cacheControl = res.headers.get("cache-control") ?? "";
@@ -105,7 +118,8 @@ export async function runChecks(url: string, options: RunChecksOptions = {}): Pr
       hasHttps: finalUrl.protocol === "https:",
       hasSecurityHeaders: hasSecurityHeaders(res),
     };
-  } catch {
+  } catch (error: any) {
+    console.warn(`Checks failed for ${url}:`, error.message);
     return {
       headers: {
         compression: "none",

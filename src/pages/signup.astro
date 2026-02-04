@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import Button from "../components/ui/Button.astro";
 
 const next = Astro.url.searchParams.get("next") ?? "/billing";
 ---
@@ -35,9 +36,9 @@ const next = Astro.url.searchParams.get("next") ?? "/billing";
         />
       </label>
 
-      <button class="w-full rounded-xl bg-emerald-400 px-4 py-3 font-medium text-slate-950 hover:bg-emerald-300" type="submit">
+      <Button type="submit" size="lg" class="w-full rounded-xl">
         Sign up
-      </button>
+      </Button>
 
       <p class="text-sm text-slate-400">
         Already have an account?
@@ -46,4 +47,3 @@ const next = Astro.url.searchParams.get("next") ?? "/billing";
     </form>
   </section>
 </BaseLayout>
-

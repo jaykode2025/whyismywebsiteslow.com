@@ -45,9 +45,16 @@ export function loadReports(): Map<string, Stored> {
   }
 }
 
+import { logger } from "./logger";
+
 export function persistReports(map: Map<string, Stored>) {
-  ensureFile();
-  const obj = Object.fromEntries(map.entries());
-  writeFileSync(FILE_PATH, JSON.stringify(obj, null, 2), "utf-8");
+  try {
+    ensureFile();
+    const obj = Object.fromEntries(map.entries());
+    writeFileSync(FILE_PATH, JSON.stringify(obj, null, 2), "utf-8");
+    logger.debug(`Persisted ${map.size} reports`);
+  } catch (error: any) {
+    logger.error('Failed to persist reports:', error);
+  }
 }
 

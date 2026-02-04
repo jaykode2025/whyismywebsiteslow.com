@@ -6,7 +6,11 @@ import { computeScore } from "./scoring";
 import { generateInsights } from "./insights";
 import { getHost } from "./validate";
 
+import { logger } from "./logger";
+
 export async function runScan(id: string, input: ScanRequest, writeTokenHash: string): Promise<Report> {
+  logger.scan(id, 'Starting scan', { url: input.url, device: input.device });
+  
   const normalizedUrl = new URL(input.url);
   const crawlEnabled = input.crawl?.enabled ?? false;
   const maxLinks = crawlEnabled ? Math.max(1, Math.min(5, input.crawl?.maxLinks ?? 1)) : 1;
@@ -15,11 +19,15 @@ export async function runScan(id: string, input: ScanRequest, writeTokenHash: st
     ? await crawlSite(normalizedUrl, maxLinks)
     : { scannedUrls: [normalizedUrl.toString()], failures: [] };
 
+  logger.scan(id, 'Crawl complete', { scannedUrls: scannedUrls.length, failures: failures.length });
+
   const primaryUrl = scannedUrls[0];
   const psi = await fetchPsi(primaryUrl, input.device);
   const checks = await runChecks(primaryUrl);
   const insights = generateInsights(psi, checks);
   const { score, grade } = computeScore(psi);
+
+  logger.scan(id, 'Scan complete', { score, grade, insights: insights.length });
 
   return {
     id,

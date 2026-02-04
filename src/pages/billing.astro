@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Card from "../components/ui/Card.astro";
+import Button from "../components/ui/Button.astro";
 import { getUserPlan, isPro } from "../lib/plan";
 
 const user = Astro.locals.user;
@@ -20,9 +21,9 @@ const planInfo = supabase ? await getUserPlan(supabase, user.id) : { plan: "free
         <p class="mt-2 text-sm text-slate-400">Manage your subscription and upgrade for monitoring features.</p>
       </div>
       <form method="post" action="/api/auth/logout">
-        <button class="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/5" type="submit">
+        <Button type="submit" variant="ghost" size="sm" class="border-white/10">
           Log out
-        </button>
+        </Button>
       </form>
     </div>
 
@@ -48,13 +49,12 @@ const planInfo = supabase ? await getUserPlan(supabase, user.id) : { plan: "free
           </p>
         ) : (
           <form class="mt-4" method="post" action="/api/billing/checkout">
-            <button class="w-full rounded-xl bg-sky-500 px-4 py-3 font-medium text-slate-950 hover:bg-sky-400" type="submit">
+            <Button type="submit" size="lg" class="w-full rounded-xl">
               Upgrade to Pro
-            </button>
+            </Button>
           </form>
         )}
       </Card>
     </div>
   </section>
 </BaseLayout>
-

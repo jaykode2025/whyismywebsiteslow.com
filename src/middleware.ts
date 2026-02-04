@@ -5,11 +5,18 @@ import { hasSupabaseEnv } from "./lib/env";
 export const onRequest = defineMiddleware(async (context, next) => {
   if (!hasSupabaseEnv()) return next();
 
-  const supabase = createSupabaseServerClient(context.cookies);
-  if (supabase) {
-    context.locals.supabase = supabase;
-    const { data } = await supabase.auth.getUser();
-    context.locals.user = data?.user ?? null;
+  try {
+    const supabase = createSupabaseServerClient(context.cookies);
+    if (supabase) {
+      context.locals.supabase = supabase;
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        console.warn('Auth error in middleware:', error.message);
+      }
+      context.locals.user = data?.user ?? null;
+    }
+  } catch (error: any) {
+    console.error('Middleware error:', error.message);
   }
 
   return next();

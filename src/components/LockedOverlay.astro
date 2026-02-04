@@ -1,0 +1,25 @@
+---
+import Button from "./ui/Button.astro";
+
+const {
+  reportId,
+  title = "This section is locked",
+  description = "Unlock the full report to see exactly what to fix first and how to fix it.",
+  ctaText = "Unlock Full Report — $19",
+  footnote = "One-time payment • Instant access • No account required",
+} = Astro.props;
+---
+
+<div class="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/70 p-6 text-center backdrop-blur-sm">
+  <div class="max-w-sm space-y-3">
+    <p class="text-sm uppercase tracking-[0.2em] text-slate-400">{title}</p>
+    <p class="text-sm text-slate-300">{description}</p>
+    <form method="post" action="/api/billing/report-checkout">
+      <input type="hidden" name="reportId" value={reportId} />
+      <Button type="submit" size="sm" class="w-full rounded-xl">
+        {ctaText}
+      </Button>
+    </form>
+    {footnote ? <p class="text-xs text-slate-400">{footnote}</p> : null}
+  </div>
+</div>
