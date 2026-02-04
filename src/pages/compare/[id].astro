@@ -1,11 +1,11 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Card from "../../components/ui/Card.astro";
-import { getReport } from "../../lib/store";
+import { loadStoredReport } from "../../lib/reports";
 import { exampleReport } from "../../lib/example";
 
 const { id } = Astro.params;
-const stored = id === "example" ? { status: "done", report: exampleReport() } : getReport(id ?? "");
+const stored = id === "example" ? { status: "done", report: exampleReport() } : await loadStoredReport(id ?? "", Astro.locals);
 const report = stored?.report;
 const title = report ? `Compare pages for ${report.canonicalHost}` : "Compare pages";
 const description = "Compare internal pages and spot the slowest routes.";
@@ -25,6 +25,9 @@ const description = "Compare internal pages and spot the slowest routes.";
           <h2 class="text-xl text-slate-100">Scanned pages</h2>
           <span class="text-sm text-slate-400">{report.crawl.scannedUrls.length} URLs</span>
         </div>
+        <p class="mt-2 text-sm text-slate-400">
+          Only the primary URL has full PSI metrics in this MVP crawl.
+        </p>
         <div class="mt-4 overflow-hidden rounded-2xl border border-white/10">
           <table class="w-full text-left text-sm text-slate-300">
             <thead class="bg-white/5 text-xs uppercase tracking-[0.2em] text-slate-500">
@@ -42,6 +45,14 @@ const description = "Compare internal pages and spot the slowest routes.";
                   <td class="px-4 py-3">{index === 0 ? Math.round(report.psi.lighthouse.performance * 100) : "-"}</td>
                   <td class="px-4 py-3">{index === 0 ? report.psi.cwv.status : "-"}</td>
                   <td class="px-4 py-3 text-slate-400">{index === 0 ? "Primary scan" : "Queued"}</td>
+                </tr>
+              ))}
+              {report.crawl.failures.map((failure) => (
+                <tr class="border-t border-rose-500/20 bg-rose-500/5">
+                  <td class="px-4 py-3 text-slate-200">{failure.url}</td>
+                  <td class="px-4 py-3">-</td>
+                  <td class="px-4 py-3">-</td>
+                  <td class="px-4 py-3 text-rose-200">Failed: {failure.reason}</td>
                 </tr>
               ))}
             </tbody>

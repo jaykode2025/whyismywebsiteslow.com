@@ -1,43 +1,76 @@
-# Astro Starter Kit: Minimal
+# whyismywebsiteslow
 
-```sh
-npm create astro@latest -- --template minimal
+Performance report generator built with Astro, Svelte, and Tailwind. Paste a URL, run a scan, and share a premium report with Core Web Vitals, scoring, and prioritized fixes.
+
+## Features
+
+- Real Lighthouse + Core Web Vitals data via PageSpeed Insights
+- Shareable report pages with grade, timeline, and fix checklist
+- Optional crawl of up to 5 internal pages
+- Unlisted vs public reports (SEO-friendly)
+- Simple rate limiting and manage token for deletes
+
+## Tech Stack
+
+- Astro (static-first, SEO optimized)
+- Svelte islands for interactivity
+- Tailwind CSS + forms + typography plugins
+- TypeScript everywhere
+
+## Local Setup
+
+```bash
+npm install
+npm run dev
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+### Environment
 
-## 🚀 Project Structure
+Create a `.env` file in the project root:
 
-Inside of your Astro project, you'll see the following folders and files:
+```
+PSI_API_KEY=your_google_pagespeed_key
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+# SaaS / production (optional locally)
+SUPABASE_URL=...
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+STRIPE_PRICE_PRO=...
+# STRIPE_PRICE_AGENCY=... (optional)
+
+QSTASH_TOKEN=...
+APP_BASE_URL=http://localhost:4321
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+`PSI_API_KEY` is optional for local development. If it is missing, the app falls back to mock PSI data.
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+If Supabase + QStash env vars are present, scans are persisted to Supabase and executed via a durable worker job.
 
-Any static assets, like images, can be placed in the `public/` directory.
+## API
 
-## 🧞 Commands
+- `POST /api/scan`
+  - Body: `{ url, device, crawl, visibility }`
+  - Returns: `{ id, manageToken }`
+- `GET /api/report/:id`
+  - Returns report JSON or status
+- `POST /api/report/:id/delete`
+  - Body: `{ manageToken }`
 
-All commands are run from the root of the project, from a terminal:
+## Storage
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
+Local development can persist reports to `.data/reports.json`.
+Production persistence uses Supabase Postgres (see `sql/001_init.sql`).
 
-## 👀 Want to learn more?
+## Production Notes
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- This project currently uses Node APIs (fs/crypto), so deploy to a Node/serverless runtime (ex: Vercel Serverless).
+- Set `PSI_API_KEY` in your host environment to enable live scans.
+- Configure Supabase + QStash for durable scan execution (no background `setTimeout` work).
+- Configure Stripe for subscriptions and feature gating.
+
+## License
+
+MIT

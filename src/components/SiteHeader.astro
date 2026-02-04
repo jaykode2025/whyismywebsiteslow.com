@@ -2,6 +2,7 @@
 import Logo from "./Logo.astro";
 import Button from "./ui/Button.astro";
 const isHome = Astro.url.pathname === "/";
+const user = Astro.locals.user;
 ---
 <header class="flex items-center justify-between py-8">
   <a href="/" class="flex items-center gap-3 text-slate-100">
@@ -9,11 +10,30 @@ const isHome = Astro.url.pathname === "/";
   </a>
   <nav class="hidden items-center gap-6 text-sm text-slate-300 md:flex">
     <a href="/scan" class="transition hover:text-slate-100">Scan</a>
+    {user ? <a href="/projects" class="transition hover:text-slate-100">Projects</a> : null}
+    {user ? <a href="/billing" class="transition hover:text-slate-100">Billing</a> : null}
     <a href="/about" class="transition hover:text-slate-100">About</a>
     <a href="/api" class="transition hover:text-slate-100">API</a>
     <a href="/report/example" class="transition hover:text-slate-100">Examples</a>
   </nav>
   <div class="flex items-center gap-3">
-    <Button href="/scan" variant={isHome ? "primary" : "ghost"}>Start a scan</Button>
+    {user ? (
+      <Button href="/projects" variant={isHome ? "primary" : "ghost"}>Dashboard</Button>
+    ) : (
+      <Button href="/scan" variant={isHome ? "primary" : "ghost"}>Start a scan</Button>
+    )}
+    <details class="relative md:hidden">
+      <summary class="cursor-pointer rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.18em] text-slate-300">
+        Menu
+      </summary>
+      <div class="absolute right-0 mt-2 w-48 rounded-2xl border border-white/10 bg-[#0b1120] p-3 text-sm text-slate-200 shadow-2xl">
+        <a class="block rounded-lg px-3 py-2 transition hover:bg-white/5" href="/scan">Scan</a>
+        {user ? <a class="block rounded-lg px-3 py-2 transition hover:bg-white/5" href="/projects">Projects</a> : null}
+        {user ? <a class="block rounded-lg px-3 py-2 transition hover:bg-white/5" href="/billing">Billing</a> : null}
+        <a class="block rounded-lg px-3 py-2 transition hover:bg-white/5" href="/about">About</a>
+        <a class="block rounded-lg px-3 py-2 transition hover:bg-white/5" href="/api">API</a>
+        <a class="block rounded-lg px-3 py-2 transition hover:bg-white/5" href="/report/example">Examples</a>
+      </div>
+    </details>
   </div>
 </header>

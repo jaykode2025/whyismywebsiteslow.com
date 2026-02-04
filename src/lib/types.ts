@@ -1,3 +1,7 @@
+import type { KScoreResult } from "./kscore";
+import type { SeoAnalysisResult } from "./seoAnalyzer";
+import type { ImageAuditResult } from "./imageAudit";
+
 export type Device = "mobile" | "desktop";
 export type Visibility = "unlisted" | "public";
 
@@ -6,6 +10,9 @@ export type ScanRequest = {
   device: Device;
   crawl?: { enabled: boolean; maxLinks: number };
   visibility?: Visibility;
+  targetKeyword?: string;
+  includeSeoAnalysis?: boolean;
+  includeImageAudit?: boolean;
 };
 
 export type Report = {
@@ -22,6 +29,8 @@ export type Report = {
     failures: { url: string; reason: string }[];
   };
   psi: {
+    source: "live" | "mock";
+    message?: string;
     lighthouse: {
       performance: number;
       accessibility: number;
@@ -59,6 +68,11 @@ export type Report = {
       imageKb?: number;
       requestCount?: number;
     };
+    hasMetaDescription?: boolean;
+    hasCanonical?: boolean;
+    hasH1?: boolean;
+    hasHttps?: boolean;
+    hasSecurityHeaders?: boolean;
   };
   insights: Array<{
     id: string;
@@ -85,10 +99,39 @@ export type Report = {
     score100: number;
     topIssues: string[];
   };
+  kscore?: KScoreResult;
+  seoAnalysis?: SeoAnalysisResult;
+  imageAudit?: ImageAuditResult;
+  enhancedSummary?: {
+    overallScore: number;
+    overallGrade: string;
+    performanceScore: number;
+    seoScore: number;
+    accessibilityScore: number;
+    contentHealthScore: number;
+    topIssues: string[];
+    quickWins: string[];
+  };
   manage: {
     writeTokenHash: string;
   };
 };
+
+export interface EnhancedReport extends Report {
+  kscore: KScoreResult;
+  seoAnalysis?: SeoAnalysisResult;
+  imageAudit?: ImageAuditResult;
+  enhancedSummary: {
+    overallScore: number;
+    overallGrade: string;
+    performanceScore: number;
+    seoScore: number;
+    accessibilityScore: number;
+    contentHealthScore: number;
+    topIssues: string[];
+    quickWins: string[];
+  };
+}
 
 export type ReportStatus = "queued" | "running" | "done" | "failed";
 

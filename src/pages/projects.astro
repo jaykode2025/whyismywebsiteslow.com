@@ -1,0 +1,45 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Card from "../components/ui/Card.astro";
+import Button from "../components/ui/Button.astro";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect(`/login?next=${encodeURIComponent("/projects")}`);
+const supabase = Astro.locals.supabase!;
+
+const { data: projects } = await supabase
+  .from("projects")
+  .select("id,url,name,created_at")
+  .order("created_at", { ascending: false })
+  .limit(50);
+---
+
+<BaseLayout title="Projects">
+  <section class="mx-auto max-w-3xl px-4 py-12">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-semibold text-slate-100">Projects</h1>
+        <p class="mt-2 text-sm text-slate-400">Saved sites and scan history.</p>
+      </div>
+      <Button href="/scan" variant="ghost">Run scan</Button>
+    </div>
+
+    <Card class="mt-8">
+      <h2 class="text-xl text-slate-100">Your projects</h2>
+      <p class="mt-2 text-sm text-slate-400">Free plan supports 1 saved project. Pro supports more.</p>
+      <div class="mt-6 grid gap-3">
+        {(projects ?? []).length === 0 ? (
+          <p class="text-sm text-slate-300">No projects yet. Run a scan to create your first one.</p>
+        ) : (
+          (projects ?? []).map((p) => (
+            <a class="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10" href={`/projects/${p.id}`}>
+              <p class="text-sm text-slate-100">{p.name ?? p.url}</p>
+              <p class="mt-1 text-xs text-slate-400">{p.url}</p>
+            </a>
+          ))
+        )}
+      </div>
+    </Card>
+  </section>
+</BaseLayout>
+

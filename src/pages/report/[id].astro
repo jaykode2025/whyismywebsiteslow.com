@@ -5,13 +5,19 @@ import Badge from "../../components/ui/Badge.astro";
 import ScoreDonut from "../../components/ScoreDonut.svelte";
 import ReportFilters from "../../components/ReportFilters.svelte";
 import ScanProgress from "../../components/ScanProgress.svelte";
-import { getReport } from "../../lib/store";
+import ShareActions from "../../components/ShareActions.svelte";
+import { loadStoredReport } from "../../lib/reports";
 import { exampleReport } from "../../lib/example";
+import { getUserPlan, isPro } from "../../lib/plan";
+import { isReportUnlocked } from "../../lib/entitlements";
 
 const { id } = Astro.params;
-const stored = id === "example" ? { status: "done", report: exampleReport() } : getReport(id ?? "");
+const stored = id === "example" ? { status: "done", report: exampleReport() } : await loadStoredReport(id ?? "", Astro.locals);
 const report = stored?.report;
 const status = stored?.status ?? "failed";
+const user = Astro.locals.user;
+const planInfo = user && Astro.locals.supabase ? await getUserPlan(Astro.locals.supabase, user.id) : null;
+const unlocked = report ? (report.id === "example" ? true : await isReportUnlocked(report.id, Astro.locals)) : false;
 
 const title = report
   ? `Why is ${report.canonicalHost} slow? Report + Fixes`
@@ -27,7 +33,7 @@ const jsonLd = report
       "@type": "WebPage",
       name: `Why is ${report.canonicalHost} slow?`,
       description,
-      url: `${Astro.url.origin}/report/${report.id}`,
+      url: `${Astro.site?.origin ?? Astro.url.origin}/report/${report.id}`,
       isPartOf: {
         "@type": "SoftwareApplication",
         name: "whyismywebsiteslow",
@@ -36,26 +42,176 @@ const jsonLd = report
       },
     }
   : null;
+
+const formatMs = (value?: number) => {
+  if (value === undefined || value === null || Number.isNaN(value)) return "-";
+  return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${Math.round(value)} ms`;
+};
+
+const formatBytes = (value?: number) => {
+  if (value === undefined || value === null || Number.isNaN(value)) return "-";
+  const mb = value / 1_000_000;
+  return mb >= 1 ? `${mb.toFixed(2)} MB` : `${Math.round(value / 1000)} KB`;
+};
+
+const timeline = report
+  ? {
+      ttfb: report.psi.cwv.ttfb_ms ?? 0,
+      fcp: report.psi.cwv.fcp_ms ?? 0,
+      lcp: report.psi.cwv.lcp_ms ?? 0,
+    }
+  : null;
+
+const timelineMax = timeline ? Math.max(timeline.ttfb, timeline.fcp, timeline.lcp, 1) : 1;
+const timelinePct = (value: number) => Math.min(100, (value / timelineMax) * 100);
+
+const groupedInsights = report
+  ? Object.entries(
+      report.insights.reduce((acc, insight) => {
+        const key = insight.category;
+        acc[key] = acc[key] ?? [];
+        acc[key].push(insight);
+        return acc;
+      }, {} as Record<string, typeof report.insights>)
+    )
+  : [];
+
+const scoreDrivers = report
+  ? [
+      report.psi.cwv.status === "fail" ? "CWV fail (-15)" : null,
+      report.psi.cwv.ttfb_ms && report.psi.cwv.ttfb_ms > 800 ? "TTFB > 800ms (-10)" : null,
+      report.psi.audits.totalByteWeight && report.psi.audits.totalByteWeight > 3_000_000
+        ? "Total weight > 3MB (-10)"
+        : null,
+    ].filter(Boolean)
+  : [];
+
+const crawlSpotlight = report?.crawl.failures?.[0]
+  ? {
+      url: report.crawl.failures[0].url,
+      note: report.crawl.failures[0].reason,
+      tone: "warning",
+    }
+  : report?.crawl.scannedUrls?.[0]
+    ? {
+        url: report.crawl.scannedUrls[0],
+        note: "Primary scan only. Deep per-page metrics require a follow-up crawl.",
+        tone: "info",
+      }
+    : null;
+
+const kscore = report?.kscore;
+const kscoreCategories = kscore ? Object.entries(kscore.categories) : [];
+const seoAnalysis = report?.seoAnalysis;
+const imageAudit = report?.imageAudit;
+
+const formatPercent = (value?: number) => {
+  if (value === undefined || value === null || Number.isNaN(value)) return "-";
+  return `${value.toFixed(2)}%`;
+};
 ---
 <BaseLayout title={title} description={description} noindex={noindex}>
   {jsonLd ? (
     <script slot="head" type="application/ld+json">{JSON.stringify(jsonLd)}</script>
   ) : null}
   <section class="pt-6">
-    <div class="flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <Badge tone="info">Report</Badge>
-        <h1 class="mt-3 text-3xl text-slate-100">{report ? report.url : "Generating report"}</h1>
-        <p class="mt-2 text-sm text-slate-400">
-          {report ? `Created ${new Date(report.createdAt).toLocaleString()}` : "This usually takes under 90 seconds."}
-        </p>
-      </div>
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <Badge tone="info">Report</Badge>
+          <h1 class="mt-3 text-3xl text-slate-100">{report ? report.url : "Generating report"}</h1>
+          <p class="mt-2 text-sm text-slate-400">
+            {report ? `Created ${new Date(report.createdAt).toLocaleString()}` : "This usually takes under 90 seconds."}
+          </p>
+          {report?.psi.source === "mock" ? (
+            <p class="mt-2 text-xs text-amber-200">
+              Using mock data (set PSI_API_KEY for live Lighthouse results).
+            </p>
+          ) : null}
+        </div>
       <div class="flex items-center gap-3">
         {report?.crawl.enabled ? (
           <a class="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300" href={`/compare/${report.id}`}>Compare pages</a>
         ) : null}
         <a class="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300" href="/scan">Run another scan</a>
       </div>
+    </div>
+  </section>
+
+  {report && !unlocked ? (
+    <section class="mt-6">
+      <div class="rounded-2xl border border-white/10 bg-gradient-to-r from-slate-950/70 via-slate-900/70 to-slate-950/70 p-5">
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Report locked</p>
+            <p class="mt-2 text-sm text-slate-200">
+              Unlock to see prioritized fixes, exact steps, and the full checklist.
+            </p>
+            <p class="mt-1 text-xs text-slate-400">One-time payment • Instant access • No account required</p>
+          </div>
+          <form method="post" action="/api/billing/report-checkout">
+            <input type="hidden" name="reportId" value={report.id} />
+            <button
+              class="w-full rounded-xl bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5"
+              type="submit"
+            >
+              Unlock Full Report — $19
+            </button>
+          </form>
+        </div>
+          <div class="grid gap-3 md:grid-cols-2">
+            <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+              <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Estimated impact if fixed</p>
+              <ul class="mt-2 space-y-1 text-xs text-slate-300">
+                <li>+12–28% higher conversion rate (mobile)</li>
+                <li>−0.8s LCP → lower bounce</li>
+                <li>Potential uplift: $320–$1,900/month</li>
+              </ul>
+              <p class="mt-2 text-[11px] text-slate-500">Modeled from industry benchmarks; ranges vary by site.</p>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-white/5 p-3">
+              <p class="text-xs uppercase tracking-[0.2em] text-slate-500">What this unlocks</p>
+              <ul class="mt-2 space-y-1 text-xs text-slate-300">
+                <li>Exact fixes, not generic advice</li>
+                <li>Priority order (what to fix first)</li>
+                <li>Dev-ready steps and benchmarks</li>
+                <li>Before/after checklist to verify wins</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  ) : null}
+
+  <section class="mt-6">
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+      {!user ? (
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p class="text-sm text-slate-200">Want to save this report and track scan history?</p>
+            <p class="mt-1 text-xs text-slate-400">Create an account to claim reports and manage projects.</p>
+          </div>
+          <a class="rounded-xl bg-sky-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-sky-400" href="/signup">
+            Create account
+          </a>
+        </div>
+      ) : !planInfo || !isPro(planInfo) ? (
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p class="text-sm text-slate-200">Upgrade to Pro for monitoring + deeper scans.</p>
+            <p class="mt-1 text-xs text-slate-400">Weekly scans & alerts coming soon (gated for Pro).</p>
+          </div>
+          <a class="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-300" href="/billing">
+            Upgrade to Pro
+          </a>
+        </div>
+      ) : (
+        <div class="flex flex-col gap-1">
+          <p class="text-sm text-emerald-100">Pro unlocked.</p>
+          <p class="text-xs text-slate-400">Monitoring features will appear here as they ship.</p>
+        </div>
+      )}
     </div>
   </section>
 
@@ -72,26 +228,98 @@ const jsonLd = report
             <span class="text-sm text-slate-400">({report.summary.score100}/100)</span>
           </div>
         </Card>
+        {kscore ? (
+          <Card>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">K-Score</p>
+            <div class="mt-4 flex items-center justify-between">
+              <div>
+                <p class="text-3xl text-slate-100">{kscore.overall}</p>
+                <p class="text-sm text-slate-400">Grade {kscore.grade}</p>
+              </div>
+              <div class="h-20 w-20">
+                <ScoreDonut client:load score={kscore.overall} />
+              </div>
+            </div>
+            <div class="mt-4">
+              {unlocked ? (
+                <ul class="space-y-2 text-sm text-slate-200">
+                  {kscoreCategories.map(([name, data]) => (
+                    <li class="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                      <span class="capitalize text-slate-300">{name}</span>
+                      <span class={data.status === "good" ? "text-emerald-200" : data.status === "ok" ? "text-amber-200" : "text-rose-200"}>
+                        {data.score}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="text-xs text-slate-400">Unlock to see the K-Score category breakdown.</p>
+              )}
+            </div>
+          </Card>
+        ) : null}
+        <Card>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Score drivers</p>
+          <p class="mt-2 text-sm text-slate-300">These factors have the biggest impact on the grade.</p>
+          <ul class="mt-4 space-y-2 text-sm text-slate-200">
+            {scoreDrivers.length > 0 ? (
+              scoreDrivers.map((driver) => (
+                <li class="rounded-xl border border-white/10 bg-white/5 px-3 py-2">{driver}</li>
+              ))
+            ) : (
+              <li class="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-emerald-100">
+                No major penalties detected.
+              </li>
+            )}
+          </ul>
+        </Card>
         <Card>
           <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Core Web Vitals</p>
+          <div class="mt-3 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+            <span class="text-slate-300">CWV status</span>
+            <span class={report.psi.cwv.status === "pass" ? "text-emerald-200" : "text-rose-200"}>
+              {report.psi.cwv.status}
+            </span>
+          </div>
           <div class="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-200">
             <div>
               <p class="text-xs uppercase tracking-[0.12em] text-slate-500">LCP</p>
-              <p>{report.psi.cwv.lcp_ms ? `${Math.round(report.psi.cwv.lcp_ms)} ms` : "-"}</p>
+              <p>{formatMs(report.psi.cwv.lcp_ms)}</p>
             </div>
             <div>
               <p class="text-xs uppercase tracking-[0.12em] text-slate-500">INP</p>
-              <p>{report.psi.cwv.inp_ms ? `${Math.round(report.psi.cwv.inp_ms)} ms` : "-"}</p>
+              <p>{formatMs(report.psi.cwv.inp_ms)}</p>
             </div>
             <div>
               <p class="text-xs uppercase tracking-[0.12em] text-slate-500">CLS</p>
-              <p>{report.psi.cwv.cls ?? "-"}</p>
+              <p>{typeof report.psi.cwv.cls === "number" ? report.psi.cwv.cls.toFixed(2) : "-"}</p>
             </div>
             <div>
               <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Status</p>
               <p class={report.psi.cwv.status === "pass" ? "text-emerald-200" : "text-rose-200"}>
                 {report.psi.cwv.status}
               </p>
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Delivery & headers</p>
+          <div class="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-200">
+            <div>
+              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Compression</p>
+              <p>{report.checks.headers.compression}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Cache</p>
+              <p>{report.checks.headers.cacheControl}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">CDN</p>
+              <p>{report.checks.headers.cdn}</p>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">HTTP</p>
+              <p>{report.checks.headers.httpVersion}</p>
             </div>
           </div>
         </Card>
@@ -104,11 +332,15 @@ const jsonLd = report
           </ul>
         </Card>
         <Card>
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Share</p>
-          <p class="mt-2 text-sm text-slate-300">Copy this link to share the report.</p>
-          <code class="mt-3 block break-all rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200">
-            {Astro.url.origin + `/report/${report.id}`}
-          </code>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Share & embed</p>
+          <p class="mt-2 text-sm text-slate-300">Use a direct link or embed this report.</p>
+          <div class="mt-4">
+            <ShareActions
+              client:load
+              url={(Astro.site?.origin ?? Astro.url.origin) + `/report/${report.id}`}
+              title={title}
+            />
+          </div>
         </Card>
       </div>
       <div class="space-y-6">
@@ -117,6 +349,7 @@ const jsonLd = report
             <div>
               <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Lighthouse categories</p>
               <h2 class="mt-2 text-2xl text-slate-100">Performance breakdown</h2>
+              <p class="mt-1 text-xs text-slate-500">Data source: {report.psi.source}{report.psi.message ? ` — ${report.psi.message}` : ""}</p>
             </div>
             <Badge tone={report.psi.cwv.status === "pass" ? "success" : "danger"}>
               {report.psi.cwv.status === "pass" ? "CWV pass" : "CWV fail"}
@@ -132,10 +365,257 @@ const jsonLd = report
           </div>
         </Card>
         <Card>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Waterfall summary</p>
+          <h2 class="mt-2 text-2xl text-slate-100">Load timeline (PSI)</h2>
+          <p class="mt-2 text-sm text-slate-400">Estimated milestones based on Lighthouse timings.</p>
+          {timeline ? (
+            <div class="mt-5 space-y-4">
+              <div class="relative h-3 rounded-full bg-white/10">
+                <span
+                  class="absolute left-0 h-3 rounded-full bg-emerald-400/25"
+                  style={`width: ${timelinePct(timeline.fcp)}%`}
+                ></span>
+                <span
+                  class="absolute left-0 h-3 rounded-full bg-sky-400/25"
+                  style={`width: ${timelinePct(timeline.lcp)}%`}
+                ></span>
+                <span
+                  class="absolute -top-2 h-7 w-1 rounded-full bg-amber-300"
+                  style={`left: ${timelinePct(timeline.ttfb)}%`}
+                ></span>
+                <span
+                  class="absolute -top-2 h-7 w-1 rounded-full bg-emerald-300"
+                  style={`left: ${timelinePct(timeline.fcp)}%`}
+                ></span>
+                <span
+                  class="absolute -top-2 h-7 w-1 rounded-full bg-sky-300"
+                  style={`left: ${timelinePct(timeline.lcp)}%`}
+                ></span>
+              </div>
+              <div class="grid gap-3 text-sm text-slate-200 md:grid-cols-2">
+                <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2">
+                  <span class="text-slate-400">TTFB</span>
+                  <span>{formatMs(report.psi.cwv.ttfb_ms)}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2">
+                  <span class="text-slate-400">FCP</span>
+                  <span>{formatMs(report.psi.cwv.fcp_ms)}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2">
+                  <span class="text-slate-400">LCP</span>
+                  <span>{formatMs(report.psi.cwv.lcp_ms)}</span>
+                </div>
+                <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2">
+                  <span class="text-slate-400">Total weight</span>
+                  <span>{formatBytes(report.psi.audits.totalByteWeight)}</span>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </Card>
+        {seoAnalysis ? (
+          <Card class="relative">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">SEO analysis</p>
+                <h2 class="mt-2 text-2xl text-slate-100">Content health</h2>
+                <p class="mt-1 text-xs text-slate-500">Score: {seoAnalysis.score}/100</p>
+              </div>
+            </div>
+            <div class={unlocked ? "mt-4 space-y-4" : "mt-4 space-y-4 blur-sm pointer-events-none select-none"}>
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Primary keyword</p>
+                <p class="mt-2">{seoAnalysis.keywordAnalysis.primaryKeyword ?? "Not provided"}</p>
+                <p class="mt-1 text-xs text-slate-400">Density: {formatPercent(seoAnalysis.keywordAnalysis.density)}</p>
+              </div>
+              <div class="grid gap-3 text-sm text-slate-200 md:grid-cols-2">
+                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Title</p>
+                  <p class="mt-2">{seoAnalysis.meta.title ?? "Missing"}</p>
+                </div>
+                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Meta description</p>
+                  <p class="mt-2">{seoAnalysis.meta.description ?? "Missing"}</p>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top recommendations</p>
+                <ul class="mt-3 space-y-2 text-sm text-slate-200">
+                  {seoAnalysis.recommendations.slice(0, 3).map((rec) => (
+                    <li class={`rounded-xl border border-white/10 px-3 py-2`}>
+                      <p class="text-slate-100">{rec.issue}</p>
+                      <p class="text-xs text-slate-400">{rec.recommendation}</p>
+                    </li>
+                  ))}
+                  {seoAnalysis.recommendations.length === 0 ? (
+                    <li class="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-emerald-100">
+                      No major SEO issues detected.
+                    </li>
+                  ) : null}
+                </ul>
+              </div>
+            </div>
+            {!unlocked ? (
+              <div class="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/70 p-6 text-center backdrop-blur-sm">
+                <div class="max-w-sm space-y-3">
+                  <p class="text-sm uppercase tracking-[0.2em] text-slate-400">SEO details locked</p>
+                  <p class="text-sm text-slate-300">
+                    Unlock to see full SEO recommendations and keyword insights.
+                  </p>
+                  <form method="post" action="/api/billing/report-checkout">
+                    <input type="hidden" name="reportId" value={report.id} />
+                    <button
+                      class="w-full rounded-xl bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5"
+                      type="submit"
+                    >
+                      Unlock Full Report — $19
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ) : null}
+          </Card>
+        ) : null}
+        {imageAudit ? (
+          <Card class="relative">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Image audit</p>
+                <h2 class="mt-2 text-2xl text-slate-100">Image optimization</h2>
+                <p class="mt-1 text-xs text-slate-500">Score: {imageAudit.score}/100</p>
+              </div>
+            </div>
+            <div class={unlocked ? "mt-4 space-y-4" : "mt-4 space-y-4 blur-sm pointer-events-none select-none"}>
+              <div class="grid gap-3 text-sm text-slate-200 md:grid-cols-3">
+                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Total images</p>
+                  <p class="mt-2">{imageAudit.totalImages}</p>
+                </div>
+                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Savings</p>
+                  <p class="mt-2">{formatBytes(imageAudit.potentialSavings)}</p>
+                </div>
+                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Missing alt</p>
+                  <p class="mt-2">{imageAudit.issues.missingAlt}</p>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top recommendations</p>
+                <ul class="mt-3 space-y-2 text-sm text-slate-200">
+                  {imageAudit.recommendations.slice(0, 3).map((rec) => (
+                    <li class="rounded-xl border border-white/10 px-3 py-2">
+                      <p class="text-slate-100">{rec.issue}</p>
+                      <p class="text-xs text-slate-400">{rec.recommendation}</p>
+                      <p class="mt-1 text-[11px] text-slate-500">{rec.impact}</p>
+                    </li>
+                  ))}
+                  {imageAudit.recommendations.length === 0 ? (
+                    <li class="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-emerald-100">
+                      Images look optimized.
+                    </li>
+                  ) : null}
+                </ul>
+              </div>
+            </div>
+            {!unlocked ? (
+              <div class="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/70 p-6 text-center backdrop-blur-sm">
+                <div class="max-w-sm space-y-3">
+                  <p class="text-sm uppercase tracking-[0.2em] text-slate-400">Image audit locked</p>
+                  <p class="text-sm text-slate-300">
+                    Unlock to see full image optimization details.
+                  </p>
+                  <form method="post" action="/api/billing/report-checkout">
+                    <input type="hidden" name="reportId" value={report.id} />
+                    <button
+                      class="w-full rounded-xl bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5"
+                      type="submit"
+                    >
+                      Unlock Full Report — $19
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ) : null}
+          </Card>
+        ) : null}
+        <Card>
           <h2 class="text-2xl text-slate-100">Prioritized fixes</h2>
           <p class="mt-2 text-sm text-slate-400">Filter by severity or category to focus on quick wins.</p>
-          <div class="mt-6">
-            <ReportFilters client:load insights={report.insights} />
+          <div class="relative mt-6">
+            <div class={unlocked ? "" : "blur-sm pointer-events-none select-none"}>
+              <ReportFilters client:load insights={report.insights} />
+            </div>
+            {!unlocked ? (
+              <div class="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/70 p-6 text-center backdrop-blur-sm">
+                <div class="max-w-sm space-y-3">
+                  <p class="text-sm uppercase tracking-[0.2em] text-slate-400">This section is locked</p>
+                  <p class="text-sm text-slate-300">
+                    Unlock the full report to see exactly what to fix first and how to fix it.
+                  </p>
+                  <form method="post" action="/api/billing/report-checkout">
+                    <input type="hidden" name="reportId" value={report.id} />
+                    <button
+                      class="w-full rounded-xl bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5"
+                      type="submit"
+                    >
+                      Unlock Full Report — $19
+                    </button>
+                  </form>
+                  <p class="text-xs text-slate-400">One-time payment • Instant access • No account required</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </Card>
+        <Card>
+          <h2 class="text-2xl text-slate-100">Fix checklist</h2>
+          <p class="mt-2 text-sm text-slate-400">Grouped by category so you can assign work faster.</p>
+          <div class="relative mt-6">
+            <div class={unlocked ? "space-y-4" : "space-y-4 blur-sm pointer-events-none select-none"}>
+              {groupedInsights.length === 0 ? (
+                <p class="text-sm text-slate-400">No fixes detected yet.</p>
+              ) : (
+                groupedInsights.map(([category, items]) => (
+                  <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p class="text-xs uppercase tracking-[0.2em] text-slate-500">{category.replace(/-/g, " ")}</p>
+                    <ul class="mt-3 space-y-3 text-sm text-slate-200">
+                      {items.map((insight) => (
+                        <li class="flex gap-3">
+                          <span class="mt-1 h-4 w-4 rounded-md border border-white/10 bg-white/5"></span>
+                          <div>
+                            <p class="text-slate-100">{insight.title}</p>
+                            <p class="text-xs text-slate-400">
+                              {insight.howToFix[0] ?? "Review audit details"}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              )}
+            </div>
+            {!unlocked ? (
+              <div class="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/70 p-6 text-center backdrop-blur-sm">
+                <div class="max-w-sm space-y-3">
+                  <p class="text-sm uppercase tracking-[0.2em] text-slate-400">This section is locked</p>
+                  <p class="text-sm text-slate-300">
+                    Unlock the full report to see exactly what to fix first and how to fix it.
+                  </p>
+                  <form method="post" action="/api/billing/report-checkout">
+                    <input type="hidden" name="reportId" value={report.id} />
+                    <button
+                      class="w-full rounded-xl bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5"
+                      type="submit"
+                    >
+                      Unlock Full Report — $19
+                    </button>
+                  </form>
+                  <p class="text-xs text-slate-400">One-time payment • Instant access • No account required</p>
+                </div>
+              </div>
+            ) : null}
           </div>
         </Card>
       </div>
@@ -157,6 +637,13 @@ const jsonLd = report
       <Card>
         <h2 class="text-2xl text-slate-100">Crawl summary</h2>
         <p class="mt-2 text-sm text-slate-400">Scanned {report.crawl.scannedUrls.length} internal pages.</p>
+        {crawlSpotlight ? (
+          <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Spotlight</p>
+            <p class="mt-2 text-sm text-slate-200">{crawlSpotlight.url}</p>
+            <p class="mt-1 text-xs text-slate-400">{crawlSpotlight.note}</p>
+          </div>
+        ) : null}
         <div class="mt-6 overflow-hidden rounded-2xl border border-white/10">
           <table class="w-full text-left text-sm text-slate-300">
             <thead class="bg-white/5 text-xs uppercase tracking-[0.2em] text-slate-500">
@@ -172,10 +659,18 @@ const jsonLd = report
                 <tr class="border-t border-white/5">
                   <td class="px-4 py-3 text-slate-200">{url}</td>
                   <td class="px-4 py-3">{index === 0 ? Math.round(report.psi.lighthouse.performance * 100) : "-"}</td>
-                  <td class="px-4 py-3">{index === 0 ? `${Math.round(report.psi.cwv.lcp_ms ?? 0)} ms` : "-"}</td>
+                  <td class="px-4 py-3">{index === 0 ? formatMs(report.psi.cwv.lcp_ms) : "-"}</td>
                   <td class="px-4 py-3 text-slate-400">
                     {index === 0 ? "Primary scan" : "Queued for deeper scan"}
                   </td>
+                </tr>
+              ))}
+              {report.crawl.failures.map((failure) => (
+                <tr class="border-t border-rose-500/20 bg-rose-500/5">
+                  <td class="px-4 py-3 text-slate-200">{failure.url}</td>
+                  <td class="px-4 py-3">-</td>
+                  <td class="px-4 py-3">-</td>
+                  <td class="px-4 py-3 text-rose-200">Failed: {failure.reason}</td>
                 </tr>
               ))}
             </tbody>

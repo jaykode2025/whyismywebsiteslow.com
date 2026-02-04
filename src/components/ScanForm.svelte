@@ -8,10 +8,18 @@
   let crawlEnabled = $state(false);
   let maxLinks = $state(3);
   let visibility = $state("unlisted");
+  let targetKeyword = $state("");
   let status = $state("idle");
   let error = $state("");
   let reportId = $state("");
   let manageToken = $state("");
+
+  function normalizeInput(value) {
+    const trimmed = value.trim();
+    if (!trimmed) return trimmed;
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+    return `https://${trimmed}`;
+  }
 
   async function submit() {
     error = "";
@@ -28,6 +36,7 @@
           device,
           visibility,
           crawl: { enabled: crawlEnabled, maxLinks },
+          targetKeyword: targetKeyword.trim() ? targetKeyword.trim() : undefined,
         }),
       });
 
@@ -50,27 +59,30 @@
       type="url"
       placeholder="Enter a URL like https://example.com"
       bind:value={url}
+      on:blur={() => (url = normalizeInput(url))}
+      disabled={status === "submitting"}
       required
     />
     <button
       class="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 px-6 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-500/30 transition hover:-translate-y-0.5"
       type="submit"
+      disabled={status === "submitting"}
     >
-      Run scan
+      {status === "submitting" ? "Starting..." : "Run scan"}
     </button>
   </div>
 
   <div class="flex flex-wrap items-center gap-4 text-sm text-slate-300">
     <label class="flex items-center gap-2">
-      <input type="radio" name="device" value="mobile" bind:group={device} />
+      <input type="radio" name="device" value="mobile" bind:group={device} disabled={status === "submitting"} />
       Mobile
     </label>
     <label class="flex items-center gap-2">
-      <input type="radio" name="device" value="desktop" bind:group={device} />
+      <input type="radio" name="device" value="desktop" bind:group={device} disabled={status === "submitting"} />
       Desktop
     </label>
     <label class="flex items-center gap-2">
-      <input type="checkbox" bind:checked={crawlEnabled} />
+      <input type="checkbox" bind:checked={crawlEnabled} disabled={status === "submitting"} />
       Crawl up to
       <input
         class="w-16 rounded-xl border border-white/10 bg-white/5 px-2 py-1 text-center"
@@ -78,7 +90,7 @@
         min="1"
         max="5"
         bind:value={maxLinks}
-        disabled={!crawlEnabled}
+        disabled={!crawlEnabled || status === "submitting"}
       />
       pages
     </label>
@@ -88,11 +100,23 @@
         <select
           class="rounded-xl border border-white/10 bg-white/5 px-3 py-2"
           bind:value={visibility}
+          disabled={status === "submitting"}
         >
           <option value="unlisted">Unlisted</option>
           <option value="public">Public</option>
         </select>
       </label>
+      <label class="flex items-center gap-2">
+        Keyword
+        <input
+          class="w-48 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+          type="text"
+          placeholder="Primary keyword"
+          bind:value={targetKeyword}
+          disabled={status === "submitting"}
+        />
+      </label>
+      <span class="text-xs text-slate-500">Public reports can be indexed by search engines.</span>
     {/if}
   </div>
 

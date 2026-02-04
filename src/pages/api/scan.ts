@@ -1,11 +1,15 @@
-import { randomUUID } from "node:crypto";
 import type { APIRoute } from "astro";
 import { createReportPlaceholder, setReport, setReportStatus } from "../../lib/store";
 import { rateLimit } from "../../lib/rateLimit";
 import { normalizeUrl, clampLinks } from "../../lib/validate";
-import { runScan } from "../../lib/scan";
+import { runEnhancedScan } from "../../lib/scan.enhanced";
+import { env, hasSupabaseEnv } from "../../lib/env";
+import { generateId, generateToken, hashToken } from "../../lib/tokens";
+import { enqueueQStashJob } from "../../lib/qstash";
+import { getUserPlan, isPro } from "../../lib/plan";
 
-export const POST: APIRoute = async ({ request, clientAddress }) => {
+export const POST: APIRoute = async (context) => {
+  const { request, clientAddress, locals } = context;
   try {
     const body = await request.json();
     const normalized = normalizeUrl(body.url);
@@ -14,9 +18,15 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     const bucket = rateLimit(`${ipKey}:${hostKey}`);
 
     if (!bucket.ok) {
+      const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - Date.now()) / 1000));
       return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
         status: 429,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": retryAfter.toString(),
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": bucket.resetAt.toString(),
+        },
       });
     }
 
@@ -24,8 +34,107 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     const maxLinks = clampLinks(body?.crawl?.maxLinks ?? 0);
     const crawlEnabled = Boolean(body?.crawl?.enabled && maxLinks > 1);
     const visibility = body.visibility === "public" ? "public" : "unlisted";
+    const targetKeyword = typeof body?.targetKeyword === "string" ? body.targetKeyword.trim() : undefined;
+    const includeSeoAnalysis = body?.includeSeoAnalysis !== false;
+    const includeImageAudit = body?.includeImageAudit !== false;
 
-    const writeToken = randomUUID();
+    if (hasSupabaseEnv() && env.QSTASH_TOKEN() && locals.supabase) {
+      const id = generateId();
+      const manageToken = locals.user ? undefined : generateToken();
+      const manageTokenHash = manageToken ? hashToken(manageToken) : null;
+
+      let projectId: string | null = null;
+      if (locals.user) {
+        // Create/find a project for this URL (simple MVP: 1 project per exact url string)
+        const { data: existing, error: projectError } = await locals.supabase
+          .from("projects")
+          .select("id")
+          .eq("user_id", locals.user.id)
+          .eq("url", normalized.toString())
+          .maybeSingle();
+        if (projectError) throw new Error(projectError.message);
+        if (existing?.id) projectId = existing.id;
+      }
+
+      // Feature gating (only blocks new projects for free users)
+      if (locals.user && !projectId) {
+        const planInfo = await getUserPlan(locals.supabase, locals.user.id);
+        const pro = isPro(planInfo);
+
+        // Free: 1 saved project. Pro: more (stubbed as 20 for now).
+        if (!pro) {
+          const { count: projectCount } = await locals.supabase
+            .from("projects")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", locals.user.id);
+
+          if ((projectCount ?? 0) >= 1) {
+            return new Response(JSON.stringify({ error: "Upgrade required to add more projects" }), {
+              status: 402,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+        }
+
+        try {
+          const { data: created, error: createErr } = await locals.supabase
+            .from("projects")
+            .upsert({ user_id: locals.user.id, url: normalized.toString(), name: normalized.hostname }, { onConflict: 'user_id,url' })
+            .select("id")
+            .single();
+          if (createErr) throw new Error(createErr.message);
+          projectId = created.id;
+        } catch (err: any) {
+          if (err.message?.includes('duplicate key')) {
+            const { data: existing } = await locals.supabase
+              .from("projects")
+              .select("id")
+              .eq("user_id", locals.user.id)
+              .eq("url", normalized.toString())
+              .single();
+            projectId = existing?.id;
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      const { error: insertError } = await locals.supabase.from("scans").insert({
+        id,
+        user_id: locals.user?.id ?? null,
+        project_id: projectId,
+        url: normalized.toString(),
+        status: "queued",
+        device,
+        visibility,
+        crawl_enabled: crawlEnabled,
+        crawl_max_links: Math.max(1, maxLinks),
+        manage_token_hash: manageTokenHash,
+      });
+      if (insertError) throw new Error(insertError.message);
+
+      const baseUrl = env.APP_BASE_URL();
+      if (!baseUrl) {
+        throw new Error("APP_BASE_URL environment variable is required for production");
+      }
+      const workerUrl = `${baseUrl}/api/worker/scan`;
+      await enqueueQStashJob({
+        workerUrl,
+        body: { scanId: id, targetKeyword, includeSeoAnalysis, includeImageAudit },
+      });
+
+      return new Response(JSON.stringify({ id, manageToken }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "X-RateLimit-Remaining": bucket.remaining.toString(),
+          "X-RateLimit-Reset": bucket.resetAt.toString(),
+        },
+      });
+    }
+
+    // Local fallback: run synchronously and persist to the local store (no setTimeout background work).
+    const manageToken = generateToken();
     const { id, writeTokenHash } = createReportPlaceholder(
       {
         url: normalized.toString(),
@@ -33,29 +142,42 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
         crawl: { enabled: crawlEnabled, maxLinks: Math.max(1, maxLinks) },
         visibility,
       },
-      writeToken
+      manageToken
     );
 
-    setReportStatus(id, "queued");
-
-    setTimeout(async () => {
-      try {
-        setReportStatus(id, "running");
-        const report = await runScan(id, {
+    try {
+      setReportStatus(id, "running");
+      const report = await runEnhancedScan(
+        id,
+        {
           url: normalized.toString(),
           device,
           crawl: { enabled: crawlEnabled, maxLinks: Math.max(1, maxLinks) },
           visibility,
-        }, writeTokenHash);
-        setReport(id, report);
-      } catch (error: any) {
-        setReportStatus(id, "failed", error?.message ?? "Scan failed");
-      }
-    }, 10);
+        },
+        writeTokenHash,
+        { includeSeoAnalysis, includeImageAudit, targetKeyword }
+      );
+      setReport(id, report);
+    } catch (error: any) {
+      setReportStatus(id, "failed", error?.message ?? "Scan failed");
+      return new Response(JSON.stringify({ error: "Scan execution failed", id }), {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          "X-RateLimit-Remaining": bucket.remaining.toString(),
+          "X-RateLimit-Reset": bucket.resetAt.toString(),
+        },
+      });
+    }
 
-    return new Response(JSON.stringify({ id, manageToken: writeToken }), {
+    return new Response(JSON.stringify({ id, manageToken }), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-RateLimit-Remaining": bucket.remaining.toString(),
+        "X-RateLimit-Reset": bucket.resetAt.toString(),
+      },
     });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error?.message ?? "Invalid request" }), {

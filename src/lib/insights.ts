@@ -4,7 +4,7 @@ const severityRank = { critical: 4, high: 3, medium: 2, low: 1 } as const;
 const impactRank = { high: 3, medium: 2, low: 1 } as const;
 const effortRank = { low: 1, medium: 2, high: 3 } as const;
 
-export function generateInsights(psi: Report["psi"]) {
+export function generateInsights(psi: Report["psi"], checks?: Report["checks"]) {
   const insights: Report["insights"] = [];
 
   const add = (entry: Report["insights"][number]) => insights.push(entry);
@@ -157,6 +157,68 @@ export function generateInsights(psi: Report["psi"]) {
       howToFix: ["Add caching", "Optimize database queries", "Use a CDN"],
       verification: ["Check server timings", "Re-run PSI with cold cache"],
     });
+  }
+
+  if (checks) {
+    if (checks.headers.compression === "none") {
+      add({
+        id: "compression",
+        title: "Compression is missing",
+        category: "server",
+        severity: "high",
+        impact: "high",
+        effort: "low",
+        whatItMeans: "Responses are served uncompressed.",
+        whyItHurts: "Uncompressed HTML/CSS/JS increases transfer size and slows loads.",
+        howToFix: ["Enable Brotli or gzip on your server", "Verify compression on static assets"],
+        verification: ["Check response headers for content-encoding", "Compare transfer sizes"],
+      });
+    }
+
+    if (checks.headers.cacheControl === "bad") {
+      add({
+        id: "cache-control",
+        title: "Caching headers are weak",
+        category: "server",
+        severity: "medium",
+        impact: "medium",
+        effort: "low",
+        whatItMeans: "Responses are not cached for long enough.",
+        whyItHurts: "Repeat visits still require full downloads.",
+        howToFix: ["Set long cache headers for static assets", "Use immutable file naming"],
+        verification: ["Inspect cache-control headers", "Run a repeat view test"],
+      });
+    }
+
+    if (checks.headers.cdn === "unknown") {
+      add({
+        id: "cdn",
+        title: "No CDN detected",
+        category: "cdn",
+        severity: "medium",
+        impact: "medium",
+        effort: "medium",
+        whatItMeans: "Assets may not be served from the edge.",
+        whyItHurts: "Users farther from the origin see slower load times.",
+        howToFix: ["Add a CDN in front of your origin", "Cache static assets globally"],
+        verification: ["Check response headers for CDN hints", "Re-test from multiple regions"],
+      });
+    }
+
+    if (checks.headers.httpVersion === "h1") {
+      add({
+        id: "http-version",
+        title: "HTTP/1.1 is slowing parallel loads",
+        category: "server",
+        severity: "medium",
+        impact: "medium",
+        effort: "medium",
+        whatItMeans: "HTTP/1.1 limits how many resources load in parallel.",
+        whyItHurts: "More connection overhead delays critical resources.",
+        howToFix: ["Enable HTTP/2 or HTTP/3 on your origin or CDN"],
+        verification: ["Inspect protocol in DevTools network tab", "Re-run PSI"],
+      });
+    }
   }
 
   return insights.sort((a, b) => {

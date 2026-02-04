@@ -21,6 +21,8 @@ export function exampleReport(id = "example"): Report {
       failures: [],
     },
     psi: {
+      source: "mock",
+      message: "Example report",
       lighthouse: {
         performance: 0.93,
         accessibility: 0.96,
@@ -58,6 +60,11 @@ export function exampleReport(id = "example"): Report {
         imageKb: 1200,
         requestCount: 42,
       },
+      hasMetaDescription: true,
+      hasCanonical: true,
+      hasH1: true,
+      hasHttps: true,
+      hasSecurityHeaders: true,
     },
     insights: [
       {
@@ -89,6 +96,66 @@ export function exampleReport(id = "example"): Report {
       grade: "A",
       score100: 94,
       topIssues: ["Third-party scripts add latency", "Font loading blocks first paint"],
+    },
+    kscore: {
+      overall: 91,
+      grade: "A",
+      categories: {
+        performance: { score: 90, weight: 0.35, status: "good", notes: [] },
+        seo: { score: 92, weight: 0.2, status: "good", notes: [] },
+        accessibility: { score: 96, weight: 0.15, status: "good", notes: [] },
+        content: { score: 88, weight: 0.15, status: "good", notes: [] },
+        technical: { score: 89, weight: 0.15, status: "good", notes: [] },
+      },
+      breakdown: [
+        { key: "performance", score: 90, weight: 0.35, status: "good" },
+        { key: "seo", score: 92, weight: 0.2, status: "good" },
+        { key: "accessibility", score: 96, weight: 0.15, status: "good" },
+        { key: "content", score: 88, weight: 0.15, status: "good" },
+        { key: "technical", score: 89, weight: 0.15, status: "good" },
+      ],
+    },
+    seoAnalysis: {
+      score: 90,
+      meta: { title: "Alpha Agency — Brand & Web Studio", description: "Design studio for bold brands.", canonical: "https://alpha.agency/" },
+      structure: { h1Count: 1, h2Count: 4, h3Count: 2, hasH1: true, h1Text: "We build standout brands." },
+      content: { wordCount: 820, readingTimeMinutes: 4 },
+      keywordAnalysis: { primaryKeyword: "brand studio", occurrences: 9, density: 1.1 },
+      recommendations: [
+        {
+          issue: "Meta description length could be improved",
+          recommendation: "Aim for 70–160 characters to avoid truncation.",
+          priority: "medium",
+        },
+      ],
+    },
+    imageAudit: {
+      score: 86,
+      totalImages: 18,
+      potentialSavings: 320000,
+      issues: { missingAlt: 2, missingDimensions: 3, nonModernFormats: 6, largeImages: 2, lazyMissing: 8 },
+      largestImages: [
+        { src: "https://alpha.agency/hero.jpg", sizeBytes: 820000 },
+        { src: "https://alpha.agency/portfolio.png", sizeBytes: 560000 },
+      ],
+      recommendations: [
+        {
+          issue: "Legacy image formats detected",
+          recommendation: "Serve WebP or AVIF for modern browsers.",
+          impact: "Cuts image bytes by 25–60%",
+          priority: "high",
+        },
+      ],
+    },
+    enhancedSummary: {
+      overallScore: 91,
+      overallGrade: "A",
+      performanceScore: 90,
+      seoScore: 92,
+      accessibilityScore: 96,
+      contentHealthScore: 88,
+      topIssues: ["Third-party scripts add latency", "Font loading blocks first paint"],
+      quickWins: ["Meta description length could be improved"],
     },
     manage: {
       writeTokenHash: "example",

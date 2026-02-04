@@ -24,8 +24,8 @@
     activeCategories = new Set(activeCategories);
   }
 
-  $derived filtered = insights.filter(
-    (item) => activeSeverities.has(item.severity) && activeCategories.has(item.category)
+  const filtered = $derived(
+    insights.filter((item) => activeSeverities.has(item.severity) && activeCategories.has(item.category))
   );
 </script>
 
@@ -77,8 +77,11 @@
               <span class="rounded-full bg-rose-400/15 px-3 py-1 text-rose-200">{insight.severity}</span>
             </div>
           </div>
+          <p class="mt-1 text-xs uppercase tracking-[0.12em] text-slate-500">
+            Impact: {insight.impact} · Effort: {insight.effort}
+          </p>
           <p class="mt-3 text-sm text-slate-300">{insight.whatItMeans}</p>
-          <div class="mt-3 grid gap-3 text-sm text-slate-400 md:grid-cols-2">
+          <div class="mt-3 grid gap-3 text-sm text-slate-400 md:grid-cols-3">
             <div>
               <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Why it hurts</p>
               <p>{insight.whyItHurts}</p>
@@ -87,6 +90,14 @@
               <p class="text-xs uppercase tracking-[0.12em] text-slate-500">How to fix</p>
               <ul class="list-disc pl-5">
                 {#each insight.howToFix as step}
+                  <li>{step}</li>
+                {/each}
+              </ul>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Verify</p>
+              <ul class="list-disc pl-5">
+                {#each insight.verification as step}
                   <li>{step}</li>
                 {/each}
               </ul>

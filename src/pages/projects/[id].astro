@@ -1,0 +1,67 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Card from "../../components/ui/Card.astro";
+import Button from "../../components/ui/Button.astro";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect(`/login?next=${encodeURIComponent(Astro.url.pathname)}`);
+const supabase = Astro.locals.supabase!;
+
+const projectId = Astro.params.id ?? "";
+
+const { data: project } = await supabase.from("projects").select("id,url,name,created_at").eq("id", projectId).maybeSingle();
+if (!project) {
+  return new Response("Not found", { status: 404 });
+}
+
+const { data: scans } = await supabase
+  .from("scans")
+  .select("id,status,device,visibility,created_at,summary_json,error")
+  .eq("project_id", projectId)
+  .order("created_at", { ascending: false })
+  .limit(50);
+---
+
+<BaseLayout title={project.name ?? "Project"}>
+  <section class="mx-auto max-w-3xl px-4 py-12">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-semibold text-slate-100">{project.name ?? project.url}</h1>
+        <p class="mt-2 text-sm text-slate-400">{project.url}</p>
+      </div>
+      <div class="flex gap-3">
+        <Button href="/scan" variant="ghost">New scan</Button>
+        <Button href="/billing">Upgrade</Button>
+      </div>
+    </div>
+
+    <Card class="mt-8">
+      <h2 class="text-xl text-slate-100">Scan history</h2>
+      <div class="mt-6 grid gap-3">
+        {(scans ?? []).length === 0 ? (
+          <p class="text-sm text-slate-300">No scans yet.</p>
+        ) : (
+          (scans ?? []).map((s) => (
+            <a class="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10" href={`/report/${s.id}`}>
+              <div class="flex items-center justify-between gap-4">
+                <p class="text-sm text-slate-100">{s.id}</p>
+                <p class="text-xs uppercase tracking-[0.16em] text-slate-400">{s.status}</p>
+              </div>
+              <p class="mt-2 text-xs text-slate-400">
+                {s.device} · {s.visibility} · {new Date(s.created_at).toLocaleString()}
+              </p>
+              {s.summary_json ? (
+                <p class="mt-2 text-sm text-slate-200">
+                  Grade {(s.summary_json as any).grade} · {(s.summary_json as any).score100}/100
+                </p>
+              ) : s.error ? (
+                <p class="mt-2 text-sm text-rose-200">{s.error}</p>
+              ) : null}
+            </a>
+          ))
+        )}
+      </div>
+    </Card>
+  </section>
+</BaseLayout>
+

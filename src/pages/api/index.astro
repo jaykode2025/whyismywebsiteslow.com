@@ -4,6 +4,12 @@ import Card from "../../components/ui/Card.astro";
 
 const title = "API";
 const description = "Minimal API docs for scan, report retrieval, and delete.";
+const scanPayload = `{
+  "url": "https://example.com",
+  "device": "mobile",
+  "crawl": { "enabled": true, "maxLinks": 5 },
+  "visibility": "unlisted"
+}`;
 ---
 <BaseLayout title={title} description={description}>
   <section class="pt-10">
@@ -13,12 +19,8 @@ const description = "Minimal API docs for scan, report retrieval, and delete.";
       <div class="mt-6 space-y-4 text-sm text-slate-300">
         <div>
           <p class="text-xs uppercase tracking-[0.2em] text-slate-500">POST /api/scan</p>
-          <pre class="mt-2 rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-slate-200">{
-  "url": "https://example.com",
-  "device": "mobile",
-  "crawl": { "enabled": true, "maxLinks": 5 },
-  "visibility": "unlisted"
-}</pre>
+          <pre class="mt-2 rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-slate-200">{scanPayload}</pre>
+          <p class="mt-2 text-xs text-slate-500">Returns {`{ id, manageToken }`} (token is shown once).</p>
         </div>
         <div>
           <p class="text-xs uppercase tracking-[0.2em] text-slate-500">GET /api/report/:id</p>
@@ -27,6 +29,10 @@ const description = "Minimal API docs for scan, report retrieval, and delete.";
         <div>
           <p class="text-xs uppercase tracking-[0.2em] text-slate-500">POST /api/report/:id/delete</p>
           <p class="mt-2">Requires manageToken from the scan response.</p>
+        </div>
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Rate limits</p>
+          <p class="mt-2">Scan requests are rate-limited per IP + hostname. Check response headers.</p>
         </div>
       </div>
     </Card>

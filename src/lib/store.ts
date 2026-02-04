@@ -1,18 +1,16 @@
-import { createHash, randomBytes } from "node:crypto";
 import type { Report, ScanRequest, StoredReport } from "./types";
+import { loadReports, persistReports } from "./db";
+import { generateId, hashToken } from "./tokens";
 
-const reports = new Map<string, StoredReport>();
+const reports = loadReports();
+let persistenceTimeout: NodeJS.Timeout | null = null;
 
-export function generateId(length = 6) {
-  return randomBytes(8).toString("base64url").slice(0, length);
-}
-
-export function generateToken() {
-  return randomBytes(24).toString("base64url");
-}
-
-export function hashToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
+function debouncedPersist() {
+  if (persistenceTimeout) clearTimeout(persistenceTimeout);
+  persistenceTimeout = setTimeout(() => {
+    persistReports(reports);
+    persistenceTimeout = null;
+  }, 100);
 }
 
 export function createReportPlaceholder(input: ScanRequest, writeToken: string) {
@@ -21,12 +19,14 @@ export function createReportPlaceholder(input: ScanRequest, writeToken: string) 
     status: "queued",
   };
   reports.set(id, stored);
+  debouncedPersist();
 
   return { id, writeToken, writeTokenHash: hashToken(writeToken) };
 }
 
 export function setReport(id: string, report: Report) {
   reports.set(id, { status: "done", report });
+  debouncedPersist();
 }
 
 export function setReportStatus(id: string, status: StoredReport["status"], error?: string) {
@@ -36,6 +36,7 @@ export function setReportStatus(id: string, status: StoredReport["status"], erro
     report: existing?.report,
     error,
   });
+  debouncedPersist();
 }
 
 export function getReport(id: string) {
@@ -43,7 +44,9 @@ export function getReport(id: string) {
 }
 
 export function deleteReport(id: string) {
-  return reports.delete(id);
+  const result = reports.delete(id);
+  debouncedPersist();
+  return result;
 }
 
 export function listReports() {

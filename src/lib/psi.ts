@@ -1,6 +1,8 @@
 import type { Device } from "./types";
 
 export type PsiResult = {
+  source: "live" | "mock";
+  message?: string;
   lighthouse: {
     performance: number;
     accessibility: number;
@@ -31,9 +33,9 @@ function toScore(value: number | undefined) {
 }
 
 export async function fetchPsi(url: string, device: Device): Promise<PsiResult> {
-  const apiKey = process.env.PSI_API_KEY;
+  const apiKey = import.meta.env.PSI_API_KEY;
   if (!apiKey) {
-    return mockPsi();
+    return { ...mockPsi(), message: "PSI_API_KEY not set; using mock data" };
   }
 
   const endpoint = new URL("https://www.googleapis.com/pagespeedonline/v5/runPagespeed");
@@ -47,7 +49,7 @@ export async function fetchPsi(url: string, device: Device): Promise<PsiResult> 
 
   const res = await fetch(endpoint.toString());
   if (!res.ok) {
-    return mockPsi();
+    return { ...mockPsi(), message: `PSI call failed (${res.status})` };
   }
   const data = await res.json();
   const lighthouse = data?.lighthouseResult?.categories ?? {};
@@ -58,6 +60,7 @@ export async function fetchPsi(url: string, device: Device): Promise<PsiResult> 
   const status = cwvStatusRaw === "fast" ? "pass" : cwvStatusRaw === "slow" ? "fail" : "unknown";
 
   return {
+    source: "live",
     lighthouse: {
       performance: toScore(lighthouse?.performance?.score ?? 0),
       accessibility: toScore(lighthouse?.accessibility?.score ?? 0),
@@ -85,6 +88,8 @@ export async function fetchPsi(url: string, device: Device): Promise<PsiResult> 
 
 function mockPsi(): PsiResult {
   return {
+    source: "mock",
+    message: "Mock PSI data",
     lighthouse: {
       performance: 0.78,
       accessibility: 0.92,

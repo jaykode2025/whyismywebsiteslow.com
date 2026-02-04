@@ -1,0 +1,49 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const next = Astro.url.searchParams.get("next") ?? "/billing";
+---
+
+<BaseLayout title="Login">
+  <section class="mx-auto max-w-md px-4 py-16">
+    <h1 class="text-3xl font-semibold text-slate-100">Log in</h1>
+    <p class="mt-2 text-sm text-slate-400">Log in to save projects, keep scan history, and upgrade.</p>
+
+    <form class="mt-8 space-y-4" method="post" action="/api/auth/login">
+      <input type="hidden" name="next" value={next} />
+
+      <label class="block text-sm text-slate-300">
+        Email
+        <input
+          class="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100"
+          type="email"
+          name="email"
+          required
+          autocomplete="email"
+        />
+      </label>
+
+      <label class="block text-sm text-slate-300">
+        Password
+        <input
+          class="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100"
+          type="password"
+          name="password"
+          required
+          minlength="8"
+          autocomplete="current-password"
+        />
+      </label>
+
+      <button class="w-full rounded-xl bg-sky-500 px-4 py-3 font-medium text-slate-950 hover:bg-sky-400" type="submit">
+        Log in
+      </button>
+
+      <p class="text-sm text-slate-400">
+        New here?
+        <a class="text-sky-200 hover:underline" href={`/signup?next=${encodeURIComponent(next)}`}>Create an account</a>
+      </p>
+    </form>
+  </section>
+</BaseLayout>
+

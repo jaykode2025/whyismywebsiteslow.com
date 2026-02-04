@@ -13,8 +13,9 @@ const {
 
 const metaTitle = title;
 const metaDescription = description;
-const canonicalUrl = canonical ?? Astro.url.origin + Astro.url.pathname;
-const ogImageUrl = ogImage ?? `${Astro.url.origin}/og-default.svg`;
+const siteOrigin = Astro.site?.origin ?? Astro.url.origin;
+const canonicalUrl = canonical ?? siteOrigin + Astro.url.pathname;
+const ogImageUrl = ogImage ?? `${siteOrigin}/og-default.svg`;
 ---
 <!doctype html>
 <html lang="en">
@@ -25,13 +26,18 @@ const ogImageUrl = ogImage ?? `${Astro.url.origin}/og-default.svg`;
     <title>{metaTitle}</title>
     <meta name="description" content={metaDescription} />
     <link rel="canonical" href={canonicalUrl} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     {noindex ? <meta name="robots" content="noindex,nofollow" /> : null}
     <meta property="og:title" content={metaTitle} />
     <meta property="og:description" content={metaDescription} />
     <meta property="og:type" content="website" />
     <meta property="og:image" content={ogImageUrl} />
     <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content="whyismywebsiteslow" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={metaTitle} />
+    <meta name="twitter:description" content={metaDescription} />
     <meta name="theme-color" content="#05070d" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <slot name="head" />

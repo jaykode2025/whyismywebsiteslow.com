@@ -18,7 +18,7 @@ export async function runScan(id: string, input: ScanRequest, writeTokenHash: st
   const primaryUrl = scannedUrls[0];
   const psi = await fetchPsi(primaryUrl, input.device);
   const checks = await runChecks(primaryUrl);
-  const insights = generateInsights(psi);
+  const insights = generateInsights(psi, checks);
   const { score, grade } = computeScore(psi);
 
   return {
