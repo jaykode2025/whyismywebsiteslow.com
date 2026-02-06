@@ -1,0 +1,30 @@
+---
+import { PROBLEMS, TIER1 } from "../../data/pseo";
+import { relatedForProblem } from "../../lib/related";
+import RelatedLinks from "../../components/RelatedLinks.astro";
+import { siteUrl, titleCase } from "../../lib/seo";
+
+export function getStaticPaths(){
+  return PROBLEMS.map(p=>({params:{slug:p.slug}}));
+}
+
+const entry = PROBLEMS.find(p=>p.slug===Astro.params.slug);
+const related = relatedForProblem(entry.slug);
+---
+
+<html>
+<head>
+  <title>{titleCase(entry.keyword)}</title>
+  <link rel="canonical" href={siteUrl("/why-is-my-website-slow/"+entry.slug)} />
+</head>
+<body>
+  <h1>{entry.keyword}</h1>
+  <p>{entry.primaryCause}</p>
+
+  <h2>Quick Wins</h2>
+  <ul>{entry.quickWins.map(w=><li>{w}</li>)}</ul>
+
+  <a href={TIER1.audit}>Request Audit</a>
+  <RelatedLinks items={related}/>
+</body>
+</html>

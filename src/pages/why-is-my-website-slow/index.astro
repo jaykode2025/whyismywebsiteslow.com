@@ -1,0 +1,9 @@
+---
+import { PROBLEMS } from "../../data/pseo";
+---
+<h1>Why Is My Website Slow?</h1>
+<ul>
+  {PROBLEMS.map(p=>(
+    <li><a href={"/why-is-my-website-slow/"+p.slug}>{p.keyword}</a></li>
+  ))}
+</ul>
