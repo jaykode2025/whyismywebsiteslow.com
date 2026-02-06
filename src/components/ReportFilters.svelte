@@ -2,32 +2,52 @@
   import Button from "./ui/Button.svelte";
 
   let { insights = [] } = $props();
-  const severities = ["critical", "high", "medium", "low"];
-  let activeSeverities = $state(new Set(severities));
-  let activeCategories = $state(new Set(insights.map((i) => i.category)));
 
-  const categories = Array.from(new Set(insights.map((i) => i.category)));
+  const safeInsights = $derived(Array.isArray(insights) ? insights : []);
+
+  const severities = ["critical", "high", "medium", "low"];
+
+  const categories = $derived(
+    Array.from(new Set(safeInsights.map((i) => i?.category).filter(Boolean)))
+  );
+
+  let activeSeverities = $state(new Set(severities));
+  let activeCategories = $state(new Set());
+
+  // Keep activeCategories synced when categories change
+  $effect(() => {
+    // If nothing selected yet, default to all categories
+    if (activeCategories.size === 0) {
+      activeCategories = new Set(categories);
+      return;
+    }
+
+    // Remove categories that no longer exist
+    const next = new Set([...activeCategories].filter((c) => categories.includes(c)));
+    // Add newly appearing categories (optional behavior)
+    for (const c of categories) next.add(c);
+
+    activeCategories = next;
+  });
 
   function toggleSeverity(level) {
-    if (activeSeverities.has(level)) {
-      activeSeverities.delete(level);
-    } else {
-      activeSeverities.add(level);
-    }
-    activeSeverities = new Set(activeSeverities);
+    const next = new Set(activeSeverities);
+    next.has(level) ? next.delete(level) : next.add(level);
+    activeSeverities = next;
   }
 
-  function toggleCategory(level) {
-    if (activeCategories.has(level)) {
-      activeCategories.delete(level);
-    } else {
-      activeCategories.add(level);
-    }
-    activeCategories = new Set(activeCategories);
+  function toggleCategory(cat) {
+    const next = new Set(activeCategories);
+    next.has(cat) ? next.delete(cat) : next.add(cat);
+    activeCategories = next;
   }
 
   const filtered = $derived(
-    insights.filter((item) => activeSeverities.has(item.severity) && activeCategories.has(item.category))
+    safeInsights.filter((item) => {
+      const sev = item?.severity;
+      const cat = item?.category;
+      return activeSeverities.has(sev) && activeCategories.has(cat);
+    })
   );
 </script>
 
@@ -39,7 +59,7 @@
         type="button"
         size="sm"
         variant="ghost"
-        className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.14em] ${
+        class={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.14em] ${
           activeSeverities.has(severity)
             ? "border-sky-400/50 bg-sky-400/10 text-sky-100"
             : "border-white/10 text-slate-400"
@@ -58,14 +78,14 @@
         type="button"
         size="sm"
         variant="ghost"
-        className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.14em] ${
+        class={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.14em] ${
           activeCategories.has(category)
             ? "border-emerald-300/50 bg-emerald-400/10 text-emerald-100"
             : "border-white/10 text-slate-400"
         }`}
         on:click={() => toggleCategory(category)}
       >
-        {category.replace(/-/g, " ")}
+        {String(category).replace(/-/g, " ")}
       </Button>
     {/each}
   </div>
@@ -83,27 +103,32 @@
               <span class="rounded-full bg-rose-400/15 px-3 py-1 text-rose-200">{insight.severity}</span>
             </div>
           </div>
+
           <p class="mt-1 text-xs uppercase tracking-[0.12em] text-slate-500">
             Impact: {insight.impact} · Effort: {insight.effort}
           </p>
+
           <p class="mt-3 text-sm text-slate-300">{insight.whatItMeans}</p>
+
           <div class="mt-3 grid gap-3 text-sm text-slate-400 md:grid-cols-3">
             <div>
               <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Why it hurts</p>
               <p>{insight.whyItHurts}</p>
             </div>
+
             <div>
               <p class="text-xs uppercase tracking-[0.12em] text-slate-500">How to fix</p>
               <ul class="list-disc pl-5">
-                {#each insight.howToFix as step}
+                {#each (Array.isArray(insight.howToFix) ? insight.howToFix : []) as step}
                   <li>{step}</li>
                 {/each}
               </ul>
             </div>
+
             <div>
               <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Verify</p>
               <ul class="list-disc pl-5">
-                {#each insight.verification as step}
+                {#each (Array.isArray(insight.verification) ? insight.verification : []) as step}
                   <li>{step}</li>
                 {/each}
               </ul>
