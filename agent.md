@@ -5,7 +5,7 @@ This doc is a fast “operating manual” for AI agents working in this repo.
 ## Product overview
 
 Users paste a URL and get a “premium” performance report:
-- PSI (Lighthouse categories + CWV) + simple header checks
+- Playwright scan (CWV-style metrics) + simple header checks
 - Prioritized insights (severity/category/impact/effort/fix/verify)
 - Shareable report pages (public/unlisted)
 - Optional crawl of up to 5 internal URLs (MVP)
@@ -32,7 +32,7 @@ npm run dev
 
 Optional `.env`:
 ```
-PSI_API_KEY=...                       # optional; missing => mock PSI data
+CHROME_EXECUTABLE_PATH=...            # optional; set if you have a custom Chrome/Chromium path
 SUPABASE_URL=...
 SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
@@ -64,7 +64,7 @@ Use `requireUser()` (`src/lib/auth.ts`) in API routes that require auth.
 
 Entry point: `runScan()` in `src/lib/scan.ts`
 - Crawl: `src/lib/crawl.ts` (optional)
-- PSI: `src/lib/psi.ts` (uses mock data if `PSI_API_KEY` missing)
+- Playwright: `src/lib/psi.ts` (uses mock data if scan fails)
 - Checks: `src/lib/checks.ts`
 - Insights: `src/lib/insights.ts`
 - Scoring: `src/lib/scoring.ts`

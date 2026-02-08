@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 
 import svelte from '@astrojs/svelte';
+import sitemap from '@astrojs/sitemap';
 import vercel from '@astrojs/vercel';
 import tailwindcss from '@tailwindcss/vite';
 
@@ -10,7 +11,7 @@ export default defineConfig({
   output: "server",
   site: "https://whyismywebsiteslow.com",
   adapter: vercel(),
-  integrations: [svelte()],
+  integrations: [svelte(), sitemap()],
 
   vite: {
     plugins: [tailwindcss()]

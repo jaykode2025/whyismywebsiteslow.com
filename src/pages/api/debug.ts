@@ -7,10 +7,10 @@ export const GET: APIRoute = async () => {
     timestamp: new Date().toISOString(),
     env: {
       hasSupabase: hasSupabaseEnv(),
-      hasPsiKey: Boolean(env.PSI_API_KEY()),
       hasQstash: Boolean(env.QSTASH_TOKEN()),
       hasStripe: Boolean(env.STRIPE_SECRET_KEY()),
-      appBaseUrl: env.APP_BASE_URL() || 'not set'
+      appBaseUrl: env.APP_BASE_URL() || "not set",
+      hasChromiumExecutablePath: Boolean(env.CHROME_EXECUTABLE_PATH()),
     },
     reports: {
       total: listReports().size,

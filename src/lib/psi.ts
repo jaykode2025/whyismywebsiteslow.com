@@ -33,63 +33,94 @@ function toScore(value: number | undefined) {
 }
 
 export async function fetchPsi(url: string, device: Device): Promise<PsiResult> {
-  const apiKey = import.meta.env.PSI_API_KEY;
-  if (!apiKey) {
-    return { ...mockPsi(), message: "PSI_API_KEY not set; using mock data" };
-  }
-
+  // NOTE: Playwright has been intentionally disabled for serverless stability.
+  // We use Google PageSpeed Insights (PSI) API when available; otherwise we fall back to mock data.
+  const strategy = device === "mobile" ? "mobile" : "desktop";
+  const key = process.env.PSI_API_KEY;
   const endpoint = new URL("https://www.googleapis.com/pagespeedonline/v5/runPagespeed");
   endpoint.searchParams.set("url", url);
-  endpoint.searchParams.set("strategy", device);
-  endpoint.searchParams.set("category", "performance");
-  endpoint.searchParams.set("category", "accessibility");
-  endpoint.searchParams.set("category", "best-practices");
-  endpoint.searchParams.set("category", "seo");
-  endpoint.searchParams.set("key", apiKey);
+  endpoint.searchParams.set("strategy", strategy);
+  // categories: performance, accessibility, best-practices, seo
+  endpoint.searchParams.append("category", "performance");
+  endpoint.searchParams.append("category", "accessibility");
+  endpoint.searchParams.append("category", "best-practices");
+  endpoint.searchParams.append("category", "seo");
+  if (key) endpoint.searchParams.set("key", key);
 
-  const res = await fetch(endpoint.toString());
-  if (!res.ok) {
-    return { ...mockPsi(), message: `PSI call failed (${res.status})` };
+  try {
+    const res = await fetch(endpoint.toString(), {
+      headers: { "User-Agent": "whyismywebsiteslow/1.0" },
+    });
+    if (!res.ok) {
+      throw new Error(`PSI HTTP ${res.status}`);
+    }
+
+    const data: any = await res.json();
+    const lr = data?.lighthouseResult;
+    const categories = lr?.categories ?? {};
+    const audits = lr?.audits ?? {};
+
+    // CWV numeric values are typically in milliseconds except CLS.
+    const lcp = audits?.["largest-contentful-paint"]?.numericValue;
+    const inp = audits?.["interactive"]?.numericValue; // PSI doesn't expose INP reliably; interactive is a fallback
+    const cls = audits?.["cumulative-layout-shift"]?.numericValue;
+    const fcp = audits?.["first-contentful-paint"]?.numericValue;
+    const ttfb = audits?.["server-response-time"]?.numericValue;
+
+    const status =
+      (typeof lcp === "number" ? lcp <= 2500 : true) &&
+      (typeof cls === "number" ? cls <= 0.1 : true)
+        ? "pass"
+        : "fail";
+
+    // Helpful audits
+    const unusedJsBytes = audits?.["unused-javascript"]?.details?.overallSavingsBytes;
+    const unusedCssBytes = audits?.["unused-css-rules"]?.details?.overallSavingsBytes;
+    const totalByteWeight = audits?.["total-byte-weight"]?.numericValue;
+    const renderBlocking = audits?.["render-blocking-resources"]?.score === 0;
+    const imageOptimization = audits?.["uses-optimized-images"]?.score === 0;
+    const cachePolicy = audits?.["uses-long-cache-ttl"]?.score === 0;
+
+    return {
+      source: "live",
+      message: key
+        ? "Google PageSpeed Insights scan"
+        : "Google PageSpeed Insights scan (no API key; rate-limited)",
+      lighthouse: {
+        performance: toScore(categories?.performance?.score),
+        accessibility: toScore(categories?.accessibility?.score),
+        bestPractices: toScore(categories?.["best-practices"]?.score),
+        seo: toScore(categories?.seo?.score),
+      },
+      cwv: {
+        lcp_ms: typeof lcp === "number" ? Math.round(lcp) : undefined,
+        inp_ms: typeof inp === "number" ? Math.round(inp) : undefined,
+        cls: typeof cls === "number" ? Number(cls.toFixed(3)) : undefined,
+        fcp_ms: typeof fcp === "number" ? Math.round(fcp) : undefined,
+        ttfb_ms: typeof ttfb === "number" ? Math.round(ttfb) : undefined,
+        status,
+      },
+      audits: {
+        renderBlocking,
+        unusedJsBytes: typeof unusedJsBytes === "number" ? Math.round(unusedJsBytes) : undefined,
+        unusedCssBytes: typeof unusedCssBytes === "number" ? Math.round(unusedCssBytes) : undefined,
+        totalByteWeight: typeof totalByteWeight === "number" ? Math.round(totalByteWeight) : undefined,
+        imageOptimization,
+        cachePolicy,
+      },
+    };
+  } catch (err: any) {
+    return {
+      ...mockPsi(),
+      message: `PSI scan failed; using mock data (${err?.message ?? "unknown"})`,
+    };
   }
-  const data = await res.json();
-  const lighthouse = data?.lighthouseResult?.categories ?? {};
-  const audits = data?.lighthouseResult?.audits ?? {};
-  const loading = data?.loadingExperience ?? {};
-
-  const cwvStatusRaw = loading?.overall_category?.toLowerCase();
-  const status = cwvStatusRaw === "fast" ? "pass" : cwvStatusRaw === "slow" ? "fail" : "unknown";
-
-  return {
-    source: "live",
-    lighthouse: {
-      performance: toScore(lighthouse?.performance?.score ?? 0),
-      accessibility: toScore(lighthouse?.accessibility?.score ?? 0),
-      bestPractices: toScore(lighthouse?.["best-practices"]?.score ?? 0),
-      seo: toScore(lighthouse?.seo?.score ?? 0),
-    },
-    cwv: {
-      lcp_ms: audits?.["largest-contentful-paint"]?.numericValue,
-      inp_ms: audits?.["interaction-to-next-paint"]?.numericValue,
-      cls: audits?.["cumulative-layout-shift"]?.numericValue,
-      fcp_ms: audits?.["first-contentful-paint"]?.numericValue,
-      ttfb_ms: audits?.["server-response-time"]?.numericValue,
-      status,
-    },
-    audits: {
-      renderBlocking: audits?.["render-blocking-resources"]?.score !== 1,
-      unusedJsBytes: audits?.["unused-javascript"]?.details?.overallSavingsBytes,
-      unusedCssBytes: audits?.["unused-css-rules"]?.details?.overallSavingsBytes,
-      totalByteWeight: audits?.["total-byte-weight"]?.numericValue,
-      imageOptimization: audits?.["uses-optimized-images"]?.score !== 1,
-      cachePolicy: audits?.["uses-long-cache-ttl"]?.score !== 1,
-    },
-  };
 }
 
 function mockPsi(): PsiResult {
   return {
     source: "mock",
-    message: "Mock PSI data",
+    message: "Mock scan data",
     lighthouse: {
       performance: 0.78,
       accessibility: 0.92,

@@ -5,8 +5,7 @@ export function getStripe() {
   const key = env.STRIPE_SECRET_KEY();
   if (!key) return null;
   return new Stripe(key, {
-    // Keep this reasonably current; Stripe will warn if too old.
+    // @ts-ignore - Stripe types can be strict about version strings
     apiVersion: "2024-06-20",
   });
 }
-

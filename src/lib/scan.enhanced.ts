@@ -75,16 +75,23 @@ export async function runEnhancedScan(
 
   let html: string | null = null;
   let response: Response | null = null;
-  if (includeSeoAnalysis || includeImageAudit) {
-    try {
-      response = await fetch(primaryUrl, { headers: { "User-Agent": "WMSSBot/0.1" } });
+  
+  // Use standard fetch for HTML content (serverless safe)
+  try {
+    response = await fetch(primaryUrl, { 
+      headers: { "User-Agent": "WMSSBot/0.1" },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (response.ok) {
       html = await response.text();
-    } catch {
-      html = null;
-      response = null;
     }
+  } catch (e) {
+    console.error(`Failed to fetch HTML for ${primaryUrl}:`, e);
+    html = null;
+    response = null;
   }
 
+  // PSI is our source of truth for performance metrics
   const psi = await fetchPsi(primaryUrl, input.device);
   const checks = await runChecks(primaryUrl, html !== null && response ? { html, response } : undefined);
   const insights = generateInsights(psi, checks);

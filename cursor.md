@@ -2,7 +2,7 @@
 
 ## 0) Mission
 Build a fast, conversion-focused SaaS + lead-gen website that helps users:
-1) Scan a URL for performance/SEO issues (PSI/Lighthouse-style).
+1) Scan a URL for performance/SEO issues (Playwright/CWV-style).
 2) Get prioritized fixes with impact/effort + verification steps.
 3) Purchase: (a) one-time manual audit, (b) monthly monitoring subscription.
 
@@ -46,7 +46,7 @@ Secondary goal: SEO traffic via programmatic pages + strong internal linking.
 
 ## 3) Technical Requirements
 ### Scanning
-- Use Google PageSpeed Insights API (PSI).
+- Use a Playwright-based browser scan (no API key).
 - Support mobile/desktop strategy.
 - Persist each scan result with:
   - id, url, strategy, timestamp
@@ -79,7 +79,7 @@ Secondary goal: SEO traffic via programmatic pages + strong internal linking.
 
 ## 4) UX Requirements
 - Simple URL input with validation + normalization
-- Loading state + error state (PSI rate limits, invalid URL)
+- Loading state + error state (scan failures, invalid URL)
 - Report page:
   - headline summary
   - category cards
@@ -106,14 +106,14 @@ Secondary goal: SEO traffic via programmatic pages + strong internal linking.
 ## 6) Security & Safety
 - Never log secrets.
 - Use environment variables:
-  - PSI_API_KEY
+  - CHROME_EXECUTABLE_PATH (optional)
   - STRIPE_SECRET_KEY
   - STRIPE_WEBHOOK_SECRET
   - PUBLIC_SITE_URL
 - Sanitize user input URLs.
 - Basic abuse control:
   - rate limit scan endpoint
-  - block private IP ranges if server fetches URLs directly (PSI doesn't require it, but be safe)
+  - block private IP ranges if server fetches URLs directly
 
 ## 7) Code Quality Bar
 - Prefer server-side rendering where possible.
@@ -127,7 +127,7 @@ Secondary goal: SEO traffic via programmatic pages + strong internal linking.
 ## 8) Execution Plan (Do in Order)
 ### Milestone A — Monetize fast (MVP)
 1) Landing + CTA -> Scan
-2) Server endpoint to call PSI and store scan
+2) Server endpoint to run Playwright scan and store scan
 3) Report page with prioritized fixes + filters
 4) Pricing page + Stripe Checkout (one-time audit)
 5) Success page with instructions + intake form

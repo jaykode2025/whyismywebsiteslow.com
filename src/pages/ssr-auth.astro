@@ -1,0 +1,63 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getUserFromLocalsOrCookies } from "../lib/supabase/server";
+
+const { supabase, user } = await getUserFromLocalsOrCookies(Astro.locals, Astro.cookies);
+let profile: { username?: string | null; full_name?: string | null } | null = null;
+let profileError: string | null = null;
+
+if (user && supabase) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("username,full_name")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) profileError = error.message;
+  else profile = data;
+}
+---
+
+<BaseLayout title="SSR Auth Check">
+  <section class="mx-auto max-w-2xl px-4 py-16 text-slate-100">
+    <h1 class="text-3xl font-semibold">SSR Auth Check</h1>
+    <p class="mt-2 text-sm text-slate-400">
+      This page renders on the server and reads the current Supabase user from cookies.
+    </p>
+
+    {user ? (
+      <div class="mt-8 space-y-3 rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div class="text-sm text-slate-400">Signed in as</div>
+        <div class="text-lg font-semibold">{user.email}</div>
+        <div class="text-sm text-slate-400">User ID</div>
+        <div class="text-sm">{user.id}</div>
+
+        {profile ? (
+          <>
+            <div class="text-sm text-slate-400">Profile</div>
+            <div class="text-sm">
+              {profile.full_name ?? "No full_name"} · {profile.username ?? "No username"}
+            </div>
+          </>
+        ) : null}
+
+        {profileError ? (
+          <div class="text-sm text-amber-300">Profile lookup error: {profileError}</div>
+        ) : null}
+
+        <form class="pt-2" method="post" action="/api/auth/logout">
+          <button class="rounded-xl bg-white/10 px-4 py-2 text-sm hover:bg-white/20" type="submit">
+            Sign out
+          </button>
+        </form>
+      </div>
+    ) : (
+      <div class="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div class="text-sm text-slate-300">No active session.</div>
+        <a class="mt-3 inline-block rounded-xl bg-sky-500/80 px-4 py-2 text-sm text-white" href="/login">
+          Go to login
+        </a>
+      </div>
+    )}
+  </section>
+</BaseLayout>

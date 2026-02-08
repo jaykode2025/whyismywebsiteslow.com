@@ -77,7 +77,7 @@ export function exampleReport(id = "example"): Report {
         whatItMeans: "Font requests delay text rendering on first load.",
         whyItHurts: "Users wait longer before seeing content.",
         howToFix: ["Preload critical fonts", "Use font-display: swap"],
-        verification: ["Check filmstrip timings", "Re-run PSI"],
+        verification: ["Check filmstrip timings", "Re-run the scan"],
       },
       {
         id: "third-party",

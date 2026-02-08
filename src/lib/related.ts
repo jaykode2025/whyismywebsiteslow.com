@@ -1,6 +1,6 @@
-import { PROBLEMS, PLATFORMS, INDUSTRIES, TIER1 } from "../data/pseo";
+import { PROBLEMS, TIER1 } from "../data/pseo";
 
-export const relatedForProblem = slug => {
+export const relatedForProblem = (slug: string) => {
   const p = PROBLEMS.find(x=>x.slug===slug);
   if(!p) return [];
   return [

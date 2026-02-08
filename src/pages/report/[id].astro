@@ -88,20 +88,6 @@ const scoreDrivers = report
     ].filter(Boolean)
   : [];
 
-const crawlSpotlight = report?.crawl.failures?.[0]
-  ? {
-      url: report.crawl.failures[0].url,
-      note: report.crawl.failures[0].reason,
-      tone: "warning",
-    }
-  : report?.crawl.scannedUrls?.[0]
-    ? {
-        url: report.crawl.scannedUrls[0],
-        note: "Primary scan only. Deep per-page metrics require a follow-up crawl.",
-        tone: "info",
-      }
-    : null;
-
 const kscore = report?.kscore;
 const kscoreCategories = kscore ? Object.entries(kscore.categories) : [];
 const seoAnalysis = report?.seoAnalysis;
@@ -125,18 +111,8 @@ const formatPercent = (value?: number) => {
           <p class="mt-2 text-sm text-slate-400">
             {report ? `Created ${new Date(report.createdAt).toLocaleString()}` : "This usually takes under 90 seconds."}
           </p>
-          {report?.psi.source === "mock" ? (
-            <p class="mt-2 text-xs text-amber-200">
-              Using mock data (set PSI_API_KEY for live Lighthouse results).
-            </p>
-          ) : null}
         </div>
       <div class="flex items-center gap-3">
-        {report?.crawl.enabled ? (
-          <Button href={`/compare/${report.id}`} variant="ghost" size="sm" class="border-white/10">
-            Compare pages
-          </Button>
-        ) : null}
         <Button href="/scan" variant="ghost" size="sm" class="border-white/10">
           Run another scan
         </Button>
@@ -219,36 +195,21 @@ const formatPercent = (value?: number) => {
     </section>
   ) : null}
 
-  <section class="mt-6">
-    <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
-      {!user ? (
+  {report && unlocked ? (
+    <section class="mt-6">
+      <div class="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <p class="text-sm text-slate-200">Want to save this report and track scan history?</p>
-            <p class="mt-1 text-xs text-slate-400">Create an account to claim reports and manage projects.</p>
+            <p class="text-sm text-emerald-100">Want to keep this site fast forever?</p>
+            <p class="mt-1 text-xs text-emerald-200/60">Upgrade to Pro for 24/7 monitoring, weekly reports, and instant alerts.</p>
           </div>
-          <Button href="/signup" size="sm" class="rounded-xl">
-            Create account
+          <Button href="/billing" size="sm" class="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-none">
+            Get 24/7 Monitoring — $99/mo
           </Button>
         </div>
-      ) : !planInfo || !isPro(planInfo) ? (
-        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p class="text-sm text-slate-200">Upgrade to Pro for monitoring + deeper scans.</p>
-            <p class="mt-1 text-xs text-slate-400">Weekly scans & alerts coming soon (gated for Pro).</p>
-          </div>
-          <Button href="/billing" size="sm" class="rounded-xl">
-            Upgrade to Pro
-          </Button>
-        </div>
-      ) : (
-        <div class="flex flex-col gap-1">
-          <p class="text-sm text-emerald-100">Pro unlocked.</p>
-          <p class="text-xs text-slate-400">Monitoring features will appear here as they ship.</p>
-        </div>
-      )}
-    </div>
-  </section>
+      </div>
+    </section>
+  ) : null}
 
   {report ? (
     <section class="mt-10 grid gap-6 lg:grid-cols-[0.35fr_0.65fr]">
@@ -337,35 +298,6 @@ const formatPercent = (value?: number) => {
             </div>
           </div>
         </Card>
-        <Card>
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Delivery & headers</p>
-          <div class="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-200">
-            <div>
-              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Compression</p>
-              <p>{report.checks.headers.compression}</p>
-            </div>
-            <div>
-              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Cache</p>
-              <p>{report.checks.headers.cacheControl}</p>
-            </div>
-            <div>
-              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">CDN</p>
-              <p>{report.checks.headers.cdn}</p>
-            </div>
-            <div>
-              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">HTTP</p>
-              <p>{report.checks.headers.httpVersion}</p>
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top bottlenecks</p>
-          <ul class="mt-4 space-y-2 text-sm text-slate-200">
-            {report.summary.topIssues.map((issue) => (
-              <li class="rounded-xl border border-white/10 px-3 py-2">{issue}</li>
-            ))}
-          </ul>
-        </Card>
         <Card id="share">
           <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Share & embed</p>
           <p class="mt-2 text-sm text-slate-300">Use a direct link or embed this report.</p>
@@ -382,7 +314,7 @@ const formatPercent = (value?: number) => {
         <Card>
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Lighthouse categories</p>
+              <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Score categories</p>
               <h2 class="mt-2 text-2xl text-slate-100">Performance breakdown</h2>
               <p class="mt-1 text-xs text-slate-500">Data source: {report.psi.source}{report.psi.message ? ` — ${report.psi.message}` : ""}</p>
             </div>
@@ -401,8 +333,8 @@ const formatPercent = (value?: number) => {
         </Card>
         <Card>
           <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Waterfall summary</p>
-          <h2 class="mt-2 text-2xl text-slate-100">Load timeline (PSI)</h2>
-          <p class="mt-2 text-sm text-slate-400">Estimated milestones based on Lighthouse timings.</p>
+          <h2 class="mt-2 text-2xl text-slate-100">Load timeline (browser)</h2>
+          <p class="mt-2 text-sm text-slate-400">Estimated milestones based on the Lighthouse scan.</p>
           {timeline ? (
             <div class="mt-5 space-y-4">
               <div class="relative h-3 rounded-full bg-white/10">
@@ -610,52 +542,4 @@ const formatPercent = (value?: number) => {
       </Card>
     </section>
   )}
-
-  {report?.crawl.enabled ? (
-    <section class="mt-12">
-      <Card>
-        <h2 class="text-2xl text-slate-100">Crawl summary</h2>
-        <p class="mt-2 text-sm text-slate-400">Scanned {report.crawl.scannedUrls.length} internal pages.</p>
-        {crawlSpotlight ? (
-          <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Spotlight</p>
-            <p class="mt-2 text-sm text-slate-200">{crawlSpotlight.url}</p>
-            <p class="mt-1 text-xs text-slate-400">{crawlSpotlight.note}</p>
-          </div>
-        ) : null}
-        <div class="mt-6 overflow-x-auto rounded-2xl border border-white/10">
-          <table class="w-full min-w-[640px] text-left text-sm text-slate-300">
-            <thead class="bg-white/5 text-xs uppercase tracking-[0.2em] text-slate-500">
-              <tr>
-                <th class="px-4 py-3">URL</th>
-                <th class="px-4 py-3">Performance</th>
-                <th class="px-4 py-3">LCP</th>
-                <th class="px-4 py-3">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.crawl.scannedUrls.map((url, index) => (
-                <tr class="border-t border-white/5">
-                  <td class="px-4 py-3 text-slate-200">{url}</td>
-                  <td class="px-4 py-3">{index === 0 ? Math.round(report.psi.lighthouse.performance * 100) : "-"}</td>
-                  <td class="px-4 py-3">{index === 0 ? formatMs(report.psi.cwv.lcp_ms) : "-"}</td>
-                  <td class="px-4 py-3 text-slate-400">
-                    {index === 0 ? "Primary scan" : "Queued for deeper scan"}
-                  </td>
-                </tr>
-              ))}
-              {report.crawl.failures.map((failure) => (
-                <tr class="border-t border-rose-500/20 bg-rose-500/5">
-                  <td class="px-4 py-3 text-slate-200">{failure.url}</td>
-                  <td class="px-4 py-3">-</td>
-                  <td class="px-4 py-3">-</td>
-                  <td class="px-4 py-3 text-rose-200">Failed: {failure.reason}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </section>
-  ) : null}
 </BaseLayout>

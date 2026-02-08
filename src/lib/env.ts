@@ -1,6 +1,7 @@
 // Vite requires static property access to import.meta.env (no dynamic access)
 export const env = {
-  PSI_API_KEY: () => import.meta.env.PSI_API_KEY,
+  // Optional: set if you have a custom Chrome/Chromium path
+  CHROME_EXECUTABLE_PATH: () => import.meta.env.CHROME_EXECUTABLE_PATH,
 
   SUPABASE_URL: () => import.meta.env.SUPABASE_URL,
   SUPABASE_ANON_KEY: () => import.meta.env.SUPABASE_ANON_KEY,

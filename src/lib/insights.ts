@@ -20,7 +20,7 @@ export function generateInsights(psi: Report["psi"], checks?: Report["checks"]) 
       whatItMeans: "Your main content takes too long to render, hurting perceived speed.",
       whyItHurts: "Slow LCP makes pages feel sluggish and can reduce conversions.",
       howToFix: ["Optimize hero images", "Inline critical CSS", "Reduce server response time"],
-      verification: ["Re-run a PSI scan", "Check LCP in DevTools performance insights"],
+      verification: ["Re-run a scan", "Check LCP in DevTools performance insights"],
     });
   }
 
@@ -50,7 +50,7 @@ export function generateInsights(psi: Report["psi"], checks?: Report["checks"]) 
       whatItMeans: "Content moves around as it loads.",
       whyItHurts: "Unexpected shifts cause mis-clicks and reduce trust.",
       howToFix: ["Reserve space for images", "Avoid injecting banners above content"],
-      verification: ["Check CLS in PSI", "Audit with Web Vitals overlay"],
+      verification: ["Check CLS in the scan", "Audit with Web Vitals overlay"],
     });
   }
 
@@ -80,7 +80,7 @@ export function generateInsights(psi: Report["psi"], checks?: Report["checks"]) 
       whatItMeans: "A lot of JS downloads but never runs.",
       whyItHurts: "Extra JS slows CPU and delays interactivity.",
       howToFix: ["Remove unused libraries", "Code-split routes", "Use lighter alternatives"],
-      verification: ["Check coverage in DevTools", "Re-run PSI and compare"],
+      verification: ["Check coverage in DevTools", "Re-run the scan and compare"],
     });
   }
 
@@ -95,7 +95,7 @@ export function generateInsights(psi: Report["psi"], checks?: Report["checks"]) 
       whatItMeans: "Large CSS payloads are downloaded but not used.",
       whyItHurts: "Extra styles slow rendering and increase transfer size.",
       howToFix: ["Purge unused CSS", "Split CSS by page", "Use utility classes"],
-      verification: ["Inspect CSS coverage", "Re-run PSI"],
+      verification: ["Inspect CSS coverage", "Re-run the scan"],
     });
   }
 
@@ -110,7 +110,7 @@ export function generateInsights(psi: Report["psi"], checks?: Report["checks"]) 
       whatItMeans: "Your page ships more than 3MB of data.",
       whyItHurts: "Large payloads slow load times, especially on mobile.",
       howToFix: ["Compress images", "Serve next-gen formats", "Lazy-load below the fold"],
-      verification: ["Check total byte weight in PSI", "Review network transfer size"],
+      verification: ["Check total byte weight in the scan", "Review network transfer size"],
     });
   }
 
@@ -125,7 +125,7 @@ export function generateInsights(psi: Report["psi"], checks?: Report["checks"]) 
       whatItMeans: "Images are larger than they need to be.",
       whyItHurts: "Unoptimized media increases LCP and bandwidth usage.",
       howToFix: ["Serve WebP/AVIF", "Resize to display dimensions"],
-      verification: ["Compare image sizes", "Re-run PSI"],
+      verification: ["Compare image sizes", "Re-run the scan"],
     });
   }
 
@@ -155,7 +155,7 @@ export function generateInsights(psi: Report["psi"], checks?: Report["checks"]) 
       whatItMeans: "Your server takes a long time to respond.",
       whyItHurts: "Slow TTFB blocks everything else from loading.",
       howToFix: ["Add caching", "Optimize database queries", "Use a CDN"],
-      verification: ["Check server timings", "Re-run PSI with cold cache"],
+      verification: ["Check server timings", "Re-run the scan with cold cache"],
     });
   }
 
@@ -216,7 +216,7 @@ export function generateInsights(psi: Report["psi"], checks?: Report["checks"]) 
         whatItMeans: "HTTP/1.1 limits how many resources load in parallel.",
         whyItHurts: "More connection overhead delays critical resources.",
         howToFix: ["Enable HTTP/2 or HTTP/3 on your origin or CDN"],
-        verification: ["Inspect protocol in DevTools network tab", "Re-run PSI"],
+        verification: ["Inspect protocol in DevTools network tab", "Re-run the scan"],
       });
     }
   }

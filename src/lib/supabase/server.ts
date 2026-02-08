@@ -23,10 +23,9 @@ export function createSupabaseServerClient(cookies: AstroCookies) {
 }
 
 export async function getUserFromLocalsOrCookies(locals: App.Locals, cookies: AstroCookies) {
-  if (!hasSupabaseEnv()) return { supabase: null as const, user: null as const };
+  if (!hasSupabaseEnv()) return { supabase: null, user: null };
   const supabase = locals.supabase ?? createSupabaseServerClient(cookies);
-  if (!supabase) return { supabase: null as const, user: null as const };
+  if (!supabase) return { supabase: null, user: null };
   const { data } = await supabase.auth.getUser();
   return { supabase, user: data?.user ?? null };
 }
-
