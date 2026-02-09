@@ -6,7 +6,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (!hasSupabaseEnv()) return next();
 
   try {
-    const supabase = createSupabaseServerClient(context.cookies);
+    const supabase = createSupabaseServerClient(context.cookies, context.request);
     if (supabase) {
       context.locals.supabase = supabase;
       const { data, error } = await supabase.auth.getUser();
@@ -21,4 +21,3 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   return next();
 });
-

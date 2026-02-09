@@ -36,6 +36,8 @@ export type PlaywrightScanResult = {
 };
 
 export async function runPlaywrightScan(url: string, device: Device): Promise<PlaywrightScanResult> {
+  void url;
+  void device;
   console.warn("Playwright scan called but is currently disabled.");
   
   // Return empty/default results to avoid crashing if called
@@ -63,6 +65,7 @@ export async function runPlaywrightScan(url: string, device: Device): Promise<Pl
 }
 
 export function computePseudoLighthouseScores(m: PlaywrightScanResult["timings"]) {
+  void m;
   return {
     performance: 0,
     accessibility: 0,

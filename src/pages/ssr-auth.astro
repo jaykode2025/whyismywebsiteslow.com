@@ -2,7 +2,11 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { getUserFromLocalsOrCookies } from "../lib/supabase/server";
 
-const { supabase, user } = await getUserFromLocalsOrCookies(Astro.locals, Astro.cookies);
+const { supabase, user } = await getUserFromLocalsOrCookies(
+  Astro.locals,
+  Astro.cookies,
+  Astro.request
+);
 let profile: { username?: string | null; full_name?: string | null } | null = null;
 let profileError: string | null = null;
 

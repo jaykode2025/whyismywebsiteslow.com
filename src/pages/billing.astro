@@ -2,7 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Card from "../components/ui/Card.astro";
 import Button from "../components/ui/Button.astro";
-import { getUserPlan, isPro } from "../lib/plan";
+import { getUserPlan, isPro, type PlanInfo } from "../lib/plan";
 
 const user = Astro.locals.user;
 if (!user) {
@@ -10,7 +10,9 @@ if (!user) {
 }
 
 const supabase = Astro.locals.supabase;
-const planInfo = supabase ? await getUserPlan(supabase, user.id) : { plan: "free", status: "inactive" };
+const planInfo: PlanInfo = supabase
+  ? await getUserPlan(supabase, user.id)
+  : { plan: "free", status: "inactive", currentPeriodEnd: null };
 ---
 
 <BaseLayout title="Billing">

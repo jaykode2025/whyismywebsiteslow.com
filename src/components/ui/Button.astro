@@ -1,19 +1,29 @@
 ---
+type ButtonVariant = "primary" | "ghost" | "dark";
+type ButtonSize = "sm" | "md" | "lg";
+type ButtonType = "button" | "submit" | "reset";
+
 const {
   href,
   type = "button",
   variant = "primary",
   size = "md",
   class: className = "",
-} = Astro.props;
+} = Astro.props as {
+  href?: string;
+  type?: ButtonType;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  class?: string;
+};
 
 const base = "inline-flex items-center justify-center rounded-full font-semibold transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300/60 disabled:pointer-events-none disabled:opacity-60";
-const sizes = {
+const sizes: Record<ButtonSize, string> = {
   sm: "px-4 py-2 text-xs",
   md: "px-5 py-2 text-sm",
   lg: "px-6 py-3 text-sm",
 };
-const variants = {
+const variants: Record<ButtonVariant, string> = {
   primary: "bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 text-slate-950 shadow-lg shadow-sky-500/20 hover:-translate-y-0.5",
   ghost: "border border-white/15 text-slate-200 hover:border-white/30 hover:text-white",
   dark: "bg-slate-900 text-slate-100 hover:bg-slate-800",

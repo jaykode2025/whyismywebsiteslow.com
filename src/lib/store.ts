@@ -14,6 +14,7 @@ function debouncedPersist() {
 }
 
 export function createReportPlaceholder(input: ScanRequest, writeToken: string) {
+  void input;
   const id = generateId();
   const stored: StoredReport = {
     status: "queued",

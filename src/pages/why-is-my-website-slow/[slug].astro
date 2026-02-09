@@ -4,11 +4,12 @@ import { relatedForProblem } from "../../lib/related";
 import RelatedLinks from "../../components/RelatedLinks.astro";
 import { siteUrl, titleCase } from "../../lib/seo";
 
-export function getStaticPaths(){
-  return PROBLEMS.map(p=>({params:{slug:p.slug}}));
-}
+export const prerender = false;
 
 const entry = PROBLEMS.find(p=>p.slug===Astro.params.slug);
+if (!entry) {
+  throw new Error(`Problem not found for slug: ${Astro.params.slug ?? "unknown"}`);
+}
 const related = relatedForProblem(entry.slug);
 ---
 

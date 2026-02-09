@@ -10,15 +10,11 @@ import ShareActions from "../../components/ShareActions.svelte";
 import LockedOverlay from "../../components/LockedOverlay.astro";
 import { loadStoredReport } from "../../lib/reports";
 import { exampleReport } from "../../lib/example";
-import { getUserPlan, isPro } from "../../lib/plan";
 import { isReportUnlocked } from "../../lib/entitlements";
 
 const { id } = Astro.params;
 const stored = id === "example" ? { status: "done", report: exampleReport() } : await loadStoredReport(id ?? "", Astro.locals);
 const report = stored?.report;
-const status = stored?.status ?? "failed";
-const user = Astro.locals.user;
-const planInfo = user && Astro.locals.supabase ? await getUserPlan(Astro.locals.supabase, user.id) : null;
 const unlocked = report ? (report.id === "example" ? true : await isReportUnlocked(report.id, Astro.locals)) : false;
 
 const title = report
@@ -101,7 +97,7 @@ const formatPercent = (value?: number) => {
 ---
 <BaseLayout title={title} description={description} noindex={noindex}>
   {jsonLd ? (
-    <script slot="head" type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+    <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(jsonLd)}</script>
   ) : null}
   <section class="pt-6">
       <div class="flex flex-wrap items-center justify-between gap-4">

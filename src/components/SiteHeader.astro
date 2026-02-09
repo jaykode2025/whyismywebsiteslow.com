@@ -4,8 +4,8 @@ import Button from "./ui/Button.astro";
 const path = Astro.url.pathname;
 const isHome = path === "/";
 const user = Astro.locals.user;
-const isActive = (href) => (href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`));
-const linkClass = (href) =>
+const isActive = (href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`));
+const linkClass = (href: string) =>
   `transition hover:text-slate-100 ${isActive(href) ? "text-slate-100" : "text-slate-300"}`;
 ---
 <header class="flex items-center justify-between py-8">
