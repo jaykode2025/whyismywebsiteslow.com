@@ -6,6 +6,8 @@ dist/
 
 # dependencies
 node_modules/
+.npm-cache/
+.npmrc
 
 # logs
 npm-debug.log*
@@ -27,3 +29,6 @@ pnpm-debug.log*
 
 # archives
 *.zip
+
+# exclude duplicate project directory
+myapp/

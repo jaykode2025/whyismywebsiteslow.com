@@ -26,5 +26,6 @@
   "tailwindCSS.lint.usedBlocklistedClass": "warning",
   "tailwindCSS.lint.suggestCanonicalClasses": "warning",
   "tailwindCSS.inspectPort": null,
-  "tailwindCSS.experimental.configFile": null
+  "tailwindCSS.experimental.configFile": null,
+  "editor.aiStats.enabled": true
 }

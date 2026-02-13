@@ -2,7 +2,30 @@ import { defineMiddleware } from "astro/middleware";
 import { createSupabaseServerClient } from "./lib/supabase/server";
 import { hasSupabaseEnv } from "./lib/env";
 
+const CANONICAL_HOST = "whyismywebsiteslow.com";
+const REDIRECT_HOSTS = new Set([
+  "whyismywebsiteslow.org",
+  "www.whyismywebsiteslow.org",
+  "www.whyismywebsiteslow.com",
+]);
+
+function redirectToCanonicalHost(request: Request) {
+  const url = new URL(request.url);
+  const host = url.hostname.toLowerCase();
+
+  // Keep localhost and preview deployments accessible.
+  if (host === "localhost" || host.endsWith(".vercel.app")) return null;
+  if (!REDIRECT_HOSTS.has(host)) return null;
+
+  url.protocol = "https:";
+  url.hostname = CANONICAL_HOST;
+  return Response.redirect(url, 308);
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
+  const redirect = redirectToCanonicalHost(context.request);
+  if (redirect) return redirect;
+
   if (!hasSupabaseEnv()) return next();
 
   try {
