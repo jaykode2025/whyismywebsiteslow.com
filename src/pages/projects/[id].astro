@@ -2,6 +2,7 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Card from "../../components/ui/Card.astro";
 import Button from "../../components/ui/Button.astro";
+import { createSupabaseAdminClient } from "../../lib/supabase/admin";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect(`/login?next=${encodeURIComponent(Astro.url.pathname)}`);
@@ -14,10 +15,13 @@ if (!project) {
   return new Response("Not found", { status: 404 });
 }
 
-const { data: scans } = await supabase
+const admin = createSupabaseAdminClient();
+const scansClient = admin ?? supabase;
+const { data: scans } = await scansClient
   .from("scans")
   .select("id,status,device,visibility,created_at,summary_json,error")
   .eq("project_id", projectId)
+  .eq("user_id", user.id)
   .order("created_at", { ascending: false })
   .limit(50);
 ---
@@ -64,4 +68,3 @@ const { data: scans } = await supabase
     </Card>
   </section>
 </BaseLayout>
-

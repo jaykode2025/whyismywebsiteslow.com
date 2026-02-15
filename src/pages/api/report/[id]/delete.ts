@@ -13,30 +13,33 @@ export const POST: APIRoute = async (context) => {
   const body = await context.request.json().catch(() => ({}));
   const { manageToken: token } = body as DeleteRequestBody;
 
-  if (hasSupabaseEnv() && context.locals.supabase) {
-    // If owner is logged in, allow delete via RLS policy.
+  if (hasSupabaseEnv()) {
+    const admin = createSupabaseAdminClient();
+    if (!admin) {
+      return new Response(JSON.stringify({ error: "SUPABASE_SERVICE_ROLE_KEY not set" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     if (context.locals.user) {
-      const { data: deleted, error } = await context.locals.supabase.from("scans").delete().eq("id", id).select("id");
-      if (!error && (deleted?.length ?? 0) > 0) {
+      const { data: deleted, error: ownerDeleteError } = await admin
+        .from("scans")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", context.locals.user.id)
+        .select("id");
+      if (!ownerDeleteError && (deleted?.length ?? 0) > 0) {
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
       }
-      // Fall through to token-based delete for non-owners.
     }
 
     if (!token) {
       return new Response(JSON.stringify({ error: "Missing manage token" }), {
         status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    const admin = createSupabaseAdminClient();
-    if (!admin) {
-      return new Response(JSON.stringify({ error: "SUPABASE_SERVICE_ROLE_KEY not set" }), {
-        status: 500,
         headers: { "Content-Type": "application/json" },
       });
     }

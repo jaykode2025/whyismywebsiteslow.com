@@ -1,6 +1,7 @@
 import type { Report, StoredReport } from "./types";
 import { getReport, listReports } from "./store";
 import { hasSupabaseEnv } from "./env";
+import { createSupabaseAdminClient } from "./supabase/admin";
 
 function stripManage(report: Report): Report {
   // Avoid leaking manage token hash into HTML/JSON unintentionally.
@@ -9,15 +10,17 @@ function stripManage(report: Report): Report {
 }
 
 export async function loadStoredReport(id: string, locals: App.Locals): Promise<StoredReport | undefined> {
-  if (!hasSupabaseEnv() || !locals.supabase) return getReport(id);
+  const readClient = createSupabaseAdminClient() ?? locals.supabase;
+  if (!hasSupabaseEnv() || !readClient) return getReport(id);
 
-  const { data, error } = await locals.supabase
+  const { data, error } = await readClient
     .from("scans")
     .select("status,error,report_json")
     .eq("id", id)
     .maybeSingle();
 
-  if (error || !data) return undefined;
+  if (error) return getReport(id);
+  if (!data) return undefined;
   if (data.status !== "done" || !data.report_json) {
     return { status: data.status as StoredReport["status"], error: data.error ?? undefined };
   }
@@ -26,15 +29,17 @@ export async function loadStoredReport(id: string, locals: App.Locals): Promise<
 }
 
 export async function listPublicReports(locals: App.Locals): Promise<Map<string, StoredReport>> {
-  if (!hasSupabaseEnv() || !locals.supabase) return listReports();
+  const readClient = createSupabaseAdminClient() ?? locals.supabase;
+  if (!hasSupabaseEnv() || !readClient) return listReports();
 
-  const { data } = await locals.supabase
+  const { data, error } = await readClient
     .from("scans")
     .select("id,status,error,report_json,visibility")
     .eq("visibility", "public")
     .eq("status", "done")
     .order("created_at", { ascending: false })
     .limit(1000);
+  if (error) return listReports();
 
   const map = new Map<string, StoredReport>();
   for (const row of data ?? []) {
@@ -46,4 +51,3 @@ export async function listPublicReports(locals: App.Locals): Promise<Map<string,
   }
   return map;
 }
-

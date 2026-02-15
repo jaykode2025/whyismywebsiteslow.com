@@ -63,7 +63,7 @@ const timeline = report
 const timelineMax = timeline ? Math.max(timeline.ttfb, timeline.fcp, timeline.lcp, 1) : 1;
 const timelinePct = (value: number) => Math.min(100, (value / timelineMax) * 100);
 
-const groupedInsights = report
+const groupedInsights = report && unlocked
   ? Object.entries(
       report.insights.reduce((acc, insight) => {
         const key = insight.category;
@@ -382,42 +382,50 @@ const formatPercent = (value?: number) => {
               <div>
                 <p class="text-xs uppercase tracking-[0.2em] text-slate-500">SEO analysis</p>
                 <h2 class="mt-2 text-2xl text-slate-100">Content health</h2>
-                <p class="mt-1 text-xs text-slate-500">Score: {seoAnalysis.score}/100</p>
+                <p class="mt-1 text-xs text-slate-500">
+                  {unlocked ? `Score: ${seoAnalysis.score}/100` : "Unlock to view full SEO score and recommendations."}
+                </p>
               </div>
             </div>
-            <div class={unlocked ? "mt-4 space-y-4" : "mt-4 space-y-4 blur-sm pointer-events-none select-none"}>
-              <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
-                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Primary keyword</p>
-                <p class="mt-2">{seoAnalysis.keywordAnalysis.primaryKeyword ?? "Not provided"}</p>
-                <p class="mt-1 text-xs text-slate-400">Density: {formatPercent(seoAnalysis.keywordAnalysis.density)}</p>
-              </div>
-              <div class="grid gap-3 text-sm text-slate-200 md:grid-cols-2">
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Title</p>
-                  <p class="mt-2">{seoAnalysis.meta.title ?? "Missing"}</p>
+            {unlocked ? (
+              <div class="mt-4 space-y-4">
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Primary keyword</p>
+                  <p class="mt-2">{seoAnalysis.keywordAnalysis.primaryKeyword ?? "Not provided"}</p>
+                  <p class="mt-1 text-xs text-slate-400">Density: {formatPercent(seoAnalysis.keywordAnalysis.density)}</p>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Meta description</p>
-                  <p class="mt-2">{seoAnalysis.meta.description ?? "Missing"}</p>
+                <div class="grid gap-3 text-sm text-slate-200 md:grid-cols-2">
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Title</p>
+                    <p class="mt-2">{seoAnalysis.meta.title ?? "Missing"}</p>
+                  </div>
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Meta description</p>
+                    <p class="mt-2">{seoAnalysis.meta.description ?? "Missing"}</p>
+                  </div>
+                </div>
+                <div>
+                  <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top recommendations</p>
+                  <ul class="mt-3 space-y-2 text-sm text-slate-200">
+                    {seoAnalysis.recommendations.slice(0, 3).map((rec) => (
+                      <li class={`rounded-xl border border-white/10 px-3 py-2`}>
+                        <p class="text-slate-100">{rec.issue}</p>
+                        <p class="text-xs text-slate-400">{rec.recommendation}</p>
+                      </li>
+                    ))}
+                    {seoAnalysis.recommendations.length === 0 ? (
+                      <li class="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-emerald-100">
+                        No major SEO issues detected.
+                      </li>
+                    ) : null}
+                  </ul>
                 </div>
               </div>
-              <div>
-                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top recommendations</p>
-                <ul class="mt-3 space-y-2 text-sm text-slate-200">
-                  {seoAnalysis.recommendations.slice(0, 3).map((rec) => (
-                    <li class={`rounded-xl border border-white/10 px-3 py-2`}>
-                      <p class="text-slate-100">{rec.issue}</p>
-                      <p class="text-xs text-slate-400">{rec.recommendation}</p>
-                    </li>
-                  ))}
-                  {seoAnalysis.recommendations.length === 0 ? (
-                    <li class="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-emerald-100">
-                      No major SEO issues detected.
-                    </li>
-                  ) : null}
-                </ul>
+            ) : (
+              <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                Unlock to reveal keyword density, metadata gaps, and ranked SEO fixes.
               </div>
-            </div>
+            )}
             {!unlocked ? (
               <LockedOverlay
                 reportId={report.id}
@@ -434,42 +442,50 @@ const formatPercent = (value?: number) => {
               <div>
                 <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Image audit</p>
                 <h2 class="mt-2 text-2xl text-slate-100">Image optimization</h2>
-                <p class="mt-1 text-xs text-slate-500">Score: {imageAudit.score}/100</p>
+                <p class="mt-1 text-xs text-slate-500">
+                  {unlocked ? `Score: ${imageAudit.score}/100` : "Unlock to view full image optimization analysis."}
+                </p>
               </div>
             </div>
-            <div class={unlocked ? "mt-4 space-y-4" : "mt-4 space-y-4 blur-sm pointer-events-none select-none"}>
-              <div class="grid gap-3 text-sm text-slate-200 md:grid-cols-3">
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Total images</p>
-                  <p class="mt-2">{imageAudit.totalImages}</p>
+            {unlocked ? (
+              <div class="mt-4 space-y-4">
+                <div class="grid gap-3 text-sm text-slate-200 md:grid-cols-3">
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Total images</p>
+                    <p class="mt-2">{imageAudit.totalImages}</p>
+                  </div>
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Savings</p>
+                    <p class="mt-2">{formatBytes(imageAudit.potentialSavings)}</p>
+                  </div>
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Missing alt</p>
+                    <p class="mt-2">{imageAudit.issues.missingAlt}</p>
+                  </div>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Savings</p>
-                  <p class="mt-2">{formatBytes(imageAudit.potentialSavings)}</p>
-                </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Missing alt</p>
-                  <p class="mt-2">{imageAudit.issues.missingAlt}</p>
+                <div>
+                  <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top recommendations</p>
+                  <ul class="mt-3 space-y-2 text-sm text-slate-200">
+                    {imageAudit.recommendations.slice(0, 3).map((rec) => (
+                      <li class="rounded-xl border border-white/10 px-3 py-2">
+                        <p class="text-slate-100">{rec.issue}</p>
+                        <p class="text-xs text-slate-400">{rec.recommendation}</p>
+                        <p class="mt-1 text-[11px] text-slate-500">{rec.impact}</p>
+                      </li>
+                    ))}
+                    {imageAudit.recommendations.length === 0 ? (
+                      <li class="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-emerald-100">
+                        Images look optimized.
+                      </li>
+                    ) : null}
+                  </ul>
                 </div>
               </div>
-              <div>
-                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top recommendations</p>
-                <ul class="mt-3 space-y-2 text-sm text-slate-200">
-                  {imageAudit.recommendations.slice(0, 3).map((rec) => (
-                    <li class="rounded-xl border border-white/10 px-3 py-2">
-                      <p class="text-slate-100">{rec.issue}</p>
-                      <p class="text-xs text-slate-400">{rec.recommendation}</p>
-                      <p class="mt-1 text-[11px] text-slate-500">{rec.impact}</p>
-                    </li>
-                  ))}
-                  {imageAudit.recommendations.length === 0 ? (
-                    <li class="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-emerald-100">
-                      Images look optimized.
-                    </li>
-                  ) : null}
-                </ul>
+            ) : (
+              <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                Unlock to see image-level savings, missing alt details, and priority fixes.
               </div>
-            </div>
+            )}
             {!unlocked ? (
               <LockedOverlay
                 reportId={report.id}
@@ -484,9 +500,13 @@ const formatPercent = (value?: number) => {
           <h2 class="text-2xl text-slate-100">Prioritized fixes</h2>
           <p class="mt-2 text-sm text-slate-400">Filter by severity or category to focus on quick wins.</p>
           <div class="relative mt-6">
-            <div class={unlocked ? "" : "blur-sm pointer-events-none select-none"}>
+            {unlocked ? (
               <ReportFilters client:load insights={report.insights} />
-            </div>
+            ) : (
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                Unlock to filter and prioritize the full fix list.
+              </div>
+            )}
             {!unlocked ? (
               <LockedOverlay reportId={report.id} />
             ) : null}
@@ -496,30 +516,36 @@ const formatPercent = (value?: number) => {
           <h2 class="text-2xl text-slate-100">Fix checklist</h2>
           <p class="mt-2 text-sm text-slate-400">Grouped by category so you can assign work faster.</p>
           <div class="relative mt-6">
-            <div class={unlocked ? "space-y-4" : "space-y-4 blur-sm pointer-events-none select-none"}>
-              {groupedInsights.length === 0 ? (
-                <p class="text-sm text-slate-400">No fixes detected yet.</p>
-              ) : (
-                groupedInsights.map(([category, items]) => (
-                  <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p class="text-xs uppercase tracking-[0.2em] text-slate-500">{category.replace(/-/g, " ")}</p>
-                    <ul class="mt-3 space-y-3 text-sm text-slate-200">
-                      {items.map((insight) => (
-                        <li class="flex gap-3">
-                          <span class="mt-1 h-4 w-4 rounded-md border border-white/10 bg-white/5"></span>
-                          <div>
-                            <p class="text-slate-100">{insight.title}</p>
-                            <p class="text-xs text-slate-400">
-                              {insight.howToFix[0] ?? "Review audit details"}
-                            </p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))
-              )}
-            </div>
+            {unlocked ? (
+              <div class="space-y-4">
+                {groupedInsights.length === 0 ? (
+                  <p class="text-sm text-slate-400">No fixes detected yet.</p>
+                ) : (
+                  groupedInsights.map(([category, items]) => (
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p class="text-xs uppercase tracking-[0.2em] text-slate-500">{category.replace(/-/g, " ")}</p>
+                      <ul class="mt-3 space-y-3 text-sm text-slate-200">
+                        {items.map((insight) => (
+                          <li class="flex gap-3">
+                            <span class="mt-1 h-4 w-4 rounded-md border border-white/10 bg-white/5"></span>
+                            <div>
+                              <p class="text-slate-100">{insight.title}</p>
+                              <p class="text-xs text-slate-400">
+                                {insight.howToFix[0] ?? "Review audit details"}
+                              </p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                Unlock to see the full dev-ready checklist and category breakdown.
+              </div>
+            )}
             {!unlocked ? (
               <LockedOverlay reportId={report.id} />
             ) : null}

@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { hasSupabaseEnv } from "./env";
+import { createSupabaseAdminClient } from "./supabase/admin";
 
 type Entitlement = {
   report_id: string;
@@ -52,8 +53,9 @@ function persistLocal(map: Map<string, Entitlement>) {
 
 export async function isReportUnlocked(reportId: string, locals: App.Locals) {
   if (!reportId) return false;
-  if (hasSupabaseEnv() && locals.supabase) {
-    const { data } = await locals.supabase
+  const readClient = createSupabaseAdminClient() ?? locals.supabase;
+  if (hasSupabaseEnv() && readClient) {
+    const { data } = await readClient
       .from("report_entitlements")
       .select("unlocked")
       .eq("report_id", reportId)

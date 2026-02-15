@@ -57,6 +57,7 @@ export async function saveLead(lead: Lead) {
       report_url: lead.reportUrl ?? null,
     });
     if (!error) return { ok: true, stored: "supabase" as const };
+    console.error("Failed to persist lead in Supabase:", error.message);
   }
 
   try {
