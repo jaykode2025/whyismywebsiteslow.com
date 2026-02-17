@@ -1,4 +1,5 @@
 ---
+import BaseLayout from "../../layouts/BaseLayout.astro";
 import { PROBLEMS, TIER1 } from "../../data/pseo";
 import { relatedForProblem } from "../../lib/related";
 import RelatedLinks from "../../components/RelatedLinks.astro";
@@ -15,13 +16,13 @@ const related = relatedForProblem(entry.slug);
 const breadcrumbSchema = breadcrumb([
   { name: "Home", item: "/" },
   { name: "SEO Issues", item: "/why-is-my-website-slow/" },
-  { name: entry.keyword }
+  { name: entry.h1 }
 ]);
 const faqSchema = faq(entry.faqs);
 const articleSchemaData = articleSchema(
   entry.h1,
   entry.metaDescription,
-  "Why Is My Website Slow",
+  entry.h1,
   new Date().toISOString(),
   new Date().toISOString()
 );
@@ -31,134 +32,110 @@ const allContent = `${entry.primaryCause} ${entry.quickWins.join(" ")} ${entry.d
 const keywordDensity = calculateKeywordDensity(allContent, entry.keyword);
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>{entry.h1}</title>
-  <meta name="description" content={entry.metaDescription} />
-  <meta name="keywords" content={entry.keyword} />
-  <link rel="canonical" href={siteUrl(`/why-is-my-website-slow/${entry.slug}/`)} />
-  
-  <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
-  <script type="application/ld+json">{JSON.stringify(faqSchema)}</script>
-  <script type="application/ld+json">{JSON.stringify(articleSchemaData)}</script>
-  <script type="application/ld+json">{JSON.stringify(orgSchema)}</script>
-  
-  <meta property="og:title" content={entry.h1} />
-  <meta property="og:description" content={entry.metaDescription} />
-  <meta property="og:type" content="article" />
-  <meta property="og:url" content={siteUrl(`/why-is-my-website-slow/${entry.slug}/`)} />
-  
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content={entry.h1} />
-  <meta name="twitter:description" content={entry.metaDescription} />
-</head>
-<body>
-  <header>
-    <nav aria-label="Breadcrumb">
-      <ol itemscope itemtype="https://schema.org/BreadcrumbList">
-        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-          <a href="/" itemprop="item"><span itemprop="name">Home</span></a>
-          <meta itemprop="position" content="1" />
-        </li>
-        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-          <a href="/why-is-my-website-slow/" itemprop="item"><span itemprop="name">SEO Issues</span></a>
-          <meta itemprop="position" content="2" />
-        </li>
-        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-          <span itemprop="name">{entry.keyword}</span>
-          <meta itemprop="position" content="3" />
-        </li>
-      </ol>
-    </nav>
-  </header>
+<BaseLayout title={entry.h1} description={entry.metaDescription} canonical={siteUrl(`/why-is-my-website-slow/${entry.slug}/`)}>
+  <nav aria-label="Breadcrumb" class="py-6">
+    <ol itemscope itemtype="https://schema.org/BreadcrumbList" class="flex gap-2 text-sm text-slate-400">
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a href="/" itemprop="item" class="text-sky-400 hover:underline"><span itemprop="name">Home</span></a>
+        <meta itemprop="position" content="1" />
+      </li>
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="mx-2">/</span>
+        <a href="/why-is-my-website-slow/" itemprop="item" class="text-sky-400 hover:underline"><span itemprop="name">SEO Issues</span></a>
+        <meta itemprop="position" content="2" />
+      </li>
+      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <span class="mx-2">/</span>
+        <span itemprop="name" class="text-slate-300">{entry.h1}</span>
+        <meta itemprop="position" content="3" />
+      </li>
+    </ol>
+  </nav>
 
-  <main>
-    <article>
-      <header>
-        <h1>{entry.h1}</h1>
-        <p class="meta-description">{entry.metaDescription}</p>
-      </header>
+  <article class="prose prose-invert prose-slate max-w-4xl mx-auto">
+    <header class="mb-8">
+      <h1 class="text-4xl font-bold text-slate-100 mb-4">{entry.h1}</h1>
+      <p class="text-lg text-slate-400">{entry.metaDescription}</p>
+    </header>
 
-      <section>
-        <h2>Primary Cause</h2>
-        <p>{entry.primaryCause}</p>
-      </section>
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Primary Cause</h2>
+      <p class="text-slate-300">{entry.primaryCause}</p>
+    </section>
 
-      <section>
-        <h2>Detailed Analysis</h2>
-        <ul>
-          {entry.detailedAnalysis.map((paragraph) => <li>{paragraph}</li>)}
-        </ul>
-      </section>
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Quick Wins</h2>
+      <ul class="space-y-2">
+        {entry.quickWins.map((win) => <li class="text-slate-300">✓ {win}</li>)}
+      </ul>
+    </section>
 
-      <section>
-        <h2>Quick Wins</h2>
-        <ul>
-          {entry.quickWins.map((win) => <li>{win}</li>)}
-        </ul>
-      </section>
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Detailed Analysis</h2>
+      <div class="space-y-3">
+        {entry.detailedAnalysis.map((paragraph) => <p class="text-slate-300">{paragraph}</p>)}
+      </div>
+    </section>
 
-      <section>
-        <h2>Step-by-Step Solutions</h2>
-        {entry.solutions.map((solution) => (
-          <div class="solution">
-            <h3>{solution.title}</h3>
-            <p>{solution.description}</p>
-            <h4>Steps:</h4>
-            <ol>
-              {solution.steps.map((step) => <li>{step}</li>)}
-            </ol>
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Step-by-Step Solutions</h2>
+      {entry.solutions.map((solution) => (
+        <div class="bg-white/5 rounded-xl p-6 mb-4 border border-white/10">
+          <h3 class="text-xl font-semibold text-slate-100 mb-2">{solution.title}</h3>
+          <p class="text-slate-400 mb-4">{solution.description}</p>
+          <ol class="list-decimal list-inside space-y-2 text-slate-300">
+            {solution.steps.map((step) => <li>{step}</li>)}
+          </ol>
+        </div>
+      ))}
+    </section>
+
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Statistics &amp; Impact</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {entry.statistics.map((stat) => (
+          <div class="bg-gradient-to-br from-sky-500/10 to-violet-500/10 rounded-xl p-6 border border-white/10">
+            <div class="text-3xl font-bold text-sky-400">{stat.value}</div>
+            <p class="text-sm text-slate-400 mt-2">{stat.label}</p>
           </div>
         ))}
-      </section>
+      </div>
+    </section>
 
-      <section>
-        <h2>Statistics & Impact</h2>
-        <div class="stats-grid">
-          {entry.statistics.map((stat) => (
-            <div class="stat-card">
-              <strong>{stat.value}</strong>
-              <p>{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Frequently Asked Questions</h2>
+      <dl class="space-y-4">
+        {entry.faqs.map((faqItem) => (
+          <div class="bg-white/5 rounded-xl p-6 border border-white/10">
+            <dt class="text-lg font-semibold text-slate-100 mb-2">{faqItem.question}</dt>
+            <dd class="text-slate-300">{faqItem.answer}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
 
-      <section>
-        <h2>Frequently Asked Questions</h2>
-        <dl class="faq-section">
-          {entry.faqs.map((faqItem) => (
-            <>
-              <dt>{faqItem.question}</dt>
-              <dd>{faqItem.answer}</dd>
-            </>
-          ))}
-        </dl>
-      </section>
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold text-slate-100 mb-3">External Resources</h2>
+      <ul class="space-y-2">
+        {entry.outboundLinks.map((link) => (
+          <li class="text-slate-300">
+            <a href={link.url} target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">
+              {link.label} ↗
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
 
-      <section>
-        <h2>External Resources</h2>
-        <ul>
-          {entry.outboundLinks.map((link) => (
-            <li><a href={link.url} target="_blank" rel="noopener noreferrer">{link.label}</a></li>
-          ))}
-        </ul>
-      </section>
-    </article>
-
-    <aside>
-      <h2>Ready to Improve Your Site Speed?</h2>
-      <p>{entry.conversionImpact}</p>
-      <a href={TIER1.audit} class="cta-button">Get Your Free Website Speed Audit</a>
+    <aside class="bg-gradient-to-r from-sky-500/20 to-violet-500/20 rounded-2xl p-8 border border-white/10 my-8">
+      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Ready to Improve Your Site Speed?</h2>
+      <p class="text-slate-300 mb-6">{entry.conversionImpact}</p>
+      <a href={TIER1.audit} class="inline-block bg-sky-500 hover:bg-sky-400 text-white font-semibold px-6 py-3 rounded-xl transition-colors">
+        Get Your Free Website Speed Audit →
+      </a>
     </aside>
-  </main>
+  </article>
 
   <RelatedLinks items={related} />
-
-  <footer>
-    <p>Page generated with {keywordDensity}% keyword density for "{entry.keyword}"</p>
-  </footer>
-</body>
+</BaseLayout>
 </html>
