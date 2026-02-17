@@ -10,6 +10,7 @@ export const env = {
   STRIPE_SECRET_KEY: () => import.meta.env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET: () => import.meta.env.STRIPE_WEBHOOK_SECRET,
   STRIPE_PRICE_PRO: () => import.meta.env.STRIPE_PRICE_PRO,
+  STRIPE_PRICE_PRO_YEARLY: () => import.meta.env.STRIPE_PRICE_PRO_YEARLY,
   STRIPE_PRICE_AGENCY: () => import.meta.env.STRIPE_PRICE_AGENCY,
   STRIPE_PRICE_REPORT_UNLOCK: () => import.meta.env.STRIPE_PRICE_REPORT_UNLOCK,
 

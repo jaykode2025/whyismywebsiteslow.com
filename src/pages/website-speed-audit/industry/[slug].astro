@@ -14,7 +14,7 @@ const relatedProblems = PROBLEMS.filter((problem) => problem.industry === indust
 const breadcrumbSchema = breadcrumb([
   { name: "Home", item: "/" },
   { name: "Website Speed Audit", item: "/website-speed-audit/" },
-  { name: industry.industry, item: `/website-speed-audit/${industry.slug}/` }
+  { name: industry.industry, item: `/website-speed-audit/${industry.industry}/` }
 ]);
 const orgSchema = organizationSchema();
 

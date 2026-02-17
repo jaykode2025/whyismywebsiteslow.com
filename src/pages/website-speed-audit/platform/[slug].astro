@@ -14,7 +14,7 @@ const relatedProblems = PROBLEMS.filter((problem) => problem.platform === platfo
 const breadcrumbSchema = breadcrumb([
   { name: "Home", item: "/" },
   { name: "Website Speed Audit", item: "/website-speed-audit/" },
-  { name: platform.platform, item: `/website-speed-audit/${platform.slug}/` }
+  { name: platform.platform, item: `/website-speed-audit/${platform.platform}/` }
 ]);
 const orgSchema = organizationSchema();
 
@@ -29,7 +29,7 @@ const keywordDensity = calculateKeywordDensity(allContent, platform.keyword);
   <title>{platform.keyword}</title>
   <meta name="description" content={`Comprehensive speed audit for ${platform.platform} websites. Identify performance bottlenecks and optimize your ${platform.platform} site for better user experience and search rankings.`} />
   <meta name="keywords" content={platform.keyword} />
-  <link rel="canonical" href={siteUrl(`/website-speed-audit/${platform.slug}/`)} />
+  <link rel="canonical" href={siteUrl(`/website-speed-audit/${platform.platform}/`)} />
   
   <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
   <script type="application/ld+json">{JSON.stringify(orgSchema)}</script>
@@ -37,7 +37,7 @@ const keywordDensity = calculateKeywordDensity(allContent, platform.keyword);
   <meta property="og:title" content={platform.keyword} />
   <meta property="og:description" content={`Comprehensive speed audit for ${platform.platform} websites. Identify performance bottlenecks and optimize your ${platform.platform} site for better user experience and search rankings.`} />
   <meta property="og:type" content="article" />
-  <meta property="og:url" content={siteUrl(`/website-speed-audit/${platform.slug}/`)} />
+  <meta property="og:url" content={siteUrl(`/website-speed-audit/${platform.platform}/`)} />
 </head>
 <body>
   <header>
