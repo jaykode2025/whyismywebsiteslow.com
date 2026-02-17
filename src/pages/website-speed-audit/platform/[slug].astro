@@ -1,12 +1,12 @@
 ---
-import { PLATFORMS, PROBLEMS, TIER1 } from "../../data/pseo";
-import { siteUrl, breadcrumb, organizationSchema, calculateKeywordDensity } from "../../lib/seo";
+import { PLATFORMS, PROBLEMS, TIER1 } from "../../../data/pseo";
+import { siteUrl, breadcrumb, organizationSchema, calculateKeywordDensity } from "../../../lib/seo";
 
 export const prerender = false;
 
-const platform = PLATFORMS.find((p) => p.platform === Astro.params.platform);
+const platform = PLATFORMS.find((p) => p.platform === Astro.params.slug);
 if (!platform) {
-  throw new Error(`Platform not found for: ${Astro.params.platform ?? "unknown"}`);
+  throw new Error(`Platform not found for: ${Astro.params.slug ?? "unknown"}`);
 }
 
 const relatedProblems = PROBLEMS.filter((problem) => problem.platform === platform.platform).slice(0, 6);
@@ -14,7 +14,7 @@ const relatedProblems = PROBLEMS.filter((problem) => problem.platform === platfo
 const breadcrumbSchema = breadcrumb([
   { name: "Home", item: "/" },
   { name: "Website Speed Audit", item: "/website-speed-audit/" },
-  { name: platform.platform }
+  { name: platform.platform, item: `/website-speed-audit/${platform.slug}/` }
 ]);
 const orgSchema = organizationSchema();
 
@@ -29,7 +29,7 @@ const keywordDensity = calculateKeywordDensity(allContent, platform.keyword);
   <title>{platform.keyword}</title>
   <meta name="description" content={`Comprehensive speed audit for ${platform.platform} websites. Identify performance bottlenecks and optimize your ${platform.platform} site for better user experience and search rankings.`} />
   <meta name="keywords" content={platform.keyword} />
-  <link rel="canonical" href={siteUrl(`/website-speed-audit/${platform.platform}/`)} />
+  <link rel="canonical" href={siteUrl(`/website-speed-audit/${platform.slug}/`)} />
   
   <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
   <script type="application/ld+json">{JSON.stringify(orgSchema)}</script>
@@ -37,7 +37,7 @@ const keywordDensity = calculateKeywordDensity(allContent, platform.keyword);
   <meta property="og:title" content={platform.keyword} />
   <meta property="og:description" content={`Comprehensive speed audit for ${platform.platform} websites. Identify performance bottlenecks and optimize your ${platform.platform} site for better user experience and search rankings.`} />
   <meta property="og:type" content="article" />
-  <meta property="og:url" content={siteUrl(`/website-speed-audit/${platform.platform}/`)} />
+  <meta property="og:url" content={siteUrl(`/website-speed-audit/${platform.slug}/`)} />
 </head>
 <body>
   <header>

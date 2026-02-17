@@ -1,12 +1,12 @@
 ---
-import { INDUSTRIES, PROBLEMS, TIER1 } from "../../data/pseo";
-import { siteUrl, breadcrumb, organizationSchema, calculateKeywordDensity } from "../../lib/seo";
+import { INDUSTRIES, PROBLEMS, TIER1 } from "../../../data/pseo";
+import { siteUrl, breadcrumb, organizationSchema, calculateKeywordDensity } from "../../../lib/seo";
 
 export const prerender = false;
 
-const industry = INDUSTRIES.find((i) => i.industry === Astro.params.industry);
+const industry = INDUSTRIES.find((i) => i.industry === Astro.params.slug);
 if (!industry) {
-  throw new Error(`Industry not found for: ${Astro.params.industry ?? "unknown"}`);
+  throw new Error(`Industry not found for: ${Astro.params.slug ?? "unknown"}`);
 }
 
 const relatedProblems = PROBLEMS.filter((problem) => problem.industry === industry.industry).slice(0, 6);
@@ -14,7 +14,7 @@ const relatedProblems = PROBLEMS.filter((problem) => problem.industry === indust
 const breadcrumbSchema = breadcrumb([
   { name: "Home", item: "/" },
   { name: "Website Speed Audit", item: "/website-speed-audit/" },
-  { name: industry.industry }
+  { name: industry.industry, item: `/website-speed-audit/${industry.slug}/` }
 ]);
 const orgSchema = organizationSchema();
 
