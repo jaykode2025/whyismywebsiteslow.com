@@ -11,6 +11,7 @@ export const env = {
   STRIPE_WEBHOOK_SECRET: () => import.meta.env.STRIPE_WEBHOOK_SECRET,
   STRIPE_PRICE_PRO: () => import.meta.env.STRIPE_PRICE_PRO,
   STRIPE_PRICE_AGENCY: () => import.meta.env.STRIPE_PRICE_AGENCY,
+  STRIPE_PRICE_REPORT_UNLOCK: () => import.meta.env.STRIPE_PRICE_REPORT_UNLOCK,
 
   QSTASH_TOKEN: () => import.meta.env.QSTASH_TOKEN,
   APP_BASE_URL: () => import.meta.env.APP_BASE_URL,

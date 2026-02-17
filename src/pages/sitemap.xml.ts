@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { listPublicReports } from "../lib/reports";
+import { getSitemapUrls } from "../lib/sitemap";
 
 const staticRoutes = [
   "/",
@@ -16,9 +17,14 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const reportsMap = await listPublicReports(locals);
   const reports = Array.from(reportsMap.values()).flatMap((entry) => (entry.status === "done" && entry.report ? [entry.report] : []));
 
+  const seoUrls = getSitemapUrls();
   const urls = [
     ...staticRoutes.map((path) => ({
       loc: `${base}${path}`,
+      lastmod: new Date().toISOString(),
+    })),
+    ...seoUrls.map(url => ({
+      loc: `${base}${url.url}`,
       lastmod: new Date().toISOString(),
     })),
     ...reports.map((report) => ({

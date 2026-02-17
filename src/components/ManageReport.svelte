@@ -1,4 +1,4 @@
-<script>
+2<script>
   import Button from "./ui/Button.svelte";
 
   let { id, token = "" } = $props();

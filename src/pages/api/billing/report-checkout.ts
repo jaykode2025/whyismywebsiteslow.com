@@ -3,6 +3,7 @@ import { env } from "../../../lib/env";
 import { getStripe } from "../../../lib/stripe";
 import { loadStoredReport } from "../../../lib/reports";
 import { isReportUnlocked } from "../../../lib/entitlements";
+import { verifyCsrfTokenFromRequest } from "../../../lib/csrf";
 
 async function readReportId(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
@@ -15,6 +16,15 @@ async function readReportId(request: Request) {
 }
 
 export const POST: APIRoute = async (context) => {
+  // Verify CSRF token for non-GET requests
+  const csrfValid = await verifyCsrfTokenFromRequest(context.request);
+  if (!csrfValid) {
+    return new Response(JSON.stringify({ error: "Invalid CSRF token" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  
   const reportId = await readReportId(context.request);
   if (!reportId) {
     return new Response(JSON.stringify({ error: "reportId required" }), {
@@ -38,7 +48,8 @@ export const POST: APIRoute = async (context) => {
 
   const stripe = getStripe();
   if (!stripe) {
-    return new Response(JSON.stringify({ error: "STRIPE_SECRET_KEY not set" }), {
+    console.error("Stripe not configured properly");
+    return new Response(JSON.stringify({ error: "Payment processing unavailable" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
@@ -46,16 +57,20 @@ export const POST: APIRoute = async (context) => {
 
   const baseUrl = env.APP_BASE_URL() ?? new URL(context.request.url).origin;
 
+  const priceId = env.STRIPE_PRICE_REPORT_UNLOCK();
+  if (!priceId) {
+    return new Response(JSON.stringify({ error: "Payment configuration error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     line_items: [
       {
+        price: priceId,
         quantity: 1,
-        price_data: {
-          currency: "usd",
-          unit_amount: 1900,
-          product_data: { name: "Full Performance Report" },
-        },
       },
     ],
     success_url: `${baseUrl}/api/billing/report-verify?session_id={CHECKOUT_SESSION_ID}`,

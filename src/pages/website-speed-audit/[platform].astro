@@ -1,0 +1,120 @@
+---
+import { PLATFORMS, PROBLEMS, TIER1 } from "../../data/pseo";
+import { siteUrl, breadcrumb, organizationSchema, calculateKeywordDensity } from "../../lib/seo";
+
+export const prerender = false;
+
+const platform = PLATFORMS.find((p) => p.platform === Astro.params.platform);
+if (!platform) {
+  throw new Error(`Platform not found for: ${Astro.params.platform ?? "unknown"}`);
+}
+
+const relatedProblems = PROBLEMS.filter((problem) => problem.platform === platform.platform).slice(0, 6);
+
+const breadcrumbSchema = breadcrumb([
+  { name: "Home", item: "/" },
+  { name: "Website Speed Audit", item: "/website-speed-audit/" },
+  { name: platform.platform }
+]);
+const orgSchema = organizationSchema();
+
+const allContent = `${platform.topIssues.join(" ")} ${platform.commonSolutions.join(" ")}`;
+const keywordDensity = calculateKeywordDensity(allContent, platform.keyword);
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{platform.keyword}</title>
+  <meta name="description" content={`Comprehensive speed audit for ${platform.platform} websites. Identify performance bottlenecks and optimize your ${platform.platform} site for better user experience and search rankings.`} />
+  <meta name="keywords" content={platform.keyword} />
+  <link rel="canonical" href={siteUrl(`/website-speed-audit/${platform.platform}/`)} />
+  
+  <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
+  <script type="application/ld+json">{JSON.stringify(orgSchema)}</script>
+  
+  <meta property="og:title" content={platform.keyword} />
+  <meta property="og:description" content={`Comprehensive speed audit for ${platform.platform} websites. Identify performance bottlenecks and optimize your ${platform.platform} site for better user experience and search rankings.`} />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content={siteUrl(`/website-speed-audit/${platform.platform}/`)} />
+</head>
+<body>
+  <header>
+    <nav aria-label="Breadcrumb">
+      <ol itemscope itemtype="https://schema.org/BreadcrumbList">
+        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+          <a href="/" itemprop="item"><span itemprop="name">Home</span></a>
+          <meta itemprop="position" content="1" />
+        </li>
+        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+          <a href="/website-speed-audit/" itemprop="item"><span itemprop="name">Website Speed Audit</span></a>
+          <meta itemprop="position" content="2" />
+        </li>
+        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+          <span itemprop="name">{platform.platform}</span>
+          <meta itemprop="position" content="3" />
+        </li>
+      </ol>
+    </nav>
+  </header>
+
+  <main>
+    <article>
+      <header>
+        <h1>{platform.keyword}</h1>
+        <p>Discover how to optimize your {platform.platform} website for superior performance and user experience.</p>
+      </header>
+
+      <section>
+        <h2>Common Performance Issues with {platform.platform}</h2>
+        <ul>
+          {platform.topIssues.map((issue) => <li>{issue}</li>)}
+        </ul>
+      </section>
+
+      <section>
+        <h2>Best Solutions for {platform.platform}</h2>
+        <ul>
+          {platform.commonSolutions.map((solution) => <li>{solution}</li>)}
+        </ul>
+      </section>
+
+      <section>
+        <h2>Average Load Times</h2>
+        <p>Most {platform.platform} sites load in approximately <strong>{platform.avgLoadTime}</strong>, but with proper optimization, you can achieve much faster speeds.</p>
+      </section>
+
+      {relatedProblems.length > 0 && (
+        <section>
+          <h2>Related {platform.platform} SEO Pages</h2>
+          <ul>
+            {relatedProblems.map((problem) => (
+              <li><a href={`/why-is-my-website-slow/${problem.slug}/`}>{problem.h1}</a></li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section>
+        <h2>Outbound References</h2>
+        <ul>
+          <li><a href="https://developers.google.com/speed/docs/insights/v5/about" target="_blank" rel="noopener noreferrer">Google PageSpeed Insights Documentation</a></li>
+          <li><a href="https://web.dev/articles/vitals" target="_blank" rel="noopener noreferrer">Core Web Vitals on web.dev</a></li>
+          <li><a href="https://developer.mozilla.org/en-US/docs/Web/Performance" target="_blank" rel="noopener noreferrer">MDN Web Performance Guide</a></li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Ready to Optimize Your {platform.platform} Site?</h2>
+        <p>Get a comprehensive performance audit with actionable recommendations.</p>
+        <a href={TIER1.audit} class="cta-button">Request Your Free Audit</a>
+      </section>
+    </article>
+  </main>
+
+  <footer>
+    <p>Page generated with {keywordDensity}% keyword density for "{platform.keyword}"</p>
+  </footer>
+</body>
+</html>

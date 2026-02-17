@@ -94,6 +94,8 @@ const formatPercent = (value?: number) => {
   if (value === undefined || value === null || Number.isNaN(value)) return "-";
   return `${value.toFixed(2)}%`;
 };
+
+const csrfToken = Astro.locals.csrfToken ?? "";
 ---
 <BaseLayout title={title} description={description} noindex={noindex}>
   {jsonLd ? (
@@ -161,6 +163,7 @@ const formatPercent = (value?: number) => {
           </div>
           <form method="post" action="/api/billing/report-checkout">
             <input type="hidden" name="reportId" value={report.id} />
+            <input type="hidden" name="_csrf" value={csrfToken} />
             <Button type="submit" size="lg" class="w-full rounded-xl">
               Unlock Full Report — $19
             </Button>
@@ -432,6 +435,7 @@ const formatPercent = (value?: number) => {
                 title="SEO details locked"
                 description="Unlock to see full SEO recommendations and keyword insights."
                 footnote={null}
+                csrfToken={csrfToken}
               />
             ) : null}
           </Card>
@@ -492,6 +496,7 @@ const formatPercent = (value?: number) => {
                 title="Image audit locked"
                 description="Unlock to see full image optimization details."
                 footnote={null}
+                csrfToken={csrfToken}
               />
             ) : null}
           </Card>
@@ -508,7 +513,7 @@ const formatPercent = (value?: number) => {
               </div>
             )}
             {!unlocked ? (
-              <LockedOverlay reportId={report.id} />
+              <LockedOverlay reportId={report.id} csrfToken={csrfToken} />
             ) : null}
           </div>
         </Card>
@@ -547,7 +552,7 @@ const formatPercent = (value?: number) => {
               </div>
             )}
             {!unlocked ? (
-              <LockedOverlay reportId={report.id} />
+              <LockedOverlay reportId={report.id} csrfToken={csrfToken} />
             ) : null}
           </div>
         </Card>

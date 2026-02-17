@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { FileLock } from "./fileLock";
 import type { Report } from "./types";
 
 // Minimal JSON persistence to survive restarts.
@@ -46,6 +47,21 @@ export function loadReports(): Map<string, Stored> {
 }
 
 import { logger } from "./logger";
+
+const reportLock = new FileLock(FILE_PATH);
+
+export async function persistReportsAsync(map: Map<string, Stored>) {
+  try {
+    await reportLock.withLock(async () => {
+      ensureFile();
+      const obj = Object.fromEntries(map.entries());
+      writeFileSync(FILE_PATH, JSON.stringify(obj, null, 2), "utf-8");
+      logger.debug(`Persisted ${map.size} reports`);
+    });
+  } catch (error: any) {
+    logger.error('Failed to persist reports:', error);
+  }
+}
 
 export function persistReports(map: Map<string, Stored>) {
   try {

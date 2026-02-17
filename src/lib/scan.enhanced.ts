@@ -8,6 +8,8 @@ import { getHost } from "./validate";
 import { computeKScore } from "./kscore";
 import { analyzeSeo } from "./seoAnalyzer";
 import { auditImages } from "./imageAudit";
+import { sanitizeHtml } from "./sanitize";
+import { fetchWithRetry } from "./retry";
 
 type EnhancedScanOptions = {
   includeSeoAnalysis?: boolean;
@@ -76,14 +78,19 @@ export async function runEnhancedScan(
   let html: string | null = null;
   let response: Response | null = null;
   
-  // Use standard fetch for HTML content (serverless safe)
+  // Use fetch with retry and timeout for HTML content (serverless safe)
   try {
-    response = await fetch(primaryUrl, { 
+    response = await fetchWithRetry(primaryUrl, {
       headers: { "User-Agent": "WMSSBot/0.1" },
-      signal: AbortSignal.timeout(10000)
+    }, {
+      maxRetries: 2,
+      timeout: 15000, // 15 seconds per attempt
+      baseDelay: 1000 // 1 second initial delay
     });
     if (response.ok) {
       html = await response.text();
+      // Sanitize HTML to prevent XSS
+      html = sanitizeHtml(html);
     }
   } catch (e) {
     console.error(`Failed to fetch HTML for ${primaryUrl}:`, e);

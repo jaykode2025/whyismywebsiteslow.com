@@ -20,7 +20,7 @@ const description = "Run a Core Web Vitals scan, get a score, and ship fixes tha
           Paste any URL and get a premium performance report with Core Web Vitals, a clean grade, and a
           prioritized checklist.
         </p>
-        <ScanForm client:load />
+        <ScanForm client:load csrfToken={Astro.locals.csrfToken ?? ""} />
         <div class="flex flex-wrap gap-4 text-sm text-slate-400">
           <span>⚡ Real-world data via Lighthouse</span>
           <span>🧠 Human-first explanations</span>

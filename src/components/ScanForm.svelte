@@ -2,7 +2,7 @@
   import Button from "./ui/Button.svelte";
   import ScanProgress from "./ScanProgress.svelte";
 
-  let { variant = "compact", initialUrl = "", showAdvanced = false } = $props();
+  let { variant = "compact", initialUrl = "", showAdvanced = false, csrfToken = "" } = $props();
 
   let url = $state(initialUrl);
   let device = $state("mobile");
@@ -52,9 +52,14 @@
       }
       url = validation.value;
 
+      const headers = { "Content-Type": "application/json" };
+      if (csrfToken) {
+        headers["X-CSRF-Token"] = csrfToken;
+      }
+
       const res = await fetch("/api/scan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           url,
           device,

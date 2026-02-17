@@ -1,3 +1,6 @@
+import { sanitizeHtml } from "./sanitize";
+import { fetchWithRetry } from "./retry";
+
 export async function crawlSite(baseUrl: URL, maxLinks: number) {
   const scannedUrls = [baseUrl.toString()];
   const failures: { url: string; reason: string }[] = [];
@@ -7,22 +10,22 @@ export async function crawlSite(baseUrl: URL, maxLinks: number) {
   }
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
-    const res = await fetch(baseUrl.toString(), {
+    const res = await fetchWithRetry(baseUrl.toString(), {
       headers: { "User-Agent": "WMSSBot/0.1" },
-      signal: controller.signal,
+    }, {
+      maxRetries: 1,
+      timeout: 10000, // 10 seconds per attempt
+      baseDelay: 500  // 0.5 seconds initial delay
     });
-    
-    clearTimeout(timeoutId);
     
     if (!res.ok) {
       failures.push({ url: baseUrl.toString(), reason: `HTTP ${res.status}` });
       return { scannedUrls, failures };
     }
     
-    const html = await res.text();
+    let html = await res.text();
+    // Sanitize HTML to prevent XSS
+    html = sanitizeHtml(html);
     const hrefs = Array.from(html.matchAll(/href=["']([^"']+)["']/gi)).map((m) => m[1]);
 
     const origin = baseUrl.origin;

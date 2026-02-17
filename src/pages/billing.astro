@@ -40,21 +40,30 @@ const planInfo: PlanInfo = supabase
       </Card>
 
       <Card>
-        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Upgrade</p>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Plans</p>
         <p class="mt-2 text-sm text-slate-300">
-          Pro unlocks more saved projects, deeper crawl options, and scheduled monitoring (coming soon).
+          Choose a plan that fits your needs.
         </p>
 
         {isPro(planInfo) ? (
           <p class="mt-4 rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">
-            You’re on Pro.
+            You're on {planInfo.plan === 'agency' ? 'Agency' : 'Pro'} plan.
           </p>
         ) : (
-          <form class="mt-4" method="post" action="/api/billing/checkout">
-            <Button type="submit" size="lg" class="w-full rounded-xl">
-              Upgrade to Pro
-            </Button>
-          </form>
+          <div class="mt-4 space-y-3">
+            <form method="post" action="/api/billing/checkout">
+              <input type="hidden" name="plan" value="pro" />
+              <Button type="submit" size="lg" class="w-full rounded-xl">
+                Upgrade to Pro - $99/month
+              </Button>
+            </form>
+            <form method="post" action="/api/billing/checkout">
+              <input type="hidden" name="plan" value="agency" />
+              <Button type="submit" size="lg" class="w-full rounded-xl bg-violet-600 hover:bg-violet-500">
+                Agency Plan - $299/month
+              </Button>
+            </form>
+          </div>
         )}
       </Card>
     </div>

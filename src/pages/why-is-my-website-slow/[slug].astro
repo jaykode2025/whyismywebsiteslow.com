@@ -2,30 +2,163 @@
 import { PROBLEMS, TIER1 } from "../../data/pseo";
 import { relatedForProblem } from "../../lib/related";
 import RelatedLinks from "../../components/RelatedLinks.astro";
-import { siteUrl, titleCase } from "../../lib/seo";
+import { siteUrl, breadcrumb, faq, articleSchema, organizationSchema, calculateKeywordDensity } from "../../lib/seo";
 
 export const prerender = false;
 
-const entry = PROBLEMS.find(p=>p.slug===Astro.params.slug);
+const entry = PROBLEMS.find((p) => p.slug === Astro.params.slug);
 if (!entry) {
   throw new Error(`Problem not found for slug: ${Astro.params.slug ?? "unknown"}`);
 }
 const related = relatedForProblem(entry.slug);
+
+const breadcrumbSchema = breadcrumb([
+  { name: "Home", item: "/" },
+  { name: "SEO Issues", item: "/why-is-my-website-slow/" },
+  { name: entry.keyword }
+]);
+const faqSchema = faq(entry.faqs);
+const articleSchemaData = articleSchema(
+  entry.h1,
+  entry.metaDescription,
+  "Why Is My Website Slow",
+  new Date().toISOString(),
+  new Date().toISOString()
+);
+const orgSchema = organizationSchema();
+
+const allContent = `${entry.primaryCause} ${entry.quickWins.join(" ")} ${entry.detailedAnalysis.join(" ")} ${entry.solutions.map((s) => `${s.title} ${s.description} ${s.steps.join(" ")}`).join(" ")} ${entry.faqs.map((f) => `${f.question} ${f.answer}`).join(" ")}`;
+const keywordDensity = calculateKeywordDensity(allContent, entry.keyword);
 ---
 
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <title>{titleCase(entry.keyword)}</title>
-  <link rel="canonical" href={siteUrl("/why-is-my-website-slow/"+entry.slug)} />
+  <meta charset="utf-8" />
+  <title>{entry.h1}</title>
+  <meta name="description" content={entry.metaDescription} />
+  <meta name="keywords" content={entry.keyword} />
+  <link rel="canonical" href={siteUrl(`/why-is-my-website-slow/${entry.slug}/`)} />
+  
+  <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
+  <script type="application/ld+json">{JSON.stringify(faqSchema)}</script>
+  <script type="application/ld+json">{JSON.stringify(articleSchemaData)}</script>
+  <script type="application/ld+json">{JSON.stringify(orgSchema)}</script>
+  
+  <meta property="og:title" content={entry.h1} />
+  <meta property="og:description" content={entry.metaDescription} />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content={siteUrl(`/why-is-my-website-slow/${entry.slug}/`)} />
+  
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={entry.h1} />
+  <meta name="twitter:description" content={entry.metaDescription} />
 </head>
 <body>
-  <h1>{entry.keyword}</h1>
-  <p>{entry.primaryCause}</p>
+  <header>
+    <nav aria-label="Breadcrumb">
+      <ol itemscope itemtype="https://schema.org/BreadcrumbList">
+        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+          <a href="/" itemprop="item"><span itemprop="name">Home</span></a>
+          <meta itemprop="position" content="1" />
+        </li>
+        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+          <a href="/why-is-my-website-slow/" itemprop="item"><span itemprop="name">SEO Issues</span></a>
+          <meta itemprop="position" content="2" />
+        </li>
+        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+          <span itemprop="name">{entry.keyword}</span>
+          <meta itemprop="position" content="3" />
+        </li>
+      </ol>
+    </nav>
+  </header>
 
-  <h2>Quick Wins</h2>
-  <ul>{entry.quickWins.map(w=><li>{w}</li>)}</ul>
+  <main>
+    <article>
+      <header>
+        <h1>{entry.h1}</h1>
+        <p class="meta-description">{entry.metaDescription}</p>
+      </header>
 
-  <a href={TIER1.audit}>Request Audit</a>
-  <RelatedLinks items={related}/>
+      <section>
+        <h2>Primary Cause</h2>
+        <p>{entry.primaryCause}</p>
+      </section>
+
+      <section>
+        <h2>Detailed Analysis</h2>
+        <ul>
+          {entry.detailedAnalysis.map((paragraph) => <li>{paragraph}</li>)}
+        </ul>
+      </section>
+
+      <section>
+        <h2>Quick Wins</h2>
+        <ul>
+          {entry.quickWins.map((win) => <li>{win}</li>)}
+        </ul>
+      </section>
+
+      <section>
+        <h2>Step-by-Step Solutions</h2>
+        {entry.solutions.map((solution) => (
+          <div class="solution">
+            <h3>{solution.title}</h3>
+            <p>{solution.description}</p>
+            <h4>Steps:</h4>
+            <ol>
+              {solution.steps.map((step) => <li>{step}</li>)}
+            </ol>
+          </div>
+        ))}
+      </section>
+
+      <section>
+        <h2>Statistics & Impact</h2>
+        <div class="stats-grid">
+          {entry.statistics.map((stat) => (
+            <div class="stat-card">
+              <strong>{stat.value}</strong>
+              <p>{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2>Frequently Asked Questions</h2>
+        <dl class="faq-section">
+          {entry.faqs.map((faqItem) => (
+            <>
+              <dt>{faqItem.question}</dt>
+              <dd>{faqItem.answer}</dd>
+            </>
+          ))}
+        </dl>
+      </section>
+
+      <section>
+        <h2>External Resources</h2>
+        <ul>
+          {entry.outboundLinks.map((link) => (
+            <li><a href={link.url} target="_blank" rel="noopener noreferrer">{link.label}</a></li>
+          ))}
+        </ul>
+      </section>
+    </article>
+
+    <aside>
+      <h2>Ready to Improve Your Site Speed?</h2>
+      <p>{entry.conversionImpact}</p>
+      <a href={TIER1.audit} class="cta-button">Get Your Free Website Speed Audit</a>
+    </aside>
+  </main>
+
+  <RelatedLinks items={related} />
+
+  <footer>
+    <p>Page generated with {keywordDensity}% keyword density for "{entry.keyword}"</p>
+  </footer>
 </body>
 </html>

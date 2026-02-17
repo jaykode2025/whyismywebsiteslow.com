@@ -4,9 +4,27 @@ import { env } from "../../../lib/env";
 import { getStripe } from "../../../lib/stripe";
 import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
 
+async function readBody(request: Request) {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    const body = await request.json().catch(() => ({}));
+    return { plan: String((body as any).plan ?? "pro") }; // Default to pro
+  }
+  const form = await request.formData();
+  return { plan: String(form.get("plan") ?? "pro") }; // Default to pro
+}
+
 export const POST: APIRoute = async (context) => {
   const required = await requireUser(context);
   if (required instanceof Response) return required;
+
+  const { plan } = await readBody(context.request);
+  if (!["pro", "agency", "pro-yearly"].includes(plan)) {
+    return new Response(JSON.stringify({ error: "Invalid plan" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const stripe = getStripe();
   if (!stripe) {
@@ -16,9 +34,18 @@ export const POST: APIRoute = async (context) => {
     });
   }
 
-  const pricePro = env.STRIPE_PRICE_PRO();
-  if (!pricePro) {
-    return new Response(JSON.stringify({ error: "STRIPE_PRICE_PRO not set" }), {
+  let priceId: string | undefined;
+  if (plan === "pro") {
+    priceId = env.STRIPE_PRICE_PRO();
+  } else if (plan === "agency") {
+    priceId = env.STRIPE_PRICE_AGENCY();
+  } else if (plan === "pro-yearly") {
+    // Assuming there's an environment variable for yearly pro
+    priceId = env.STRIPE_PRICE_AGENCY(); // TODO: Change this to a proper yearly price ID
+  }
+
+  if (!priceId) {
+    return new Response(JSON.stringify({ error: `STRIPE_PRICE_${plan.toUpperCase()}_MONTHLY not set` }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
@@ -56,12 +83,12 @@ export const POST: APIRoute = async (context) => {
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
-    line_items: [{ price: pricePro, quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${baseUrl}/billing?success=1`,
     cancel_url: `${baseUrl}/billing?canceled=1`,
     client_reference_id: required.user.id,
     subscription_data: {
-      metadata: { user_id: required.user.id },
+      metadata: { user_id: required.user.id, plan_type: plan },
     },
   });
 

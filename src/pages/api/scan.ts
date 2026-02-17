@@ -1,15 +1,26 @@
 import type { APIRoute } from "astro";
 import { createReportPlaceholder, setReport, setReportStatus } from "../../lib/store";
-import { rateLimit } from "../../lib/rateLimit";
+import { rateLimit } from "../../lib/slidingRateLimit";
 import { normalizeUrl, clampLinks } from "../../lib/validate";
 import { runEnhancedScan } from "../../lib/scan.enhanced";
 import { env, hasSupabaseEnv } from "../../lib/env";
 import { generateId, generateToken, hashToken } from "../../lib/tokens";
 import { enqueueQStashJob } from "../../lib/qstash";
 import { getUserPlan, isPro } from "../../lib/plan";
+import { verifyCsrfTokenFromRequest } from "../../lib/csrf";
 
 export const POST: APIRoute = async (context) => {
   const { request, clientAddress, locals } = context;
+  
+  // Verify CSRF token for non-GET requests
+  const csrfValid = await verifyCsrfTokenFromRequest(request);
+  if (!csrfValid) {
+    return new Response(JSON.stringify({ error: "Invalid CSRF token" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  
   try {
     const body = await request.json();
     const normalized = normalizeUrl(body.url);
@@ -146,7 +157,7 @@ export const POST: APIRoute = async (context) => {
     );
 
     try {
-      setReportStatus(id, "running");
+      await setReportStatus(id, "running");
       const report = await runEnhancedScan(
         id,
         {
@@ -158,9 +169,9 @@ export const POST: APIRoute = async (context) => {
         writeTokenHash,
         { includeSeoAnalysis, includeImageAudit, targetKeyword }
       );
-      setReport(id, report);
+      await setReport(id, report);
     } catch (error: any) {
-      setReportStatus(id, "failed", error?.message ?? "Scan failed");
+      await setReportStatus(id, "failed", error?.message ?? "Scan failed");
       return new Response(JSON.stringify({ error: "Scan execution failed", id }), {
         status: 500,
         headers: {
@@ -180,7 +191,11 @@ export const POST: APIRoute = async (context) => {
       },
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error?.message ?? "Invalid request" }), {
+    // Log the actual error for debugging but don't expose it to the client
+    console.error("Scan API error:", error);
+    
+    // Return generic error message to avoid exposing system details
+    return new Response(JSON.stringify({ error: "Invalid request" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });

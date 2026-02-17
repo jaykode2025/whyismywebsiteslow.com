@@ -34,3 +34,4 @@ response-*.txt
 
 # exclude duplicate project directory
 myapp/
+.vercel

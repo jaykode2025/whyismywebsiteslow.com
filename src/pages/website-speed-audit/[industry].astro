@@ -1,0 +1,119 @@
+---
+import { INDUSTRIES, PROBLEMS, TIER1 } from "../../data/pseo";
+import { siteUrl, breadcrumb, organizationSchema, calculateKeywordDensity } from "../../lib/seo";
+
+export const prerender = false;
+
+const industry = INDUSTRIES.find((i) => i.industry === Astro.params.industry);
+if (!industry) {
+  throw new Error(`Industry not found for: ${Astro.params.industry ?? "unknown"}`);
+}
+
+const relatedProblems = PROBLEMS.filter((problem) => problem.industry === industry.industry).slice(0, 6);
+
+const breadcrumbSchema = breadcrumb([
+  { name: "Home", item: "/" },
+  { name: "Website Speed Audit", item: "/website-speed-audit/" },
+  { name: industry.industry }
+]);
+const orgSchema = organizationSchema();
+
+const allContent = `${industry.conversionImpact} ${industry.stats.map((s) => `${s.value} ${s.label}`).join(" ")}`;
+const keywordDensity = calculateKeywordDensity(allContent, industry.keyword);
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{industry.keyword}</title>
+  <meta name="description" content={`Specialized website speed audit for ${industry.industry} businesses. Improve performance, conversions, and search rankings with our industry-specific optimization.`} />
+  <meta name="keywords" content={industry.keyword} />
+  <link rel="canonical" href={siteUrl(`/website-speed-audit/${industry.industry}/`)} />
+  
+  <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
+  <script type="application/ld+json">{JSON.stringify(orgSchema)}</script>
+  
+  <meta property="og:title" content={industry.keyword} />
+  <meta property="og:description" content={`Specialized website speed audit for ${industry.industry} businesses. Improve performance, conversions, and search rankings with our industry-specific optimization.`} />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content={siteUrl(`/website-speed-audit/${industry.industry}/`)} />
+</head>
+<body>
+  <header>
+    <nav aria-label="Breadcrumb">
+      <ol itemscope itemtype="https://schema.org/BreadcrumbList">
+        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+          <a href="/" itemprop="item"><span itemprop="name">Home</span></a>
+          <meta itemprop="position" content="1" />
+        </li>
+        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+          <a href="/website-speed-audit/" itemprop="item"><span itemprop="name">Website Speed Audit</span></a>
+          <meta itemprop="position" content="2" />
+        </li>
+        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+          <span itemprop="name">{industry.industry}</span>
+          <meta itemprop="position" content="3" />
+        </li>
+      </ol>
+    </nav>
+  </header>
+
+  <main>
+    <article>
+      <header>
+        <h1>{industry.keyword}</h1>
+        <p>Specialized performance optimization for {industry.industry} websites to boost conversions and search rankings.</p>
+      </header>
+
+      <section>
+        <h2>Industry-Specific Performance Impact</h2>
+        <p>{industry.conversionImpact}</p>
+        <p>On average, {industry.industry} businesses lose {industry.avgConversionLoss} in conversions due to slow website performance.</p>
+      </section>
+
+      <section>
+        <h2>Key Performance Statistics</h2>
+        <ul>
+          {industry.stats.map((stat) => <li><strong>{stat.value}</strong>: {stat.label}</li>)}
+        </ul>
+      </section>
+
+      <section>
+        <h2>Common Tech Stacks</h2>
+        <p>Most {industry.industry} sites use: {industry.commonStack.join(", ")}.</p>
+      </section>
+
+      {relatedProblems.length > 0 && (
+        <section>
+          <h2>Related {industry.industry} SEO Pages</h2>
+          <ul>
+            {relatedProblems.map((problem) => (
+              <li><a href={`/why-is-my-website-slow/${problem.slug}/`}>{problem.h1}</a></li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section>
+        <h2>Outbound References</h2>
+        <ul>
+          <li><a href="https://developers.google.com/speed/docs/insights/v5/about" target="_blank" rel="noopener noreferrer">Google PageSpeed Insights Documentation</a></li>
+          <li><a href="https://web.dev/articles/vitals" target="_blank" rel="noopener noreferrer">Core Web Vitals on web.dev</a></li>
+          <li><a href="https://developer.mozilla.org/en-US/docs/Web/Performance" target="_blank" rel="noopener noreferrer">MDN Web Performance Guide</a></li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Improve Your {industry.industry} Site Performance</h2>
+        <p>Get an industry-specific audit with tailored recommendations to maximize your ROI.</p>
+        <a href={TIER1.audit} class="cta-button">Get Your Free Audit</a>
+      </section>
+    </article>
+  </main>
+
+  <footer>
+    <p>Page generated with {keywordDensity}% keyword density for "{industry.keyword}"</p>
+  </footer>
+</body>
+</html>

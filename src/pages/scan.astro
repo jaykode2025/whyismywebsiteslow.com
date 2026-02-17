@@ -15,7 +15,7 @@ const description = "Launch a scan with advanced options and shareable report se
           Choose device, crawl up to five internal pages, and decide if the report can be indexed.
         </p>
         <div class="mt-6">
-          <ScanForm client:load showAdvanced={true} />
+          <ScanForm client:load showAdvanced={true} csrfToken={Astro.locals.csrfToken ?? ""} />
         </div>
       </Card>
       <Card>

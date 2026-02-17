@@ -28,7 +28,10 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
-  const body = await request.json().catch(() => ({})) as WorkerRequestBody;
+  const body = await request.json().catch((error) => {
+    console.error("Error parsing request body in worker:", error);
+    return {};
+  }) as WorkerRequestBody;
   const scanId = body.scanId;
   if (!scanId) {
     return new Response(JSON.stringify({ error: "scanId required" }), {
@@ -103,7 +106,8 @@ export const POST: APIRoute = async ({ request }) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    const message = error?.message ?? "Scan failed";
+    console.error("Worker scan error:", error);
+    const message = "Scan failed"; // Generic message to avoid exposing details
     await admin.from("scans").update({ status: "failed", error: message, finished_at: new Date().toISOString() }).eq("id", scanId);
     return new Response(JSON.stringify({ ok: false, error: message }), {
       status: 200,

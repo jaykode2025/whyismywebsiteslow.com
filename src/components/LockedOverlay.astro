@@ -7,6 +7,7 @@ const {
   description = "Unlock the full report to see exactly what to fix first and how to fix it.",
   ctaText = "Unlock Full Report — $19",
   footnote = "One-time payment • Instant access • No account required",
+  csrfToken = "",
 } = Astro.props;
 ---
 
@@ -16,6 +17,7 @@ const {
     <p class="text-sm text-slate-300">{description}</p>
     <form method="post" action="/api/billing/report-checkout">
       <input type="hidden" name="reportId" value={reportId} />
+      <input type="hidden" name="_csrf" value={csrfToken} />
       <Button type="submit" size="sm" class="w-full rounded-xl">
         {ctaText}
       </Button>
