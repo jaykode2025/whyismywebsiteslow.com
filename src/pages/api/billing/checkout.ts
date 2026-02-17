@@ -40,12 +40,11 @@ export const POST: APIRoute = async (context) => {
   } else if (plan === "agency") {
     priceId = env.STRIPE_PRICE_AGENCY();
   } else if (plan === "pro-yearly") {
-    // Assuming there's an environment variable for yearly pro
-    priceId = env.STRIPE_PRICE_AGENCY(); // TODO: Change this to a proper yearly price ID
+    priceId = env.STRIPE_PRICE_PRO_YEARLY();
   }
 
   if (!priceId) {
-    return new Response(JSON.stringify({ error: `STRIPE_PRICE_${plan.toUpperCase()}_MONTHLY not set` }), {
+    return new Response(JSON.stringify({ error: `STRIPE_PRICE_${plan.toUpperCase()} not set` }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });

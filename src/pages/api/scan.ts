@@ -146,7 +146,7 @@ export const POST: APIRoute = async (context) => {
 
     // Local fallback: run synchronously and persist to the local store (no setTimeout background work).
     const manageToken = generateToken();
-    const { id, writeTokenHash } = createReportPlaceholder(
+    const { id, writeTokenHash } = await createReportPlaceholder(
       {
         url: normalized.toString(),
         device,
