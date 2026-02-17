@@ -844,7 +844,6 @@ const keywordDensity = calculateKeywordDensity(allContent, industry.keyword);
 );
 
 console.log("\\n✅ PSEO BOOTSTRAP COMPLETE");
-`);
 
 /* ------------------ STATIC PATH GENERATORS ------------------ */
 write(
@@ -875,21 +874,21 @@ export const getSitemapUrls = () => {
 
     // Problem pages
     ...PROBLEMS.map(p => ({
-      url: `/why-is-my-website-slow/${p.slug}/`,
+      url: "/why-is-my-website-slow/" + p.slug + "/",
       changefreq: "weekly",
       priority: 0.8
     })),
 
     // Platform pages
     ...PLATFORMS.map(p => ({
-      url: `/website-speed-audit/${p.platform}/`,
+      url: "/website-speed-audit/" + p.platform + "/",
       changefreq: "weekly",
       priority: 0.8
     })),
 
     // Industry pages
     ...INDUSTRIES.map(i => ({
-      url: `/website-speed-audit/${i.industry}/`,
+      url: "/website-speed-audit/" + i.industry + "/",
       changefreq: "weekly",
       priority: 0.8
     }))

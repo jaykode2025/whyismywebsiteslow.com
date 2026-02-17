@@ -3,11 +3,11 @@ import { createSupabaseServerClient } from "./lib/supabase/server";
 import { hasSupabaseEnv } from "./lib/env";
 import { ensureCsrfToken } from "./lib/csrf";
 
-const CANONICAL_HOST = "whyismywebsiteslow.com";
+const CANONICAL_HOST = "www.whyismywebsiteslow.com";
 const REDIRECT_HOSTS = new Set([
+  "whyismywebsiteslow.com",
   "whyismywebsiteslow.org",
   "www.whyismywebsiteslow.org",
-  "www.whyismywebsiteslow.com",
 ]);
 
 function redirectToCanonicalHost(request: Request) {
