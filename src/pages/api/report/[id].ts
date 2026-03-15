@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import type { Report } from "../../../lib/types";
+import { hasLeadAccess, LEAD_ACCESS_COOKIE_NAME } from "../../../lib/leadAccess";
 import { loadStoredReport } from "../../../lib/reports";
 import { isReportUnlocked } from "../../../lib/entitlements";
 
@@ -23,6 +24,17 @@ function toPreview(report: Report) {
   };
 }
 
+function toLeadGatePreview(report: Report) {
+  return {
+    id: report.id,
+    createdAt: report.createdAt,
+    url: report.url,
+    canonicalHost: report.canonicalHost,
+    device: report.device,
+    visibility: report.visibility,
+  };
+}
+
 export const GET: APIRoute = async (context) => {
   const id = context.params.id ?? "";
   const stored = await loadStoredReport(id, context.locals);
@@ -42,11 +54,30 @@ export const GET: APIRoute = async (context) => {
   }
 
   const unlocked = await isReportUnlocked(id, context.locals);
+  const leadAccessRaw = context.cookies.get(LEAD_ACCESS_COOKIE_NAME)?.value;
+  const previewAccess = hasLeadAccess(leadAccessRaw, id);
   if (!unlocked) {
-    return new Response(JSON.stringify({ status: "done", locked: true, preview: toPreview(stored.report) }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    if (!previewAccess) {
+      return new Response(
+        JSON.stringify({
+          status: "done",
+          locked: true,
+          requiresLead: true,
+          preview: toLeadGatePreview(stored.report),
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+    return new Response(
+      JSON.stringify({ status: "done", locked: true, requiresLead: false, preview: toPreview(stored.report) }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 
   return new Response(JSON.stringify({ status: "done", locked: false, report: stored.report }), {

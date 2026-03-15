@@ -24,7 +24,7 @@ const scanPayload = `{
         </div>
         <div>
           <p class="text-xs uppercase tracking-[0.2em] text-slate-500">GET /api/report/:id</p>
-          <p class="mt-2">Returns status and preview data. Full report JSON is only returned when unlocked.</p>
+          <p class="mt-2">Returns status and preview data. Locked reports may require lead capture before preview fields are returned.</p>
         </div>
         <div>
           <p class="text-xs uppercase tracking-[0.2em] text-slate-500">POST /api/report/:id/delete</p>
@@ -32,7 +32,7 @@ const scanPayload = `{
         </div>
         <div>
           <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Rate limits</p>
-          <p class="mt-2">Scan requests are rate-limited per IP + hostname. Check response headers.</p>
+          <p class="mt-2">Scan requests are rate-limited per IP + hostname and plan monthly caps. Check response headers/body.</p>
         </div>
       </div>
     </Card>

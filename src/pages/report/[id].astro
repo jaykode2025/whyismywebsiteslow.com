@@ -11,11 +11,14 @@ import LockedOverlay from "../../components/LockedOverlay.astro";
 import { loadStoredReport } from "../../lib/reports";
 import { exampleReport } from "../../lib/example";
 import { isReportUnlocked } from "../../lib/entitlements";
+import { hasLeadAccess, LEAD_ACCESS_COOKIE_NAME } from "../../lib/leadAccess";
 
 const { id } = Astro.params;
 const stored = id === "example" ? { status: "done", report: exampleReport() } : await loadStoredReport(id ?? "", Astro.locals);
 const report = stored?.report;
 const unlocked = report ? (report.id === "example" ? true : await isReportUnlocked(report.id, Astro.locals)) : false;
+const leadAccessCookie = Astro.cookies.get(LEAD_ACCESS_COOKIE_NAME)?.value;
+const previewUnlocked = report ? unlocked || hasLeadAccess(leadAccessCookie, report.id) : false;
 
 const title = report
   ? `Why is ${report.canonicalHost} slow? Report + Fixes`
@@ -96,6 +99,8 @@ const formatPercent = (value?: number) => {
 };
 
 const csrfToken = Astro.locals.csrfToken ?? "";
+const stickyPrimaryHref = unlocked ? "/billing" : null;
+const stickyPrimaryLabel = unlocked ? "Start monitoring" : "Unlock full report";
 ---
 <BaseLayout title={title} description={description} noindex={noindex}>
   {jsonLd ? (
@@ -118,7 +123,7 @@ const csrfToken = Astro.locals.csrfToken ?? "";
     </div>
   </section>
 
-  {report ? (
+  {report && previewUnlocked ? (
     <section class="mt-6">
       <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
         <div class="grid gap-4 md:grid-cols-[0.9fr_0.8fr_1.6fr_auto] md:items-center">
@@ -149,7 +154,7 @@ const csrfToken = Astro.locals.csrfToken ?? "";
     </section>
   ) : null}
 
-  {report && !unlocked ? (
+  {report && previewUnlocked && !unlocked ? (
     <section class="mt-6">
       <div class="rounded-2xl border border-white/10 bg-gradient-to-r from-slate-950/70 via-slate-900/70 to-slate-950/70 p-5">
         <div class="flex flex-col gap-4">
@@ -210,7 +215,7 @@ const csrfToken = Astro.locals.csrfToken ?? "";
     </section>
   ) : null}
 
-  {report ? (
+  {report && previewUnlocked ? (
     <section class="mt-10 grid gap-6 lg:grid-cols-[0.35fr_0.65fr]">
       <div class="space-y-6">
         <Card class="text-center">
@@ -558,6 +563,47 @@ const csrfToken = Astro.locals.csrfToken ?? "";
         </Card>
       </div>
     </section>
+  ) : report ? (
+    <section class="mt-10">
+      <Card>
+        <h2 class="text-2xl text-slate-100">Get the preview by email</h2>
+        <p class="mt-2 text-slate-300">
+          Enter your email to unlock this report preview, then decide if you want the full paid unlock.
+        </p>
+        <form method="post" action="/api/leads/preview" class="mt-4 flex flex-col gap-3 sm:flex-row">
+          <input type="hidden" name="reportId" value={report.id} />
+          <input type="hidden" name="source" value="report-preview-gate" />
+          <input type="hidden" name="next" value={`/report/${report.id}`} />
+          <input type="text" name="company" class="hidden" tabindex="-1" autocomplete="off" />
+          <input
+            type="email"
+            name="email"
+            required
+            placeholder="you@company.com"
+            class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500"
+          />
+          <button
+            type="submit"
+            class="rounded-xl border border-emerald-300/40 bg-emerald-500/20 px-4 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/30"
+          >
+            Unlock Preview
+          </button>
+        </form>
+        <div class="mt-4 text-xs text-slate-400">
+          One-time payment still available if you want the full checklist immediately.
+        </div>
+        <form method="post" action="/api/billing/report-checkout" class="mt-4">
+          <input type="hidden" name="reportId" value={report.id} />
+          <input type="hidden" name="_csrf" value={csrfToken} />
+          <button
+            type="submit"
+            class="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400"
+          >
+            Unlock Full Report - $19
+          </button>
+        </form>
+      </Card>
+    </section>
   ) : (
     <section class="mt-10">
       <Card>
@@ -569,4 +615,75 @@ const csrfToken = Astro.locals.csrfToken ?? "";
       </Card>
     </section>
   )}
+  {report ? <div class="h-28" aria-hidden="true"></div> : null}
+
+  {report ? (
+    <aside class="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-slate-950/95 backdrop-blur">
+      <div class="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p class="text-sm text-slate-100">
+            {unlocked
+              ? "Keep this report healthy with automated monitoring."
+              : previewUnlocked
+                ? "Primary CTA: unlock the full report now."
+                : "Unlock this preview by email, then upgrade when ready."}
+          </p>
+          <p class="text-xs text-slate-400">
+            {unlocked
+              ? "Weekly regressions, alerts, and trend tracking."
+              : previewUnlocked
+                ? "Not ready to buy yet? Get a follow-up by email."
+                : "Email gate enabled for this locked report preview."}
+          </p>
+        </div>
+        <div class="flex flex-col gap-2 md:flex-row md:items-center">
+          {stickyPrimaryHref ? (
+            <a
+              href={stickyPrimaryHref}
+              class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-sm font-semibold text-slate-950 hover:bg-emerald-400"
+            >
+              {stickyPrimaryLabel}
+            </a>
+          ) : (
+            <form method="post" action="/api/billing/report-checkout">
+              <input type="hidden" name="reportId" value={report.id} />
+              <input type="hidden" name="_csrf" value={csrfToken} />
+              <button
+                type="submit"
+                class="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400"
+              >
+                {stickyPrimaryLabel} - $19
+              </button>
+            </form>
+          )}
+          <a
+            href="/scan"
+            class="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-center text-sm font-semibold text-slate-100 hover:bg-white/10"
+          >
+            Run another scan
+          </a>
+          {!unlocked ? (
+            <form method="post" action="/api/leads/preview" class="flex gap-2">
+              <input type="hidden" name="reportId" value={report.id} />
+              <input type="hidden" name="source" value="report-sticky-cta" />
+              <input type="hidden" name="next" value={`/report/${report.id}`} />
+              <input
+                type="email"
+                name="email"
+                required
+                placeholder="Email follow-up"
+                class="rounded-xl border border-white/15 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400"
+              />
+              <button
+                type="submit"
+                class="rounded-xl border border-emerald-300/40 bg-emerald-500/20 px-3 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/30"
+              >
+                Send
+              </button>
+            </form>
+          ) : null}
+        </div>
+      </div>
+    </aside>
+  ) : null}
 </BaseLayout>

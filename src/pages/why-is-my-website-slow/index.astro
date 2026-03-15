@@ -1,6 +1,11 @@
 ---
 import { PROBLEMS, PLATFORMS, INDUSTRIES } from "../../data/pseo";
 import { siteUrl, breadcrumb, organizationSchema } from "../../lib/seo";
+import { buildProblemProofDataset } from "../../lib/proof";
+import ProofBlock from "../../components/seo/ProofBlock.astro";
+import { deriveVariationTokens, sectionOrderMap } from "../../lib/variation";
+import { relatedForProblem } from "../../lib/related";
+import RelatedLinks from "../../components/seo/RelatedLinks.astro";
 
 // Generate schemas
 const breadcrumbSchema = breadcrumb([
@@ -8,6 +13,17 @@ const breadcrumbSchema = breadcrumb([
   { name: "SEO Issues" }
 ]);
 const orgSchema = organizationSchema();
+const featuredProblem = PROBLEMS[0];
+const proofDataset = featuredProblem ? buildProblemProofDataset(featuredProblem) : null;
+const variationTokens = deriveVariationTokens({
+  slug: "why-is-my-website-slow-index",
+  availableSections: ["platforms", "problems", "industries"],
+});
+const sectionOrder = sectionOrderMap(variationTokens.sectionOrder);
+const related = featuredProblem ? relatedForProblem(featuredProblem.slug, 5) : [];
+const ogImage = featuredProblem
+  ? siteUrl(`/og/why-is-my-website-slow/${featuredProblem.slug}.svg`)
+  : siteUrl("/og-default.svg");
 ---
 
 <!DOCTYPE html>
@@ -27,6 +43,7 @@ const orgSchema = organizationSchema();
   <meta property="og:description" content="Discover the most common reasons why websites are slow and learn expert solutions to fix them. Comprehensive guide to website performance optimization." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content={siteUrl("/why-is-my-website-slow/")} />
+  <meta property="og:image" content={ogImage} />
 </head>
 <body>
   <header>
@@ -44,20 +61,30 @@ const orgSchema = organizationSchema();
     </nav>
   </header>
 
-  <main>
+  <main class="flex flex-col">
     <h1>Why Is My Website Slow? Common Issues & Solutions</h1>
     <p>Website speed is critical for user experience, search rankings, and conversions. Explore the most common performance issues affecting different platforms and industries:</p>
+    {proofDataset && featuredProblem ? (
+      <ProofBlock
+        title="Proof Snapshot: Common Speed Bottlenecks"
+        subtitle={`Featured issue: ${featuredProblem.h1}`}
+        proofType={variationTokens.proofType}
+        visualMode={variationTokens.visualMode}
+        dataset={proofDataset}
+        slug="why-is-my-website-slow-index"
+      />
+    ) : null}
 
-    <section>
+    <section style={`order:${sectionOrder["platforms"] ?? 1}`}>
       <h2>By Platform</h2>
       <ul>
         {PLATFORMS.map(platform => (
-          <li><a href={`/website-speed-audit/${platform.platform}/`} title={`Learn about ${platform.keyword}`}>{platform.keyword}</a></li>
+          <li><a href={`/website-speed-audit/platform/${platform.platform}/`} title={`Learn about ${platform.keyword}`}>{platform.keyword}</a></li>
         ))}
       </ul>
     </section>
 
-    <section>
+    <section style={`order:${sectionOrder["problems"] ?? 2}`}>
       <h2>Common Problems</h2>
       <ul>
         {PROBLEMS.map(p=>(
@@ -66,14 +93,16 @@ const orgSchema = organizationSchema();
       </ul>
     </section>
 
-    <section>
+    <section style={`order:${sectionOrder["industries"] ?? 3}`}>
       <h2>By Industry</h2>
       <ul>
         {INDUSTRIES.map(industry => (
-          <li><a href={`/website-speed-audit/${industry.industry}/`} title={`Website speed audit for ${industry.keyword}`}>{industry.keyword}</a></li>
+          <li><a href={`/website-speed-audit/industry/${industry.industry}/`} title={`Website speed audit for ${industry.keyword}`}>{industry.keyword}</a></li>
         ))}
       </ul>
     </section>
+
+    <RelatedLinks items={related} heading="Related fixes and next steps" />
 
     <section>
       <h2>Need Expert Help?</h2>

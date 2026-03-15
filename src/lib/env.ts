@@ -16,6 +16,9 @@ export const env = {
 
   QSTASH_TOKEN: () => import.meta.env.QSTASH_TOKEN,
   APP_BASE_URL: () => import.meta.env.APP_BASE_URL,
+
+  RESEND_API_KEY: () => import.meta.env.RESEND_API_KEY,
+  ALERT_FROM_EMAIL: () => import.meta.env.ALERT_FROM_EMAIL,
 };
 
 export function hasSupabaseEnv() {

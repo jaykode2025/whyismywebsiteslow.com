@@ -387,6 +387,7 @@ const buildProblem = (seed: ProblemSeed) => {
     metaDescription: `Learn why ${platformName} websites become slow because of ${seed.issueTitle} and get practical fixes to improve Core Web Vitals and conversions.`,
     platform: seed.platform,
     industry: seed.industry,
+    issueTitle: seed.issueTitle,
     primaryCause: seed.cause,
     quickWins: seed.quickWins,
     detailedAnalysis: [

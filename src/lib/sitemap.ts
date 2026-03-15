@@ -1,5 +1,4 @@
 import { PROBLEMS, PLATFORMS, INDUSTRIES } from "../data/pseo";
-import { siteUrl } from "./seo";
 
 // Generate URLs for sitemap
 export const getSitemapUrls = () => {
@@ -18,14 +17,14 @@ export const getSitemapUrls = () => {
     
     // Platform pages
     ...PLATFORMS.map(p => ({
-      url: `/website-speed-audit/${p.platform}/`,
+      url: `/website-speed-audit/platform/${p.platform}/`,
       changefreq: "weekly",
       priority: 0.8
     })),
     
     // Industry pages
     ...INDUSTRIES.map(i => ({
-      url: `/website-speed-audit/${i.industry}/`,
+      url: `/website-speed-audit/industry/${i.industry}/`,
       changefreq: "weekly",
       priority: 0.8
     }))

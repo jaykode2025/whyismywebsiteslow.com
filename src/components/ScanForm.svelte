@@ -69,7 +69,18 @@
         }),
       });
 
-      if (!res.ok) throw new Error("Scan request failed");
+      if (!res.ok) {
+        let message = "Scan request failed";
+        try {
+          const payload = await res.json();
+          if (typeof payload?.error === "string") {
+            message = payload.error;
+          }
+        } catch {
+          // Keep fallback message for non-JSON responses.
+        }
+        throw new Error(message);
+      }
       const data = await res.json();
       reportId = data.id;
       manageToken = data.manageToken;

@@ -4,16 +4,22 @@ type RelatedItem = {
   label: string;
 };
 
-const { items = [], heading = "Related next steps" } = Astro.props as {
+const {
+  items = [],
+  heading = "Related next steps",
+  intro = "Explore nearby pages selected by topic overlap.",
+} = Astro.props as {
   items?: RelatedItem[];
   heading?: string;
+  intro?: string;
 };
 ---
+
 {
   items.length > 0 ? (
     <section class="mb-10 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
       <h2 class="text-xl text-slate-100">{heading}</h2>
-      <p class="mt-1 text-sm text-slate-400">Explore nearby pages chosen from shared keywords and intent.</p>
+      <p class="mt-1 text-sm text-slate-400">{intro}</p>
       <ul class="mt-4 grid gap-3 md:grid-cols-2">
         {items.map((item) => (
           <li>

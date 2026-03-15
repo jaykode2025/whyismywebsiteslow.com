@@ -16,6 +16,7 @@
     "@supabase/supabase-js": "^2.93.3",
     "@tailwindcss/vite": "^4.1.18",
     "astro": "^5.16.15",
+    "chart.js": "^4.5.1",
     "dompurify": "^3.3.1",
     "isomorphic-dompurify": "^3.0.0-rc.2",
     "jsdom": "^28.1.0",

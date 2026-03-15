@@ -59,8 +59,8 @@ const orgSchema = organizationSchema();
         <p>All generated pages follow a logical URL structure under your main domain:</p>
         <ul>
           <li><strong>Problem Pages:</strong> <code>https://whyismywebsiteslow.com/why-is-my-website-slow/[specific-issue]/</code></li>
-          <li><strong>Platform Pages:</strong> <code>https://whyismywebsiteslow.com/website-speed-audit/[platform]/</code></li>
-          <li><strong>Industry Pages:</strong> <code>https://whyismywebsiteslow.com/website-speed-audit/[industry]/</code></li>
+          <li><strong>Platform Pages:</strong> <code>https://whyismywebsiteslow.com/website-speed-audit/platform/[platform]/</code></li>
+          <li><strong>Industry Pages:</strong> <code>https://whyismywebsiteslow.com/website-speed-audit/industry/[industry]/</code></li>
         </ul>
         
         <p>This approach consolidates SEO authority under your primary domain rather than spreading it across subdomains.</p>
@@ -100,7 +100,7 @@ const orgSchema = organizationSchema();
         <p>Pages tailored to specific website platforms and technologies:</p>
         <ul>
           {PLATFORMS.slice(0, 5).map(platform => (
-            <li><a href={`/website-speed-audit/${platform.platform}`}>{platform.keyword}</a> → <code>https://whyismywebsiteslow.com/website-speed-audit/{platform.platform}/</code></li>
+            <li><a href={`/website-speed-audit/platform/${platform.platform}`}>{platform.keyword}</a> → <code>https://whyismywebsiteslow.com/website-speed-audit/platform/{platform.platform}/</code></li>
           ))}
           <li>... and more platforms</li>
         </ul>
@@ -109,7 +109,7 @@ const orgSchema = organizationSchema();
         <p>Pages focused on performance challenges in specific industries:</p>
         <ul>
           {INDUSTRIES.slice(0, 5).map(industry => (
-            <li><a href={`/website-speed-audit/${industry.industry}`}>{industry.keyword}</a> → <code>https://whyismywebsiteslow.com/website-speed-audit/{industry.industry}/</code></li>
+            <li><a href={`/website-speed-audit/industry/${industry.industry}`}>{industry.keyword}</a> → <code>https://whyismywebsiteslow.com/website-speed-audit/industry/{industry.industry}/</code></li>
           ))}
           <li>... and more industries</li>
         </ul>

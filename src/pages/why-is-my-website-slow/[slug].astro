@@ -1,9 +1,12 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { PROBLEMS, TIER1 } from "../../data/pseo";
+import { PROBLEMS } from "../../data/pseo";
 import { relatedForProblem } from "../../lib/related";
-import RelatedLinks from "../../components/RelatedLinks.astro";
-import { siteUrl, breadcrumb, faq, articleSchema, organizationSchema, calculateKeywordDensity } from "../../lib/seo";
+import RelatedLinks from "../../components/seo/RelatedLinks.astro";
+import { siteUrl, breadcrumb, faq, articleSchema, organizationSchema } from "../../lib/seo";
+import ProofBlock from "../../components/seo/ProofBlock.astro";
+import { buildProblemProofDataset } from "../../lib/proof";
+import { deriveVariationTokens, sectionOrderMap, shouldRenderOptionalSection } from "../../lib/variation";
 
 export const prerender = false;
 
@@ -11,7 +14,63 @@ const entry = PROBLEMS.find((p) => p.slug === Astro.params.slug);
 if (!entry) {
   throw new Error(`Problem not found for slug: ${Astro.params.slug ?? "unknown"}`);
 }
-const related = relatedForProblem(entry.slug);
+const related = relatedForProblem(entry.slug, 5);
+const proofDataset = buildProblemProofDataset(entry);
+const variationTokens = deriveVariationTokens({
+  slug: entry.slug,
+  availableSections: [
+    "impact-visual",
+    "before-after",
+    "primary-cause",
+    "quick-wins",
+    "solutions",
+    "statistics",
+    "social-proof",
+    "faq",
+    "resources"
+  ],
+});
+const sectionOrder = sectionOrderMap(variationTokens.sectionOrder);
+const showSocialProof = shouldRenderOptionalSection(variationTokens, "social-proof");
+const showFaq = shouldRenderOptionalSection(variationTokens, "faq");
+const showResources = shouldRenderOptionalSection(variationTokens, "resources");
+const ogImage = siteUrl(`/og/why-is-my-website-slow/${entry.slug}.svg`);
+const ctaPrimaryHref = variationTokens.ctaVariant === "pricing" ? "/billing" : "/scan";
+const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Unlock Full Report" : "Run Another Scan";
+const heroLead =
+  variationTokens.tone === "technical"
+    ? "Technical diagnosis with measurable performance targets."
+    : variationTokens.tone === "direct"
+      ? "Here is exactly what is slowing your site and what to fix first."
+      : "Friendly walkthrough with quick wins you can apply today.";
+const heroGradientClass =
+  variationTokens.visualMode === "charts-heavy"
+    ? "from-sky-600/20 via-blue-600/20 to-cyan-600/20"
+    : variationTokens.visualMode === "tables-heavy"
+      ? "from-emerald-600/20 via-slate-600/20 to-sky-600/20"
+      : "from-sky-600/20 via-violet-600/20 to-fuchsia-600/20";
+const headings = {
+  impact:
+    variationTokens.tone === "technical"
+      ? `Measured Impact of ${entry.issueTitle}`
+      : variationTokens.tone === "direct"
+        ? `What ${entry.issueTitle} Is Costing You`
+        : `The Real Cost of ${entry.issueTitle}`,
+  beforeAfter: variationTokens.tone === "technical" ? "Baseline vs Optimized State" : "What Changes After Fixing This",
+  cause: variationTokens.tone === "direct" ? "Root Cause" : "Why This Happens",
+  wins: variationTokens.tone === "technical" ? "Highest-Leverage Fixes" : "Quick Wins (Do These First)",
+  solutions: variationTokens.tone === "technical" ? "Implementation Plan" : "Step-by-Step Solutions",
+  stats: variationTokens.visualMode === "tables-heavy" ? "Benchmark Signals" : "Performance Impact",
+  socialProof: variationTokens.tone === "technical" ? "Evidence and Benchmarks" : "Backed by Research",
+  faq: variationTokens.tone === "direct" ? "Common Questions" : "Frequently Asked Questions",
+  resources: variationTokens.tone === "technical" ? "Reference Material" : "Learn More",
+  cta:
+    variationTokens.ctaVariant === "pricing"
+      ? "Ready to Monitor Performance Continuously?"
+      : variationTokens.ctaVariant === "email"
+        ? "Want Weekly Speed Recommendations?"
+        : "Ready to Fix Your Site Speed?",
+};
 
 const breadcrumbSchema = breadcrumb([
   { name: "Home", item: "/" },
@@ -28,114 +87,382 @@ const articleSchemaData = articleSchema(
 );
 const orgSchema = organizationSchema();
 
-const allContent = `${entry.primaryCause} ${entry.quickWins.join(" ")} ${entry.detailedAnalysis.join(" ")} ${entry.solutions.map((s) => `${s.title} ${s.description} ${s.steps.join(" ")}`).join(" ")} ${entry.faqs.map((f) => `${f.question} ${f.answer}`).join(" ")}`;
-const keywordDensity = calculateKeywordDensity(allContent, entry.keyword);
+// Extract impact number from first statistic for hero
+const impactStat = entry.statistics[0] || { value: "—", label: "impact" };
 ---
 
-<BaseLayout title={entry.h1} description={entry.metaDescription} canonical={siteUrl(`/why-is-my-website-slow/${entry.slug}/`)}>
-  <nav aria-label="Breadcrumb" class="py-6">
-    <ol itemscope itemtype="https://schema.org/BreadcrumbList" class="flex gap-2 text-sm text-slate-400">
-      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <a href="/" itemprop="item" class="text-sky-400 hover:underline"><span itemprop="name">Home</span></a>
-        <meta itemprop="position" content="1" />
-      </li>
-      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <span class="mx-2">/</span>
-        <a href="/why-is-my-website-slow/" itemprop="item" class="text-sky-400 hover:underline"><span itemprop="name">SEO Issues</span></a>
-        <meta itemprop="position" content="2" />
-      </li>
-      <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-        <span class="mx-2">/</span>
-        <span itemprop="name" class="text-slate-300">{entry.h1}</span>
-        <meta itemprop="position" content="3" />
-      </li>
-    </ol>
-  </nav>
-
-  <article class="prose prose-invert prose-slate max-w-4xl mx-auto">
-    <header class="mb-8">
-      <h1 class="text-4xl font-bold text-slate-100 mb-4">{entry.h1}</h1>
-      <p class="text-lg text-slate-400">{entry.metaDescription}</p>
-    </header>
-
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Primary Cause</h2>
-      <p class="text-slate-300">{entry.primaryCause}</p>
-    </section>
-
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Quick Wins</h2>
-      <ul class="space-y-2">
-        {entry.quickWins.map((win) => <li class="text-slate-300">✓ {win}</li>)}
-      </ul>
-    </section>
-
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Detailed Analysis</h2>
-      <div class="space-y-3">
-        {entry.detailedAnalysis.map((paragraph) => <p class="text-slate-300">{paragraph}</p>)}
+<BaseLayout 
+  title={entry.h1} 
+  description={entry.metaDescription} 
+  canonical={siteUrl(`/why-is-my-website-slow/${entry.slug}/`)}
+  ogImage={ogImage}
+>
+  <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(breadcrumbSchema)}</script>
+  <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(faqSchema)}</script>
+  <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(articleSchemaData)}</script>
+  <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(orgSchema)}</script>
+  <!-- Hero Section with Gradient -->
+  <section class={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${heroGradientClass} border border-white/10 p-8 md:p-12 mb-12`}>
+    <div class="absolute inset-0 bg-grid opacity-10"></div>
+    <div class="relative z-10">
+      <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex gap-2 text-sm text-slate-400">
+          <li><a href="/" class="text-sky-400 hover:underline">Home</a></li>
+          <li class="mx-2">/</li>
+          <li><a href="/why-is-my-website-slow/" class="text-sky-400 hover:underline">SEO Issues</a></li>
+          <li class="mx-2">/</li>
+          <li class="text-slate-300">{entry.platform}</li>
+        </ol>
+      </nav>
+      
+      <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-100 mb-6 leading-tight">
+        {entry.h1}
+      </h1>
+      
+      <p class="text-xl text-slate-300 max-w-3xl mb-8">
+        {entry.metaDescription}
+      </p>
+      <p class="text-sm uppercase tracking-[0.2em] text-slate-400">{heroLead}</p>
+      
+      <!-- Impact Stat Card -->
+      <div class="inline-flex items-center gap-4 bg-white/10 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/20">
+        <div class="text-4xl font-bold text-emerald-400">{impactStat.value}</div>
+        <div class="text-slate-300">{impactStat.label}</div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Step-by-Step Solutions</h2>
-      {entry.solutions.map((solution) => (
-        <div class="bg-white/5 rounded-xl p-6 mb-4 border border-white/10">
-          <h3 class="text-xl font-semibold text-slate-100 mb-2">{solution.title}</h3>
-          <p class="text-slate-400 mb-4">{solution.description}</p>
-          <ol class="list-decimal list-inside space-y-2 text-slate-300">
-            {solution.steps.map((step) => <li>{step}</li>)}
-          </ol>
+  <ProofBlock
+    title={`Performance Proof for ${entry.platform}`}
+    subtitle="Data-backed snapshot generated from this issue profile."
+    proofType={variationTokens.proofType}
+    visualMode={variationTokens.visualMode}
+    dataset={proofDataset}
+    slug={entry.slug}
+  />
+
+  <!-- Performance Impact Visualization -->
+  <div class="flex flex-col">
+  <section class="mb-12" style={`order:${sectionOrder["impact-visual"] ?? 1}`}>
+    <h2 class="text-2xl font-bold text-slate-100 mb-6 flex items-center gap-3">
+      <svg class="w-6 h-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+      </svg>
+      {headings.impact}
+    </h2>
+    
+    <div class="grid md:grid-cols-3 gap-6">
+      <!-- Loss Card -->
+      <div class="bg-gradient-to-br from-rose-500/10 to-orange-500/10 rounded-2xl p-6 border border-rose-500/20">
+        <div class="text-rose-400 text-sm font-semibold mb-2">YOU'RE LOSING</div>
+        <div class="text-3xl font-bold text-slate-100 mb-2">
+          {entry.statistics[0]?.value || "40%"}
+        </div>
+        <div class="text-slate-400 text-sm">
+          of visitors abandon slow sites
+        </div>
+      </div>
+      
+      <!-- Revenue Impact -->
+      <div class="bg-gradient-to-br from-amber-500/10 to-yellow-500/10 rounded-2xl p-6 border border-amber-500/20">
+        <div class="text-amber-400 text-sm font-semibold mb-2">REVENUE IMPACT</div>
+        <div class="text-3xl font-bold text-slate-100 mb-2">
+          {entry.statistics[2]?.value || "-15%"}
+        </div>
+        <div class="text-slate-400 text-sm">
+          conversion rate decrease
+        </div>
+      </div>
+      
+      <!-- Opportunity -->
+      <div class="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-2xl p-6 border border-emerald-500/20">
+        <div class="text-emerald-400 text-sm font-semibold mb-2">POTENTIAL GAIN</div>
+        <div class="text-3xl font-bold text-slate-100 mb-2">
+          +{entry.statistics[0]?.value || "28%"}
+        </div>
+        <div class="text-slate-400 text-sm">
+          faster load after fix
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Before/After Comparison -->
+  <section class="mb-12" style={`order:${sectionOrder["before-after"] ?? 2}`}>
+    <h2 class="text-2xl font-bold text-slate-100 mb-6">{headings.beforeAfter}</h2>
+    
+    <div class="grid md:grid-cols-2 gap-6">
+      <!-- Before -->
+      <div class="bg-white/5 rounded-2xl p-6 border border-white/10 opacity-75">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center">
+            <svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-300">Before Fix</h3>
+        </div>
+        <ul class="space-y-3 text-slate-400">
+          <li class="flex gap-3">
+            <span class="text-rose-400">✕</span>
+            Slow page loads ({entry.statistics[0]?.value || "4+ seconds"})
+          </li>
+          <li class="flex gap-3">
+            <span class="text-rose-400">✕</span>
+            High bounce rate
+          </li>
+          <li class="flex gap-3">
+            <span class="text-rose-400">✕</span>
+            Poor Core Web Vitals scores
+          </li>
+          <li class="flex gap-3">
+            <span class="text-rose-400">✕</span>
+            Lost conversions and revenue
+          </li>
+        </ul>
+      </div>
+      
+      <!-- After -->
+      <div class="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-2xl p-6 border border-emerald-500/30">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-emerald-300">After Fix</h3>
+        </div>
+        <ul class="space-y-3 text-slate-300">
+          <li class="flex gap-3">
+            <span class="text-emerald-400">✓</span>
+            Fast page loads (&lt;2 seconds)
+          </li>
+          <li class="flex gap-3">
+            <span class="text-emerald-400">✓</span>
+            Lower bounce rate
+          </li>
+          <li class="flex gap-3">
+            <span class="text-emerald-400">✓</span>
+            Green Core Web Vitals
+          </li>
+          <li class="flex gap-3">
+            <span class="text-emerald-400">✓</span>
+            Higher conversions
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Primary Cause Section -->
+  <section class="mb-12" style={`order:${sectionOrder["primary-cause"] ?? 3}`}>
+    <h2 class="text-2xl font-bold text-slate-100 mb-4">{headings.cause}</h2>
+    <div class="bg-white/5 rounded-2xl p-6 border border-white/10">
+      <p class="text-lg text-slate-300 mb-4">{entry.primaryCause}</p>
+      <div class="space-y-3 text-slate-400">
+        {entry.detailedAnalysis.map((paragraph) => (
+          <p>{paragraph}</p>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Wins Section -->
+  <section class="mb-12" style={`order:${sectionOrder["quick-wins"] ?? 4}`}>
+    <h2 class="text-2xl font-bold text-slate-100 mb-6 flex items-center gap-3">
+      <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+      </svg>
+      {headings.wins}
+    </h2>
+    
+    <div class="grid gap-4">
+      {entry.quickWins.map((win, index) => (
+        <div class="flex gap-4 bg-white/5 rounded-xl p-5 border border-white/10 hover:border-emerald-500/30 transition-colors">
+          <div class="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold">
+            {index + 1}
+          </div>
+          <div class="text-slate-300">{win}</div>
         </div>
       ))}
-    </section>
+    </div>
+  </section>
 
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Statistics &amp; Impact</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {entry.statistics.map((stat) => (
-          <div class="bg-gradient-to-br from-sky-500/10 to-violet-500/10 rounded-xl p-6 border border-white/10">
-            <div class="text-3xl font-bold text-sky-400">{stat.value}</div>
-            <p class="text-sm text-slate-400 mt-2">{stat.label}</p>
+  <!-- Step-by-Step Solutions -->
+  <section class="mb-12" style={`order:${sectionOrder["solutions"] ?? 5}`}>
+    <h2 class="text-2xl font-bold text-slate-100 mb-6">{headings.solutions}</h2>
+    
+    {entry.solutions.map((solution, solutionIndex) => (
+      <div class="bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl p-8 border border-white/10 mb-6">
+        <div class="flex items-start gap-4 mb-6">
+          <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-sky-500/20 flex items-center justify-center text-sky-400 font-bold text-xl">
+            {solutionIndex + 1}
           </div>
-        ))}
+          <div>
+            <h3 class="text-xl font-semibold text-slate-100 mb-2">{solution.title}</h3>
+            <p class="text-slate-400">{solution.description}</p>
+          </div>
+        </div>
+        
+        <div class="ml-16">
+          <h4 class="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wide">Implementation Steps</h4>
+          <ol class="space-y-3">
+            {solution.steps.map((step, stepIndex) => (
+              <li class="flex gap-4">
+                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400 text-sm font-semibold">
+                  {stepIndex + 1}
+                </span>
+                <span class="text-slate-300">{step}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
-    </section>
+    ))}
+  </section>
 
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Frequently Asked Questions</h2>
-      <dl class="space-y-4">
-        {entry.faqs.map((faqItem) => (
-          <div class="bg-white/5 rounded-xl p-6 border border-white/10">
-            <dt class="text-lg font-semibold text-slate-100 mb-2">{faqItem.question}</dt>
-            <dd class="text-slate-300">{faqItem.answer}</dd>
+  <!-- Statistics Grid -->
+  <section class="mb-12" style={`order:${sectionOrder["statistics"] ?? 6}`}>
+    <h2 class="text-2xl font-bold text-slate-100 mb-6">{headings.stats}</h2>
+    
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {entry.statistics.map((stat, index) => (
+        <div class="group relative bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-fuchsia-500/10 rounded-2xl p-6 border border-white/10 hover:border-sky-500/30 transition-all hover:scale-[1.02]">
+          <div class="absolute inset-0 bg-gradient-to-br from-sky-500/5 to-violet-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div class="relative">
+            <div class="text-4xl font-bold text-sky-400 mb-2">{stat.value}</div>
+            <div class="text-slate-400 text-sm">{stat.label}</div>
           </div>
-        ))}
-      </dl>
-    </section>
+        </div>
+      ))}
+    </div>
+  </section>
 
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold text-slate-100 mb-3">External Resources</h2>
-      <ul class="space-y-2">
-        {entry.outboundLinks.map((link) => (
-          <li class="text-slate-300">
-            <a href={link.url} target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">
-              {link.label} ↗
-            </a>
-          </li>
-        ))}
+  <!-- Social Proof / Authority Section -->
+  {showSocialProof ? (
+  <section class="mb-12" style={`order:${sectionOrder["social-proof"] ?? 7}`}>
+    <h2 class="text-2xl font-bold text-slate-100 mb-6 flex items-center gap-3">
+      <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+      </svg>
+      {headings.socialProof}
+    </h2>
+    
+    <div class="bg-white/5 rounded-2xl p-6 border border-white/10">
+      <ul class="space-y-4 text-slate-300">
+        <li class="flex gap-3">
+          <span class="text-amber-400">📊</span>
+          <span>53% of mobile users abandon pages that take longer than 3 seconds to load — <strong class="text-slate-200">Google</strong></span>
+        </li>
+        <li class="flex gap-3">
+          <span class="text-amber-400">📈</span>
+          <span>1 second delay can reduce conversions by up to 7% — <strong class="text-slate-200">Portent</strong></span>
+        </li>
+        <li class="flex gap-3">
+          <span class="text-amber-400">🎯</span>
+          <span>Core Web Vitals are a confirmed Google ranking factor — <strong class="text-slate-200">Google Search Central</strong></span>
+        </li>
       </ul>
-    </section>
+    </div>
+  </section>
+  ) : null}
 
-    <aside class="bg-gradient-to-r from-sky-500/20 to-violet-500/20 rounded-2xl p-8 border border-white/10 my-8">
-      <h2 class="text-2xl font-semibold text-slate-100 mb-3">Ready to Improve Your Site Speed?</h2>
-      <p class="text-slate-300 mb-6">{entry.conversionImpact}</p>
-      <a href={TIER1.audit} class="inline-block bg-sky-500 hover:bg-sky-400 text-white font-semibold px-6 py-3 rounded-xl transition-colors">
-        Get Your Free Website Speed Audit →
-      </a>
-    </aside>
-  </article>
+  <!-- FAQ Section -->
+  {showFaq ? (
+  <section class="mb-12" style={`order:${sectionOrder["faq"] ?? 8}`}>
+    <h2 class="text-2xl font-bold text-slate-100 mb-6">{headings.faq}</h2>
+    
+    <div class="space-y-4">
+      {entry.faqs.map((faqItem) => (
+        <details class="group bg-white/5 rounded-2xl border border-white/10 open:border-sky-500/30 transition-colors">
+          <summary class="flex items-center justify-between gap-4 p-6 cursor-pointer list-none">
+            <span class="text-lg font-semibold text-slate-200">{faqItem.question}</span>
+            <svg class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </summary>
+          <div class="px-6 pb-6 text-slate-400">
+            {faqItem.answer}
+          </div>
+        </details>
+      ))}
+    </div>
+  </section>
+  ) : null}
 
-  <RelatedLinks items={related} />
+  <!-- External Resources -->
+  {showResources ? (
+  <section class="mb-12" style={`order:${sectionOrder["resources"] ?? 9}`}>
+    <h2 class="text-2xl font-bold text-slate-100 mb-6">{headings.resources}</h2>
+    
+    <div class="grid gap-3">
+      {entry.outboundLinks.map((link) => (
+        <a 
+          href={link.url} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          class="flex items-center gap-4 bg-white/5 rounded-xl p-5 border border-white/10 hover:border-sky-500/30 hover:bg-white/[0.07] transition-all group"
+        >
+          <div class="w-10 h-10 rounded-lg bg-sky-500/20 flex items-center justify-center group-hover:bg-sky-500/30 transition-colors">
+            <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+          </div>
+          <span class="text-slate-300 group-hover:text-slate-200">{link.label}</span>
+          <svg class="w-4 h-4 text-slate-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </a>
+      ))}
+    </div>
+  </section>
+  ) : null}
+  </div>
+
+  <!-- CTA Section -->
+  <aside class="relative overflow-hidden bg-gradient-to-r from-sky-600/20 via-violet-600/20 to-fuchsia-600/20 rounded-3xl p-8 md:p-12 border border-white/10 mb-12">
+    <div class="absolute inset-0 bg-grid opacity-10"></div>
+    <div class="relative z-10 text-center">
+      <h2 class="text-3xl md:text-4xl font-bold text-slate-100 mb-4">{headings.cta}</h2>
+      <p class="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
+        {entry.conversionImpact} Get a complete audit with prioritized fixes.
+      </p>
+      
+      <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <a 
+          href={ctaPrimaryHref} 
+          class="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-white font-semibold px-8 py-4 rounded-xl transition-all hover:scale-105 shadow-lg shadow-sky-500/25"
+        >
+          {ctaPrimaryLabel}
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+          </svg>
+        </a>
+        {variationTokens.ctaVariant === "email" ? (
+          <form method="post" action="/api/leads/preview" class="flex flex-col sm:flex-row gap-2">
+            <input type="hidden" name="source" value={`seo-problem:${entry.slug}`} />
+            <input type="hidden" name="next" value={`/why-is-my-website-slow/${entry.slug}/`} />
+            <input
+              type="email"
+              name="email"
+              required
+              placeholder="Get weekly speed tips"
+              class="rounded-xl border border-white/20 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-400"
+            />
+            <button type="submit" class="rounded-xl border border-emerald-300/40 bg-emerald-500/20 px-4 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/30">
+              Email me tips
+            </button>
+          </form>
+        ) : null}
+        
+        <div class="text-sm text-slate-400">
+          <span class="text-emerald-400">✓</span> No credit card required
+          <span class="mx-3">•</span>
+          <span class="text-emerald-400">✓</span> Results in minutes
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <RelatedLinks items={related} heading="Related fixes and next steps" />
 </BaseLayout>
-</html>

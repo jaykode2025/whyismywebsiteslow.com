@@ -2,7 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Card from "../components/ui/Card.astro";
 import Button from "../components/ui/Button.astro";
-import { getUserPlan, isPro, type PlanInfo } from "../lib/plan";
+import { getPlanLimits, getUserPlan, isPro, type PlanInfo } from "../lib/plan";
 
 const user = Astro.locals.user;
 if (!user) {
@@ -13,6 +13,7 @@ const supabase = Astro.locals.supabase;
 const planInfo: PlanInfo = supabase
   ? await getUserPlan(supabase, user.id)
   : { plan: "free", status: "inactive", currentPeriodEnd: null };
+const limits = getPlanLimits(planInfo.plan);
 ---
 
 <BaseLayout title="Billing">
@@ -34,6 +35,8 @@ const planInfo: PlanInfo = supabase
         <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Current plan</p>
         <p class="mt-3 text-2xl text-slate-100">{planInfo.plan.toUpperCase()}</p>
         <p class="mt-1 text-sm text-slate-400">Status: {planInfo.status}</p>
+        <p class="mt-2 text-xs text-slate-400">Projects: {limits.maxProjects}</p>
+        <p class="text-xs text-slate-400">Monthly scans: {limits.monthlyScanLimit}</p>
         {planInfo.currentPeriodEnd ? (
           <p class="mt-1 text-xs text-slate-500">Renews: {new Date(planInfo.currentPeriodEnd).toLocaleDateString()}</p>
         ) : null}

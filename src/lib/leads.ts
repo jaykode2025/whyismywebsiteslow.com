@@ -5,7 +5,7 @@ import { createSupabaseAdminClient } from "./supabase/admin";
 export type Lead = {
   email: string;
   reportId?: string | null;
-  source: "preview";
+  source: "preview" | "report-sticky-cta" | "report-preview-gate";
   createdAt: string;
   userAgent?: string | null;
   referer?: string | null;

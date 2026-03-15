@@ -6,7 +6,7 @@ import { runEnhancedScan } from "../../lib/scan.enhanced";
 import { env, hasSupabaseEnv } from "../../lib/env";
 import { generateId, generateToken, hashToken } from "../../lib/tokens";
 import { enqueueQStashJob } from "../../lib/qstash";
-import { getUserPlan, isPro } from "../../lib/plan";
+import { getPlanLimits, getUserPlan } from "../../lib/plan";
 import { verifyCsrfTokenFromRequest } from "../../lib/csrf";
 
 export const POST: APIRoute = async (context) => {
@@ -53,6 +53,38 @@ export const POST: APIRoute = async (context) => {
       const id = generateId();
       const manageToken = locals.user ? undefined : generateToken();
       const manageTokenHash = manageToken ? hashToken(manageToken) : null;
+      let userPlanInfo: Awaited<ReturnType<typeof getUserPlan>> | null = null;
+      let planLimits = getPlanLimits("free");
+
+      if (locals.user) {
+        userPlanInfo = await getUserPlan(locals.supabase, locals.user.id);
+        planLimits = getPlanLimits(userPlanInfo.plan);
+
+        const startOfMonth = new Date();
+        startOfMonth.setUTCDate(1);
+        startOfMonth.setUTCHours(0, 0, 0, 0);
+        const { count: scanCount, error: scanCountError } = await locals.supabase
+          .from("scans")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", locals.user.id)
+          .gte("created_at", startOfMonth.toISOString());
+
+        if (scanCountError) throw new Error(scanCountError.message);
+        if ((scanCount ?? 0) >= planLimits.monthlyScanLimit) {
+          return new Response(
+            JSON.stringify({
+              error: `Monthly scan limit reached (${planLimits.monthlyScanLimit}). Upgrade for higher limits.`,
+              code: "monthly_scan_limit",
+              plan: userPlanInfo.plan,
+              limit: planLimits.monthlyScanLimit,
+            }),
+            {
+              status: 402,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+        }
+      }
 
       let projectId: string | null = null;
       if (locals.user) {
@@ -67,24 +99,28 @@ export const POST: APIRoute = async (context) => {
         if (existing?.id) projectId = existing.id;
       }
 
-      // Feature gating (only blocks new projects for free users)
+      // Project limits by plan.
       if (locals.user && !projectId) {
-        const planInfo = await getUserPlan(locals.supabase, locals.user.id);
-        const pro = isPro(planInfo);
+        const planInfo = userPlanInfo ?? (await getUserPlan(locals.supabase, locals.user.id));
 
-        // Free: 1 saved project. Pro: more (stubbed as 20 for now).
-        if (!pro) {
-          const { count: projectCount } = await locals.supabase
-            .from("projects")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", locals.user.id);
+        const { count: projectCount } = await locals.supabase
+          .from("projects")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", locals.user.id);
 
-          if ((projectCount ?? 0) >= 1) {
-            return new Response(JSON.stringify({ error: "Upgrade required to add more projects" }), {
+        if ((projectCount ?? 0) >= planLimits.maxProjects) {
+          return new Response(
+            JSON.stringify({
+              error: `Project limit reached (${planLimits.maxProjects}). Upgrade for more projects.`,
+              code: "project_limit_reached",
+              plan: planInfo.plan,
+              limit: planLimits.maxProjects,
+            }),
+            {
               status: 402,
               headers: { "Content-Type": "application/json" },
-            });
-          }
+            }
+          );
         }
 
         try {

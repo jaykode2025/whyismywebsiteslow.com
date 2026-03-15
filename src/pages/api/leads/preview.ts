@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
-import { saveLead } from "../../../lib/leads";
+import { appendLeadAccess, LEAD_ACCESS_COOKIE_NAME } from "../../../lib/leadAccess";
+import { saveLead, type Lead } from "../../../lib/leads";
 
 type Payload = {
   email: string;
@@ -31,6 +32,12 @@ function safeNextUrl(next: string | undefined, fallback: string, requestUrl: str
   }
 }
 
+function normalizeSource(value: string | undefined): Lead["source"] {
+  if (value === "report-sticky-cta") return "report-sticky-cta";
+  if (value === "report-preview-gate") return "report-preview-gate";
+  return "preview";
+}
+
 async function readPayload(request: Request): Promise<Payload> {
   const contentType = request.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
@@ -54,20 +61,29 @@ async function readPayload(request: Request): Promise<Payload> {
 }
 
 export const POST: APIRoute = async (context) => {
+  const contentType = context.request.headers.get("content-type") ?? "";
+  const wantsJson = contentType.includes("application/json");
   const payload = await readPayload(context.request);
   const reportId = payload.reportId?.trim();
   const email = normalizeEmail(payload.email ?? "");
+  const source = normalizeSource(payload.source?.trim());
   const next = payload.next?.trim();
 
   const fallback = reportId ? `/report/${reportId}` : "/scan";
   const redirectTo = safeNextUrl(next, fallback, context.request.url);
 
   if (payload.company) {
+    if (wantsJson) {
+      return new Response(JSON.stringify({ ok: true, redirectTo }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     return context.redirect(redirectTo);
   }
 
   if (!isValidEmail(email)) {
-    if ((context.request.headers.get("content-type") ?? "").includes("application/json")) {
+    if (wantsJson) {
       return new Response(JSON.stringify({ error: "valid email required" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
@@ -79,12 +95,31 @@ export const POST: APIRoute = async (context) => {
   await saveLead({
     email,
     reportId: reportId || null,
-    source: "preview",
+    source,
     createdAt: new Date().toISOString(),
     userAgent: context.request.headers.get("user-agent"),
     referer: context.request.headers.get("referer"),
     reportUrl: reportId ? `/report/${reportId}` : null,
   });
+
+  if (reportId) {
+    const existing = context.cookies.get(LEAD_ACCESS_COOKIE_NAME)?.value;
+    const nextCookieValue = appendLeadAccess(existing, reportId);
+    context.cookies.set(LEAD_ACCESS_COOKIE_NAME, nextCookieValue, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: new URL(context.request.url).protocol === "https:",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
+
+  if (wantsJson) {
+    return new Response(JSON.stringify({ ok: true, redirectTo }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   return context.redirect(redirectTo);
 };
