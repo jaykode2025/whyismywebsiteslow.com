@@ -3,6 +3,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import Card from "../../components/ui/Card.astro";
 import Button from "../../components/ui/Button.astro";
 import { createSupabaseAdminClient } from "../../lib/supabase/admin";
+import { buildProjectHealthSummary, buildRegressionSummary } from "../../lib/monitoringSummary";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect(`/login?next=${encodeURIComponent(Astro.url.pathname)}`);
@@ -19,11 +20,15 @@ const admin = createSupabaseAdminClient();
 const scansClient = admin ?? supabase;
 const { data: scans } = await scansClient
   .from("scans")
-  .select("id,status,device,visibility,created_at,summary_json,error")
+  .select("id,project_id,url,status,device,visibility,created_at,summary_json,report_json,error")
   .eq("project_id", projectId)
   .eq("user_id", user.id)
   .order("created_at", { ascending: false })
   .limit(50);
+
+const projectScans = (scans ?? []) as any[];
+const healthSummary = buildProjectHealthSummary(projectId, projectScans);
+const regressionSummary = buildRegressionSummary(projectId, project.url, projectScans);
 ---
 
 <BaseLayout title={project.name ?? "Project"}>
@@ -37,6 +42,57 @@ const { data: scans } = await scansClient
         <Button href="/scan" variant="ghost">New scan</Button>
         <Button href="/billing">Upgrade</Button>
       </div>
+    </div>
+
+    <div class="mt-8 grid gap-6 md:grid-cols-2">
+      <Card>
+        <h2 class="text-xl text-slate-100">Monitoring overview</h2>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+            <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Latest score</p>
+            <p class="mt-2 text-2xl text-slate-100">{healthSummary.latestScore ?? "-"}</p>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+            <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Trend</p>
+            <p class="mt-2 text-2xl text-slate-100">{healthSummary.trend}</p>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+            <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Current CWV</p>
+            <p class="mt-2 text-slate-100">{healthSummary.latestCwvStatus ?? "-"}</p>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+            <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Last scan</p>
+            <p class="mt-2 text-slate-100">
+              {healthSummary.lastScannedAt ? new Date(healthSummary.lastScannedAt).toLocaleDateString() : "-"}
+            </p>
+          </div>
+        </div>
+        <p class="mt-4 text-sm text-slate-400">
+          Monitoring becomes useful when you can see whether performance is holding, improving, or regressing between scans.
+        </p>
+      </Card>
+
+      <Card>
+        <h2 class="text-xl text-slate-100">Recent regression check</h2>
+        {regressionSummary ? (
+          <div class="mt-4 rounded-2xl border border-rose-300/30 bg-rose-300/10 px-4 py-4">
+            <p class="text-sm text-rose-100">{regressionSummary.summary}</p>
+            <p class="mt-2 text-xs text-rose-100/70">
+              Previous score: {regressionSummary.previousScore ?? "-"} · Current score: {regressionSummary.currentScore ?? "-"}
+            </p>
+          </div>
+        ) : (
+          <div class="mt-4 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-4">
+            <p class="text-sm text-emerald-100">No meaningful regression detected from the two most recent completed scans.</p>
+          </div>
+        )}
+        <p class="mt-4 text-sm text-slate-400">
+          Paid monitoring uses this same history to highlight regressions before they become customer-facing problems.
+        </p>
+        <div class="mt-4">
+          <Button href="/billing" variant="ghost" class="border-white/10">Manage monitoring plan</Button>
+        </div>
+      </Card>
     </div>
 
     <Card class="mt-8">

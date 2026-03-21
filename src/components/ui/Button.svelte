@@ -1,4 +1,5 @@
 <script>
+  // Svelte usage (e.g. ScanForm). For Astro pages use ui/Button.astro (same API).
   export let href = undefined;
   export let type = "button";
   export let variant = "primary";

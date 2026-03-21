@@ -38,6 +38,9 @@ npx supabase db push
 - [ ] `projects`
 - [ ] `scans`
 - [ ] `subscriptions`
+- [ ] `stripe_webhook_events` (idempotency for webhooks)
+
+**Data store:** Production must use Supabase. The file store (`.data/reports.json`) is for local/dev only and is ephemeral on serverless.
 
 ---
 

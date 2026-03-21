@@ -5,9 +5,14 @@ import { runChecks } from "./checks";
 import { computeScore } from "./scoring";
 import { generateInsights } from "./insights";
 import { getHost } from "./validate";
+import { buildBusinessImpact, buildRecommendationSummary } from "./reportIntelligence";
 
 import { logger } from "./logger";
 
+/**
+ * Legacy/simple scan path. The app uses runEnhancedScan from scan.enhanced.ts for all scans.
+ * Kept for optional simple scans or backwards compatibility.
+ */
 export async function runScan(id: string, input: ScanRequest, writeTokenHash: string): Promise<Report> {
   logger.scan(id, 'Starting scan', { url: input.url, device: input.device });
   
@@ -29,6 +34,12 @@ export async function runScan(id: string, input: ScanRequest, writeTokenHash: st
 
   logger.scan(id, 'Scan complete', { score, grade, insights: insights.length });
 
+  const summary = {
+    grade,
+    score100: score,
+    topIssues: insights.slice(0, 3).map((item) => item.title),
+  } as const;
+
   return {
     id,
     createdAt: new Date().toISOString(),
@@ -45,11 +56,24 @@ export async function runScan(id: string, input: ScanRequest, writeTokenHash: st
     psi,
     checks,
     insights,
-    summary: {
-      grade,
-      score100: score,
-      topIssues: insights.slice(0, 3).map((item) => item.title),
+    summary,
+    businessImpact: buildBusinessImpact({
+      canonicalHost: getHost(normalizedUrl),
+      summary,
+      psi,
+      checks,
+      insights,
+    }),
+    detectedStack: {
+      frameworkGuess: null,
+      cmsGuess: null,
+      hostingGuess: null,
+      confidence: "low",
     },
+    recommendationSummary: buildRecommendationSummary({
+      insights,
+      summary,
+    }),
     manage: {
       writeTokenHash,
     },

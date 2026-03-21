@@ -17,8 +17,14 @@ export const env = {
   QSTASH_TOKEN: () => import.meta.env.QSTASH_TOKEN,
   APP_BASE_URL: () => import.meta.env.APP_BASE_URL,
 
+  /** Optional: Google PageSpeed Insights API key for higher rate limits */
+  PSI_API_KEY: () => import.meta.env.PSI_API_KEY,
+
   RESEND_API_KEY: () => import.meta.env.RESEND_API_KEY,
   ALERT_FROM_EMAIL: () => import.meta.env.ALERT_FROM_EMAIL,
+  SALES_NOTIFY_EMAIL: () => import.meta.env.SALES_NOTIFY_EMAIL,
+  SUPPORT_REPLY_TO: () => import.meta.env.SUPPORT_REPLY_TO,
+  INTERNAL_DASHBOARD_KEY: () => import.meta.env.INTERNAL_DASHBOARD_KEY,
 };
 
 export function hasSupabaseEnv() {

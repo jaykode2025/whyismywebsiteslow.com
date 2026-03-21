@@ -3,21 +3,37 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import { PROBLEMS } from "../../data/pseo";
 import { relatedForProblem } from "../../lib/related";
 import RelatedLinks from "../../components/seo/RelatedLinks.astro";
-import { siteUrl, breadcrumb, faq, articleSchema, organizationSchema } from "../../lib/seo";
+import {
+  siteUrl,
+  breadcrumb,
+  faq,
+  articleSchema,
+  organizationSchema,
+  buildSeoDescription,
+  buildSeoTitle,
+  humanizeSlug,
+  titleCase,
+} from "../../lib/seo";
 import ProofBlock from "../../components/seo/ProofBlock.astro";
 import { buildProblemProofDataset } from "../../lib/proof";
 import { deriveVariationTokens, sectionOrderMap, shouldRenderOptionalSection } from "../../lib/variation";
+import RecentScans from "../../components/RecentScans.svelte";
+import ScanBox from "../../components/ScanBox.astro";
 
-export const prerender = false;
+import { generateProblemPaths } from "../../lib/staticPaths";
 
-const entry = PROBLEMS.find((p) => p.slug === Astro.params.slug);
+export const prerender = true;
+export const getStaticPaths = generateProblemPaths;
+
+const entry = PROBLEMS.find((p) => p.slug === Astro.params.slug) ?? null;
 if (!entry) {
-  throw new Error(`Problem not found for slug: ${Astro.params.slug ?? "unknown"}`);
+  Astro.response.status = 404;
 }
-const related = relatedForProblem(entry.slug, 5);
-const proofDataset = buildProblemProofDataset(entry);
+
+const related = entry ? relatedForProblem(entry.slug, 5) : [];
+const proofDataset = entry ? buildProblemProofDataset(entry) : null;
 const variationTokens = deriveVariationTokens({
-  slug: entry.slug,
+  slug: entry?.slug ?? `missing:${Astro.params.slug ?? "unknown"}`,
   availableSections: [
     "impact-visual",
     "before-after",
@@ -30,32 +46,93 @@ const variationTokens = deriveVariationTokens({
     "resources"
   ],
 });
+
+const themeClasses = {
+  sky: {
+    hero: "from-sky-600/20 via-blue-600/20 to-cyan-600/20",
+    border: "border-sky-500/20",
+    text: "text-sky-400",
+    button: "bg-sky-500 hover:bg-sky-400 shadow-sky-500/25",
+    icon: "text-sky-400",
+    bg: "bg-sky-500/10"
+  },
+  emerald: {
+    hero: "from-emerald-600/20 via-teal-600/20 to-cyan-600/20",
+    border: "border-emerald-500/20",
+    text: "text-emerald-400",
+    button: "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/25",
+    icon: "text-emerald-400",
+    bg: "bg-emerald-500/10"
+  },
+  violet: {
+    hero: "from-violet-600/20 via-indigo-600/20 to-purple-600/20",
+    border: "border-violet-500/20",
+    text: "text-violet-400",
+    button: "bg-violet-500 hover:bg-violet-400 shadow-violet-500/25",
+    icon: "text-violet-400",
+    bg: "bg-violet-500/10"
+  },
+  amber: {
+    hero: "from-amber-600/20 via-orange-600/20 to-yellow-600/20",
+    border: "border-amber-500/20",
+    text: "text-amber-400",
+    button: "bg-amber-500 hover:bg-amber-400 shadow-amber-500/25",
+    icon: "text-amber-400",
+    bg: "bg-amber-500/10"
+  },
+  rose: {
+    hero: "from-rose-600/20 via-pink-600/20 to-red-600/20",
+    border: "border-rose-500/20",
+    text: "text-rose-400",
+    button: "bg-rose-500 hover:bg-rose-400 shadow-rose-500/25",
+    icon: "text-rose-400",
+    bg: "bg-rose-500/10"
+  }
+};
+
+const activeTheme = themeClasses[variationTokens.colorTheme];
+
 const sectionOrder = sectionOrderMap(variationTokens.sectionOrder);
 const showSocialProof = shouldRenderOptionalSection(variationTokens, "social-proof");
 const showFaq = shouldRenderOptionalSection(variationTokens, "faq");
 const showResources = shouldRenderOptionalSection(variationTokens, "resources");
-const ogImage = siteUrl(`/og/why-is-my-website-slow/${entry.slug}.svg`);
+const ogImage = entry
+  ? siteUrl(`/og/why-is-my-website-slow/${entry.slug}.svg`)
+  : siteUrl("/og-default.svg");
+const platformName = entry ? titleCase(humanizeSlug(entry.platform)) : "Website";
+const seoTitle = entry
+  ? buildSeoTitle(entry.h1, "Causes, fixes and business impact")
+  : buildSeoTitle("Why Is My Website Slow", "Issue not found");
+const seoDescription = buildSeoDescription(
+  entry
+    ? `Learn why ${platformName} websites get slow because of ${entry.issueTitle}.`
+    : "The issue page you requested does not exist.",
+  entry
+    ? [
+        entry.primaryCause,
+        "See the impact, the first fixes to prioritize, and the next best step.",
+      ]
+    : [
+        "Browse the issue library or run a live scan to diagnose your own site.",
+      ]
+);
 const ctaPrimaryHref = variationTokens.ctaVariant === "pricing" ? "/billing" : "/scan";
-const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Unlock Full Report" : "Run Another Scan";
+const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Unlock Full Report" : "Run a Scan";
 const heroLead =
   variationTokens.tone === "technical"
     ? "Technical diagnosis with measurable performance targets."
     : variationTokens.tone === "direct"
       ? "Here is exactly what is slowing your site and what to fix first."
       : "Friendly walkthrough with quick wins you can apply today.";
-const heroGradientClass =
-  variationTokens.visualMode === "charts-heavy"
-    ? "from-sky-600/20 via-blue-600/20 to-cyan-600/20"
-    : variationTokens.visualMode === "tables-heavy"
-      ? "from-emerald-600/20 via-slate-600/20 to-sky-600/20"
-      : "from-sky-600/20 via-violet-600/20 to-fuchsia-600/20";
+
+const heroGradientClass = activeTheme.hero;
 const headings = {
   impact:
     variationTokens.tone === "technical"
-      ? `Measured Impact of ${entry.issueTitle}`
+      ? `Measured Impact of ${entry?.issueTitle ?? "This Issue"}`
       : variationTokens.tone === "direct"
-        ? `What ${entry.issueTitle} Is Costing You`
-        : `The Real Cost of ${entry.issueTitle}`,
+        ? `What ${entry?.issueTitle ?? "This Issue"} Is Costing You`
+        : `The Real Cost of ${entry?.issueTitle ?? "This Issue"}`,
   beforeAfter: variationTokens.tone === "technical" ? "Baseline vs Optimized State" : "What Changes After Fixing This",
   cause: variationTokens.tone === "direct" ? "Root Cause" : "Why This Happens",
   wins: variationTokens.tone === "technical" ? "Highest-Leverage Fixes" : "Quick Wins (Do These First)",
@@ -74,118 +151,135 @@ const headings = {
 
 const breadcrumbSchema = breadcrumb([
   { name: "Home", item: "/" },
-  { name: "SEO Issues", item: "/why-is-my-website-slow/" },
-  { name: entry.h1 }
+  { name: "Why Is My Website Slow", item: "/why-is-my-website-slow/" },
+  { name: entry?.h1 ?? "Issue not found" }
 ]);
-const faqSchema = faq(entry.faqs);
-const articleSchemaData = articleSchema(
-  entry.h1,
-  entry.metaDescription,
-  entry.h1,
-  new Date().toISOString(),
-  new Date().toISOString()
-);
 const orgSchema = organizationSchema();
+const nowIso = new Date().toISOString();
+const breadcrumbJsonLd = JSON.stringify(breadcrumbSchema);
+const faqJsonLd = entry ? JSON.stringify(faq(entry.faqs)) : null;
+const articleJsonLd = entry
+  ? JSON.stringify(
+      articleSchema(
+        entry.h1,
+        seoDescription,
+        "Why Is My Website Slow",
+        nowIso,
+        nowIso
+      )
+    )
+  : null;
+const organizationJsonLd = JSON.stringify(orgSchema);
+void breadcrumbJsonLd;
+void faqJsonLd;
+void articleJsonLd;
+void organizationJsonLd;
 
 // Extract impact number from first statistic for hero
-const impactStat = entry.statistics[0] || { value: "—", label: "impact" };
+const impactStat = entry?.statistics[0] ?? { value: "—", label: "impact" };
 ---
 
-<BaseLayout 
-  title={entry.h1} 
-  description={entry.metaDescription} 
-  canonical={siteUrl(`/why-is-my-website-slow/${entry.slug}/`)}
+<BaseLayout
+  title={seoTitle}
+  description={seoDescription}
+  canonical={entry ? siteUrl(`/why-is-my-website-slow/${entry.slug}/`) : siteUrl("/why-is-my-website-slow/")}
   ogImage={ogImage}
 >
-  <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(breadcrumbSchema)}</script>
-  <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(faqSchema)}</script>
-  <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(articleSchemaData)}</script>
-  <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(orgSchema)}</script>
-  <!-- Hero Section with Gradient -->
-  <section class={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${heroGradientClass} border border-white/10 p-8 md:p-12 mb-12`}>
-    <div class="absolute inset-0 bg-grid opacity-10"></div>
-    <div class="relative z-10">
-      <nav aria-label="Breadcrumb" class="mb-6">
-        <ol class="flex gap-2 text-sm text-slate-400">
-          <li><a href="/" class="text-sky-400 hover:underline">Home</a></li>
-          <li class="mx-2">/</li>
-          <li><a href="/why-is-my-website-slow/" class="text-sky-400 hover:underline">SEO Issues</a></li>
-          <li class="mx-2">/</li>
-          <li class="text-slate-300">{entry.platform}</li>
-        </ol>
-      </nav>
-      
-      <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-100 mb-6 leading-tight">
-        {entry.h1}
-      </h1>
-      
-      <p class="text-xl text-slate-300 max-w-3xl mb-8">
-        {entry.metaDescription}
-      </p>
-      <p class="text-sm uppercase tracking-[0.2em] text-slate-400">{heroLead}</p>
-      
-      <!-- Impact Stat Card -->
-      <div class="inline-flex items-center gap-4 bg-white/10 backdrop-blur-sm rounded-2xl px-6 py-4 border border-white/20">
-        <div class="text-4xl font-bold text-emerald-400">{impactStat.value}</div>
-        <div class="text-slate-300">{impactStat.label}</div>
-      </div>
-    </div>
-  </section>
+  <script slot="head" type="application/ld+json" is:inline>{breadcrumbJsonLd}</script>
+  {faqJsonLd ? <script slot="head" type="application/ld+json" is:inline>{faqJsonLd}</script> : null}
+  {articleJsonLd ? <script slot="head" type="application/ld+json" is:inline>{articleJsonLd}</script> : null}
+  <script slot="head" type="application/ld+json" is:inline>{organizationJsonLd}</script>
+  {entry ? (
+    <>
+      <!-- Hero Section with Gradient -->
+      <section class={`relative mb-12 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br ${heroGradientClass} p-8 md:p-12`}>
+        <div class="absolute inset-0 bg-grid opacity-10"></div>
+        <div class="relative z-10">
+          <nav aria-label="Breadcrumb" class="mb-6">
+            <ol class="flex gap-2 text-sm text-slate-400">
+              <li><a href="/" class={`${activeTheme.text} hover:underline`}>Home</a></li>
+              <li class="mx-2">/</li>
+              <li><a href="/why-is-my-website-slow/" class={`${activeTheme.text} hover:underline`}>Why Is My Website Slow</a></li>
+              <li class="mx-2">/</li>
+              <li class="text-slate-300">{entry.issueTitle}</li>
+            </ol>
+          </nav>
 
-  <ProofBlock
-    title={`Performance Proof for ${entry.platform}`}
-    subtitle="Data-backed snapshot generated from this issue profile."
-    proofType={variationTokens.proofType}
-    visualMode={variationTokens.visualMode}
-    dataset={proofDataset}
-    slug={entry.slug}
-  />
+          <h1 class="mb-6 text-4xl leading-tight font-bold text-slate-100 md:text-5xl lg:text-6xl">
+            {entry.h1}
+          </h1>
 
-  <!-- Performance Impact Visualization -->
-  <div class="flex flex-col">
-  <section class="mb-12" style={`order:${sectionOrder["impact-visual"] ?? 1}`}>
-    <h2 class="text-2xl font-bold text-slate-100 mb-6 flex items-center gap-3">
-      <svg class="w-6 h-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-      </svg>
-      {headings.impact}
-    </h2>
-    
-    <div class="grid md:grid-cols-3 gap-6">
-      <!-- Loss Card -->
-      <div class="bg-gradient-to-br from-rose-500/10 to-orange-500/10 rounded-2xl p-6 border border-rose-500/20">
-        <div class="text-rose-400 text-sm font-semibold mb-2">YOU'RE LOSING</div>
-        <div class="text-3xl font-bold text-slate-100 mb-2">
-          {entry.statistics[0]?.value || "40%"}
+          <ScanBox csrfToken={Astro.locals.csrfToken} />
+          <RecentScans client:load />
+
+          <p class="mb-8 max-w-3xl text-xl text-slate-300">
+            {seoDescription}
+          </p>
+          <p class="text-sm uppercase tracking-[0.2em] text-slate-400">{heroLead}</p>
+
+          <div class="inline-flex items-center gap-4 rounded-2xl border border-white/20 bg-white/10 px-6 py-4 backdrop-blur-sm">
+            <div class={`text-4xl font-bold ${activeTheme.text}`}>{impactStat.value}</div>
+            <div class="text-slate-300">{impactStat.label}</div>
+          </div>
         </div>
-        <div class="text-slate-400 text-sm">
-          of visitors abandon slow sites
+      </section>
+
+      {proofDataset ? (
+        <ProofBlock
+          title={`Performance Proof for ${entry.platform}`}
+          subtitle="Data-backed snapshot generated from this issue profile."
+          proofType={variationTokens.proofType}
+          visualMode={variationTokens.visualMode}
+          dataset={proofDataset}
+          slug={entry.slug}
+        />
+      ) : null}
+
+      <!-- Performance Impact Visualization -->
+      <div class="flex flex-col">
+      <section class="mb-12" style={`order:${sectionOrder["impact-visual"] ?? 1}`}>
+        <h2 class="mb-6 flex items-center gap-3 text-2xl font-bold text-slate-100">
+          <svg class={`h-6 w-6 ${activeTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          {headings.impact}
+        </h2>
+
+        <div class="grid gap-6 md:grid-cols-3">
+          <!-- Loss Card -->
+          <div class={`rounded-2xl border ${activeTheme.border} bg-gradient-to-br ${activeTheme.bg} to-transparent p-6`}>
+            <div class={`mb-2 text-sm font-semibold ${activeTheme.text}`}>IMPACT OBSERVED</div>
+            <div class="mb-2 text-3xl font-bold text-slate-100">
+              {entry.statistics[0]?.value || "40%"}
+            </div>
+            <div class="text-sm text-slate-400">
+              {entry.statistics[0]?.label}
+            </div>
+          </div>
+
+          <!-- Revenue Impact -->
+          <div class="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-yellow-500/10 p-6">
+            <div class="mb-2 text-sm font-semibold text-amber-400">REVENUE IMPACT</div>
+            <div class="mb-2 text-3xl font-bold text-slate-100">
+              {entry.statistics[2]?.value || "-15%"}
+            </div>
+            <div class="text-sm text-slate-400">
+              conversion rate decrease
+            </div>
+          </div>
+
+          <!-- Opportunity -->
+          <div class="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 p-6">
+            <div class="mb-2 text-sm font-semibold text-emerald-400">POTENTIAL GAIN</div>
+            <div class="mb-2 text-3xl font-bold text-slate-100">
+              +{entry.statistics[0]?.value || "28%"}
+            </div>
+            <div class="text-sm text-slate-400">
+              faster load after fix
+            </div>
+          </div>
         </div>
-      </div>
-      
-      <!-- Revenue Impact -->
-      <div class="bg-gradient-to-br from-amber-500/10 to-yellow-500/10 rounded-2xl p-6 border border-amber-500/20">
-        <div class="text-amber-400 text-sm font-semibold mb-2">REVENUE IMPACT</div>
-        <div class="text-3xl font-bold text-slate-100 mb-2">
-          {entry.statistics[2]?.value || "-15%"}
-        </div>
-        <div class="text-slate-400 text-sm">
-          conversion rate decrease
-        </div>
-      </div>
-      
-      <!-- Opportunity -->
-      <div class="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-2xl p-6 border border-emerald-500/20">
-        <div class="text-emerald-400 text-sm font-semibold mb-2">POTENTIAL GAIN</div>
-        <div class="text-3xl font-bold text-slate-100 mb-2">
-          +{entry.statistics[0]?.value || "28%"}
-        </div>
-        <div class="text-slate-400 text-sm">
-          faster load after fix
-        </div>
-      </div>
-    </div>
-  </section>
+      </section>
 
   <!-- Before/After Comparison -->
   <section class="mb-12" style={`order:${sectionOrder["before-after"] ?? 2}`}>
@@ -326,7 +420,7 @@ const impactStat = entry.statistics[0] || { value: "—", label: "impact" };
     <h2 class="text-2xl font-bold text-slate-100 mb-6">{headings.stats}</h2>
     
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      {entry.statistics.map((stat, index) => (
+      {entry.statistics.map((stat) => (
         <div class="group relative bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-fuchsia-500/10 rounded-2xl p-6 border border-white/10 hover:border-sky-500/30 transition-all hover:scale-[1.02]">
           <div class="absolute inset-0 bg-gradient-to-br from-sky-500/5 to-violet-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
           <div class="relative">
@@ -420,7 +514,7 @@ const impactStat = entry.statistics[0] || { value: "—", label: "impact" };
   </div>
 
   <!-- CTA Section -->
-  <aside class="relative overflow-hidden bg-gradient-to-r from-sky-600/20 via-violet-600/20 to-fuchsia-600/20 rounded-3xl p-8 md:p-12 border border-white/10 mb-12">
+  <aside class={`relative overflow-hidden bg-gradient-to-r ${activeTheme.hero} rounded-3xl p-8 md:p-12 border border-white/10 mb-12`}>
     <div class="absolute inset-0 bg-grid opacity-10"></div>
     <div class="relative z-10 text-center">
       <h2 class="text-3xl md:text-4xl font-bold text-slate-100 mb-4">{headings.cta}</h2>
@@ -431,7 +525,7 @@ const impactStat = entry.statistics[0] || { value: "—", label: "impact" };
       <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
         <a 
           href={ctaPrimaryHref} 
-          class="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-white font-semibold px-8 py-4 rounded-xl transition-all hover:scale-105 shadow-lg shadow-sky-500/25"
+          class={`inline-flex items-center gap-2 ${activeTheme.button} text-white font-semibold px-8 py-4 rounded-xl transition-all hover:scale-105 shadow-lg`}
         >
           {ctaPrimaryLabel}
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -442,6 +536,8 @@ const impactStat = entry.statistics[0] || { value: "—", label: "impact" };
           <form method="post" action="/api/leads/preview" class="flex flex-col sm:flex-row gap-2">
             <input type="hidden" name="source" value={`seo-problem:${entry.slug}`} />
             <input type="hidden" name="next" value={`/why-is-my-website-slow/${entry.slug}/`} />
+            <input type="hidden" name="offerContext" value="seo-problem" />
+            <input type="hidden" name="ctaVariant" value="email" />
             <input
               type="email"
               name="email"
@@ -465,4 +561,23 @@ const impactStat = entry.statistics[0] || { value: "—", label: "impact" };
   </aside>
 
   <RelatedLinks items={related} heading="Related fixes and next steps" />
+    </>
+  ) : (
+    <section class="mb-12 rounded-3xl border border-white/10 bg-white/5 p-8 md:p-12">
+      <p class="text-sm font-semibold uppercase tracking-[0.2em] text-amber-200/80">404</p>
+      <h1 class="mt-3 text-4xl font-bold text-slate-100">Issue page not found</h1>
+      <p class="mt-4 max-w-3xl text-lg text-slate-300">
+        The slug <code>{Astro.params.slug ?? "unknown"}</code> does not match any issue page in the
+        library. Browse the main issue hub or run a live scan for your own site instead.
+      </p>
+      <div class="mt-6 flex flex-wrap gap-3">
+        <a href="/why-is-my-website-slow/" class="rounded-xl bg-sky-500 px-6 py-3 font-semibold text-white hover:bg-sky-400">
+          Browse issue pages
+        </a>
+        <a href="/scan" class="rounded-xl border border-white/15 bg-white/5 px-6 py-3 font-semibold text-slate-100 hover:bg-white/10">
+          Run a live scan
+        </a>
+      </div>
+    </section>
+  )}
 </BaseLayout>

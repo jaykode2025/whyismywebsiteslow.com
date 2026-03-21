@@ -5,7 +5,9 @@ import { createSupabaseAdminClient } from "./supabase/admin";
 export type Lead = {
   email: string;
   reportId?: string | null;
-  source: "preview" | "report-sticky-cta" | "report-preview-gate";
+  source: "preview" | "report-sticky-cta" | "report-preview-gate" | "homepage-offer" | "seo-offer";
+  offerContext?: string | null;
+  ctaVariant?: string | null;
   createdAt: string;
   userAgent?: string | null;
   referer?: string | null;
@@ -51,6 +53,8 @@ export async function saveLead(lead: Lead) {
       email: lead.email,
       report_id: lead.reportId ?? null,
       source: lead.source,
+      offer_context: lead.offerContext ?? null,
+      cta_variant: lead.ctaVariant ?? null,
       created_at: lead.createdAt,
       user_agent: lead.userAgent ?? null,
       referer: lead.referer ?? null,

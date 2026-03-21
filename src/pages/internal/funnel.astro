@@ -1,0 +1,104 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Card from "../../components/ui/Card.astro";
+import { createSupabaseAdminClient } from "../../lib/supabase/admin";
+import { env } from "../../lib/env";
+
+const accessKey = Astro.url.searchParams.get("key") ?? "";
+const expectedKey = env.INTERNAL_DASHBOARD_KEY() ?? "";
+const hasSharedKeyAccess = Boolean(expectedKey) && accessKey === expectedKey;
+const hasUserAccess = Boolean(Astro.locals.user);
+
+if (!hasSharedKeyAccess && !hasUserAccess) {
+  return Astro.redirect(`/login?next=${encodeURIComponent("/internal/funnel")}`);
+}
+
+const admin = createSupabaseAdminClient();
+
+type Row = {
+  label: string;
+  eventType: string;
+  fallbackEventType?: string;
+  last7: number;
+  last30: number;
+};
+
+const now = Date.now();
+const last7Iso = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+const last30Iso = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+async function countEvents(eventType: string, sinceIso: string) {
+  if (!admin) return 0;
+  const { count } = await admin
+    .from("events")
+    .select("id", { count: "exact", head: true })
+    .eq("event_type", eventType)
+    .gte("created_at", sinceIso);
+  return count ?? 0;
+}
+
+async function countWithFallback(primary: string, fallback: string | undefined, sinceIso: string) {
+  const primaryCount = await countEvents(primary, sinceIso);
+  if (primaryCount > 0 || !fallback) return primaryCount;
+  return countEvents(fallback, sinceIso);
+}
+
+const rows: Row[] = admin
+  ? [
+      { label: "Scans started", eventType: "scan_started", fallbackEventType: "scan_submitted", last7: 0, last30: 0 },
+      { label: "Scans completed", eventType: "scan_completed", last7: 0, last30: 0 },
+      { label: "Report views", eventType: "report_viewed", last7: 0, last30: 0 },
+      { label: "Example report views", eventType: "example_report_viewed", last7: 0, last30: 0 },
+      { label: "Unlock CTA clicks", eventType: "unlock_cta_clicked", last7: 0, last30: 0 },
+      { label: "Checkouts started", eventType: "checkout_started", fallbackEventType: "report_checkout_started", last7: 0, last30: 0 },
+      { label: "Purchases completed", eventType: "purchase_completed", fallbackEventType: "report_purchased", last7: 0, last30: 0 },
+      { label: "Subscriptions started", eventType: "subscription_started", fallbackEventType: "subscription_activated", last7: 0, last30: 0 },
+      { label: "Service leads submitted", eventType: "service_lead_submitted", last7: 0, last30: 0 },
+    ]
+  : [];
+
+if (admin) {
+  for (const row of rows) {
+    row.last7 = await countWithFallback(row.eventType, row.fallbackEventType, last7Iso);
+    row.last30 = await countWithFallback(row.eventType, row.fallbackEventType, last30Iso);
+  }
+}
+---
+
+<BaseLayout title="Internal Funnel Metrics" noindex={true}>
+  <section class="mx-auto max-w-4xl px-4 py-12">
+    <div class="mb-8">
+      <h1 class="text-3xl font-semibold text-slate-100">Internal funnel metrics</h1>
+      <p class="mt-2 text-sm text-slate-400">Snapshot of core monetization events over the last 7 and 30 days.</p>
+    </div>
+
+    {!admin ? (
+      <Card>
+        <p class="text-slate-300">Supabase admin client is unavailable. Set `SUPABASE_SERVICE_ROLE_KEY` to enable this dashboard.</p>
+      </Card>
+    ) : (
+      <Card>
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[560px] text-left text-sm">
+            <thead>
+              <tr class="border-b border-white/10 text-xs uppercase tracking-[0.12em] text-slate-500">
+                <th class="py-3 pr-4">Metric</th>
+                <th class="py-3 pr-4">Last 7 days</th>
+                <th class="py-3">Last 30 days</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr class="border-b border-white/5">
+                  <td class="py-3 pr-4 text-slate-200">{row.label}</td>
+                  <td class="py-3 pr-4 text-slate-100">{row.last7}</td>
+                  <td class="py-3 text-slate-100">{row.last30}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    )}
+  </section>
+</BaseLayout>

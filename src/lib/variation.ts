@@ -2,6 +2,8 @@ export type VariationTone = "technical" | "direct" | "friendly";
 export type VariationVisualMode = "charts-heavy" | "tables-heavy" | "mixed";
 export type VariationCtaVariant = "scan" | "pricing" | "email";
 export type VariationProofType = "chart" | "table" | "calculator" | "case";
+export type VariationColorTheme = "sky" | "emerald" | "violet" | "amber" | "rose";
+export type VariationLayoutPattern = "standard" | "reversed" | "split";
 
 export type VariationTokens = {
   tone: VariationTone;
@@ -9,6 +11,8 @@ export type VariationTokens = {
   visualMode: VariationVisualMode;
   ctaVariant: VariationCtaVariant;
   proofType: VariationProofType;
+  colorTheme: VariationColorTheme;
+  layoutPattern: VariationLayoutPattern;
 };
 
 type TokenOptions = {
@@ -21,6 +25,8 @@ const TONES: VariationTone[] = ["technical", "direct", "friendly"];
 const VISUAL_MODES: VariationVisualMode[] = ["charts-heavy", "tables-heavy", "mixed"];
 const CTA_VARIANTS: VariationCtaVariant[] = ["scan", "pricing", "email"];
 const PROOF_TYPES: VariationProofType[] = ["chart", "table", "calculator", "case"];
+const COLOR_THEMES: VariationColorTheme[] = ["sky", "emerald", "violet", "amber", "rose"];
+const LAYOUT_PATTERNS: VariationLayoutPattern[] = ["standard", "reversed", "split"];
 
 const hashString = (value: string) => {
   let hash = 2166136261;
@@ -55,6 +61,8 @@ export const deriveVariationTokens = ({
     visualMode: pickDeterministic(VISUAL_MODES, slug, "visual"),
     ctaVariant: pickDeterministic(CTA_VARIANTS, slug, "cta"),
     proofType: pickDeterministic(PROOF_TYPES, slug, "proof"),
+    colorTheme: pickDeterministic(COLOR_THEMES, slug, "color"),
+    layoutPattern: pickDeterministic(LAYOUT_PATTERNS, slug, "layout"),
   };
 
   const mergedOrder = override?.sectionOrder

@@ -24,12 +24,16 @@ function redirectToCanonicalHost(request: Request) {
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {
+  const url = new URL(context.request.url);
+  const isStaticSeo = url.pathname.startsWith("/website-speed-audit/") || 
+                     url.pathname.startsWith("/why-is-my-website-slow/");
+
   const redirect = redirectToCanonicalHost(context.request);
   if (redirect) return redirect;
 
   context.locals.csrfToken = ensureCsrfToken(context.cookies, context.request);
 
-  if (!hasSupabaseEnv()) return next();
+  if (!hasSupabaseEnv() || isStaticSeo) return next();
 
   try {
     const supabase = createSupabaseServerClient(context.cookies, context.request);

@@ -1,4 +1,5 @@
 ---
+// Astro page/component usage. For Svelte components use ui/Button.svelte (same API).
 type ButtonVariant = "primary" | "ghost" | "dark";
 type ButtonSize = "sm" | "md" | "lg";
 type ButtonType = "button" | "submit" | "reset";
@@ -9,12 +10,14 @@ const {
   variant = "primary",
   size = "md",
   class: className = "",
+  ...rest
 } = Astro.props as {
   href?: string;
   type?: ButtonType;
   variant?: ButtonVariant;
   size?: ButtonSize;
   class?: string;
+  [key: string]: unknown;
 };
 
 const base = "inline-flex items-center justify-center rounded-full font-semibold transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300/60 disabled:pointer-events-none disabled:opacity-60";
@@ -31,7 +34,7 @@ const variants: Record<ButtonVariant, string> = {
 const classes = `${base} ${sizes[size] ?? sizes.md} ${variants[variant] ?? variants.primary} ${className}`;
 ---
 {href ? (
-  <a href={href} class={classes}><slot /></a>
+  <a {...rest} href={href} class={classes}><slot /></a>
 ) : (
-  <button type={type} class={classes}><slot /></button>
+  <button {...rest} type={type} class={classes}><slot /></button>
 )}

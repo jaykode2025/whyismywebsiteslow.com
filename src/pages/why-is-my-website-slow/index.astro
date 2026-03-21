@@ -1,114 +1,188 @@
 ---
-import { PROBLEMS, PLATFORMS, INDUSTRIES } from "../../data/pseo";
-import { siteUrl, breadcrumb, organizationSchema } from "../../lib/seo";
-import { buildProblemProofDataset } from "../../lib/proof";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Badge from "../../components/ui/Badge.astro";
+import Button from "../../components/ui/Button.astro";
+import Card from "../../components/ui/Card.astro";
 import ProofBlock from "../../components/seo/ProofBlock.astro";
-import { deriveVariationTokens, sectionOrderMap } from "../../lib/variation";
-import { relatedForProblem } from "../../lib/related";
 import RelatedLinks from "../../components/seo/RelatedLinks.astro";
+import { INDUSTRIES, PLATFORMS, PROBLEMS } from "../../data/pseo";
+import { buildProblemProofDataset } from "../../lib/proof";
+import { relatedForProblem } from "../../lib/related";
+import { breadcrumb, organizationSchema, siteUrl } from "../../lib/seo";
+import { deriveVariationTokens, sectionOrderMap } from "../../lib/variation";
 
-// Generate schemas
-const breadcrumbSchema = breadcrumb([
-  { name: "Home", item: "/" },
-  { name: "SEO Issues" }
-]);
-const orgSchema = organizationSchema();
+const title = "Why Is My Website Slow? Common Causes and Fixes";
+const description =
+  "Explore the most common reasons websites run slowly, compare issue pages by platform or industry, and jump straight into a live scan.";
+
+const breadcrumbJsonLd = JSON.stringify(
+  breadcrumb([
+    { name: "Home", item: "/" },
+    { name: "Why Is My Website Slow", item: "/why-is-my-website-slow/" },
+  ])
+);
+const organizationJsonLd = JSON.stringify(organizationSchema());
+void breadcrumbJsonLd;
+void organizationJsonLd;
+
 const featuredProblem = PROBLEMS[0];
 const proofDataset = featuredProblem ? buildProblemProofDataset(featuredProblem) : null;
+const related = featuredProblem ? relatedForProblem(featuredProblem.slug, 5) : [];
 const variationTokens = deriveVariationTokens({
   slug: "why-is-my-website-slow-index",
   availableSections: ["platforms", "problems", "industries"],
 });
 const sectionOrder = sectionOrderMap(variationTokens.sectionOrder);
-const related = featuredProblem ? relatedForProblem(featuredProblem.slug, 5) : [];
 const ogImage = featuredProblem
   ? siteUrl(`/og/why-is-my-website-slow/${featuredProblem.slug}.svg`)
   : siteUrl("/og-default.svg");
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Why Is My Website Slow? Common Issues & Solutions</title>
-  <meta name="description" content="Discover the most common reasons why websites are slow and learn expert solutions to fix them. Comprehensive guide to website performance optimization." />
-  <link rel="canonical" href={siteUrl("/why-is-my-website-slow/")} />
-  
-  <!-- Schema markup -->
-  <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
-  <script type="application/ld+json">{JSON.stringify(orgSchema)}</script>
-  
-  <!-- Open Graph / Social Media Tags -->
-  <meta property="og:title" content="Why Is My Website Slow? Common Issues & Solutions" />
-  <meta property="og:description" content="Discover the most common reasons why websites are slow and learn expert solutions to fix them. Comprehensive guide to website performance optimization." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content={siteUrl("/why-is-my-website-slow/")} />
-  <meta property="og:image" content={ogImage} />
-</head>
-<body>
-  <header>
-    <nav aria-label="Breadcrumb">
-      <ol itemscope itemtype="https://schema.org/BreadcrumbList">
-        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-          <a href="/" itemprop="item"><span itemprop="name">Home</span></a>
-          <meta itemprop="position" content="1" />
-        </li>
-        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-          <span itemprop="name">SEO Issues</span>
-          <meta itemprop="position" content="2" />
-        </li>
-      </ol>
-    </nav>
-  </header>
+<BaseLayout
+  title={title}
+  description={description}
+  canonical={siteUrl("/why-is-my-website-slow/")}
+  ogImage={ogImage}
+>
+  <script slot="head" type="application/ld+json" is:inline>{breadcrumbJsonLd}</script>
+  <script slot="head" type="application/ld+json" is:inline>{organizationJsonLd}</script>
 
-  <main class="flex flex-col">
-    <h1>Why Is My Website Slow? Common Issues & Solutions</h1>
-    <p>Website speed is critical for user experience, search rankings, and conversions. Explore the most common performance issues affecting different platforms and industries:</p>
-    {proofDataset && featuredProblem ? (
+  <section class="animate-fade-up pt-10">
+    <div class="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+      <div class="space-y-6">
+        <Badge tone="info">SEO issue library</Badge>
+        <h1 class="text-4xl leading-tight text-slate-100 sm:text-5xl">
+          Why your website is slow, broken down into specific causes.
+        </h1>
+        <p class="max-w-3xl text-lg text-slate-300">
+          This section organizes the most common speed problems into pages you can actually use:
+          what the issue is, why it hurts conversions, and what to fix before you waste time on low
+          impact cleanup.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <Button href="/scan">Run a live scan</Button>
+          <Button href="/website-speed-audit" variant="ghost">Browse audit pages</Button>
+        </div>
+      </div>
+
+      <Card class="glow">
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Inside this hub</p>
+        <div class="mt-5 grid gap-4 sm:grid-cols-3">
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div class="text-3xl text-sky-200">{PROBLEMS.length}</div>
+            <p class="mt-1 text-sm text-slate-400">Issue pages</p>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div class="text-3xl text-emerald-200">{PLATFORMS.length}</div>
+            <p class="mt-1 text-sm text-slate-400">Platform guides</p>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div class="text-3xl text-violet-200">{INDUSTRIES.length}</div>
+            <p class="mt-1 text-sm text-slate-400">Industry guides</p>
+          </div>
+        </div>
+        <p class="mt-5 text-sm text-slate-300">
+          Use these pages when you want diagnosis by symptom. Use the scan when you want diagnosis
+          by actual URL.
+        </p>
+      </Card>
+    </div>
+  </section>
+
+  {proofDataset && featuredProblem ? (
+    <section class="mt-18 animate-fade-up">
       <ProofBlock
-        title="Proof Snapshot: Common Speed Bottlenecks"
+        title="Proof snapshot: common bottlenecks"
         subtitle={`Featured issue: ${featuredProblem.h1}`}
         proofType={variationTokens.proofType}
         visualMode={variationTokens.visualMode}
         dataset={proofDataset}
         slug="why-is-my-website-slow-index"
       />
-    ) : null}
+    </section>
+  ) : null}
 
-    <section style={`order:${sectionOrder["platforms"] ?? 1}`}>
-      <h2>By Platform</h2>
-      <ul>
-        {PLATFORMS.map(platform => (
-          <li><a href={`/website-speed-audit/platform/${platform.platform}/`} title={`Learn about ${platform.keyword}`}>{platform.keyword}</a></li>
-        ))}
-      </ul>
+  <div class="mt-18 flex flex-col">
+    <section class="mb-8" style={`order:${sectionOrder["problems"] ?? 1}`}>
+      <Card>
+        <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Issue pages</p>
+            <h2 class="mt-3 text-3xl text-slate-100">Start with the most common slow-site patterns</h2>
+          </div>
+          <span class="text-sm text-slate-400">Built for high-intent searchers and real remediation work.</span>
+        </div>
+        <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {PROBLEMS.slice(0, 9).map((problem) => (
+            <a
+              href={`/why-is-my-website-slow/${problem.slug}/`}
+              class="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-sky-400/30 hover:bg-white/[0.08]"
+            >
+              <h3 class="text-lg text-slate-100">{problem.issueTitle}</h3>
+              <p class="mt-2 text-sm text-slate-400">{problem.primaryCause}</p>
+            </a>
+          ))}
+        </div>
+      </Card>
     </section>
 
-    <section style={`order:${sectionOrder["problems"] ?? 2}`}>
-      <h2>Common Problems</h2>
-      <ul>
-        {PROBLEMS.map(p=>(
-          <li><a href={"/why-is-my-website-slow/"+p.slug+"/"} title={p.metaDescription}>{p.keyword}</a></li>
-        ))}
-      </ul>
+    <section class="mb-8" style={`order:${sectionOrder["platforms"] ?? 2}`}>
+      <Card>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Platform views</p>
+        <h2 class="mt-3 text-3xl text-slate-100">Browse by CMS, framework, or storefront stack</h2>
+        <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {PLATFORMS.map((platform) => (
+            <a
+              href={`/website-speed-audit/platform/${platform.platform}/`}
+              class="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-emerald-400/30 hover:bg-white/[0.08]"
+            >
+              <h3 class="text-lg text-slate-100">{platform.keyword}</h3>
+              <p class="mt-2 text-sm text-slate-400">
+                Typical load time: {platform.avgLoadTime}. Focus areas: {platform.topIssues.slice(0, 2).join(", ")}.
+              </p>
+            </a>
+          ))}
+        </div>
+      </Card>
     </section>
 
-    <section style={`order:${sectionOrder["industries"] ?? 3}`}>
-      <h2>By Industry</h2>
-      <ul>
-        {INDUSTRIES.map(industry => (
-          <li><a href={`/website-speed-audit/industry/${industry.industry}/`} title={`Website speed audit for ${industry.keyword}`}>{industry.keyword}</a></li>
-        ))}
-      </ul>
+    <section class="mb-8" style={`order:${sectionOrder["industries"] ?? 3}`}>
+      <Card>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Industry views</p>
+        <h2 class="mt-3 text-3xl text-slate-100">See how performance risk changes by business model</h2>
+        <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {INDUSTRIES.map((industry) => (
+            <a
+              href={`/website-speed-audit/industry/${industry.industry}/`}
+              class="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-violet-400/30 hover:bg-white/[0.08]"
+            >
+              <h3 class="text-lg text-slate-100">{industry.keyword}</h3>
+              <p class="mt-2 text-sm text-slate-400">
+                Average conversion risk: {industry.avgConversionLoss}. Common stacks: {industry.commonStack.slice(0, 2).join(", ")}.
+              </p>
+            </a>
+          ))}
+        </div>
+      </Card>
     </section>
+  </div>
 
-    <RelatedLinks items={related} heading="Related fixes and next steps" />
+  <RelatedLinks
+    items={related}
+    heading="Related fixes and next steps"
+    intro="Jump from the featured issue into adjacent bottlenecks and solution pages."
+  />
 
-    <section>
-      <h2>Need Expert Help?</h2>
-      <p>Our comprehensive website speed audits identify all performance bottlenecks and provide prioritized solutions.</p>
-      <a href="/website-speed-audit/" class="cta-button">Get Your Free Audit</a>
-    </section>
-  </main>
-</body>
-</html>
+  <section class="mt-12 animate-fade-up">
+    <Card class="border-amber-400/20 bg-amber-400/5">
+      <h2 class="text-3xl text-slate-100">Need a diagnosis for your actual site, not just the pattern?</h2>
+      <p class="mt-3 max-w-3xl text-slate-300">
+        Run a live scan to turn these generic issue profiles into a report tied to your own pages,
+        scores, and fix order.
+      </p>
+      <div class="mt-5">
+        <Button href="/scan">Run a performance scan</Button>
+      </div>
+    </Card>
+  </section>
+</BaseLayout>

@@ -1,0 +1,110 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Card from "../components/ui/Card.astro";
+import Button from "../components/ui/Button.astro";
+
+const sent = Astro.url.searchParams.get("sent") === "1";
+const error = Astro.url.searchParams.get("error") ?? "";
+const reportId = Astro.url.searchParams.get("reportId") ?? "";
+---
+<BaseLayout title="Fix my slow website">
+  <section class="mx-auto max-w-5xl px-4 py-12">
+    <div class="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+      <div>
+        <p class="text-xs uppercase tracking-[0.2em] text-amber-200/80">Done-for-you fixes</p>
+        <h1 class="mt-3 text-4xl text-slate-100">If the site is costing you leads, hand us the implementation work.</h1>
+        <p class="mt-4 text-lg text-slate-300">
+          The scanner tells you where the drag is coming from. This service is for teams that want help executing the highest-impact fixes instead of managing the cleanup themselves.
+        </p>
+        <p class="mt-3 text-sm font-medium uppercase tracking-[0.18em] text-amber-200/80">
+          Fix-it service pricing starts at $149
+        </p>
+
+        <div class="mt-8 grid gap-4 md:grid-cols-2">
+          <Card>
+            <h2 class="text-xl text-slate-100">What we can help with</h2>
+            <ul class="mt-4 space-y-2 text-sm text-slate-300">
+              <li>Caching and CDN setup</li>
+              <li>Slow server response and hosting cleanup</li>
+              <li>Heavy JavaScript and third-party rationalization</li>
+              <li>Image optimization and delivery fixes</li>
+              <li>WordPress, Shopify, and custom app performance cleanup</li>
+            </ul>
+          </Card>
+          <Card>
+            <h2 class="text-xl text-slate-100">Best fit</h2>
+            <ul class="mt-4 space-y-2 text-sm text-slate-300">
+              <li>You already know the site is slow and want faster execution.</li>
+              <li>You need a second opinion on hosting, platform, or implementation tradeoffs.</li>
+              <li>You want monitoring plus someone accountable for the next round of improvements.</li>
+            </ul>
+          </Card>
+        </div>
+      </div>
+
+      <Card class="border-amber-400/20 bg-amber-400/5">
+        <p class="text-xs uppercase tracking-[0.2em] text-amber-200/80">Request help</p>
+        <h2 class="mt-3 text-2xl text-slate-100">Tell us what needs fixing</h2>
+        <p class="mt-2 text-sm text-slate-300">We will review the scan context and follow up about scope, priority, and the right next step. Most implementation projects start at $149.</p>
+
+        {sent ? (
+          <div class="mt-4 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">
+            Request received. We will follow up with next steps.
+          </div>
+        ) : null}
+        {error === "email" ? (
+          <div class="mt-4 rounded-2xl border border-rose-300/30 bg-rose-300/10 px-4 py-3 text-sm text-rose-100">
+            Enter a valid email address so we can reply.
+          </div>
+        ) : null}
+
+        <form method="post" action="/api/leads/service" class="mt-6 space-y-4">
+          <input type="hidden" name="source" value="service-page" />
+          <input type="hidden" name="offerContext" value="service-page" />
+          <input type="hidden" name="ctaVariant" value="primary" />
+          <input type="hidden" name="reportId" value={reportId} />
+          <input type="text" name="company" class="hidden" tabindex="-1" autocomplete="off" />
+
+          <label class="block">
+            <span class="text-xs uppercase tracking-[0.12em] text-slate-500">Email</span>
+            <input
+              type="email"
+              name="email"
+              required
+              placeholder="you@company.com"
+              class="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500"
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-xs uppercase tracking-[0.12em] text-slate-500">Website URL</span>
+            <input
+              type="text"
+              name="websiteUrl"
+              placeholder="https://example.com"
+              class="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500"
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-xs uppercase tracking-[0.12em] text-slate-500">What is happening?</span>
+            <textarea
+              name="notes"
+              rows="5"
+              placeholder="Example: score dropped after a redesign, checkout is slow on mobile, or we need help sequencing the top fixes."
+              class="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500"
+            ></textarea>
+          </label>
+
+          <Button type="submit" size="lg" class="w-full rounded-xl">
+            Request performance help
+          </Button>
+        </form>
+
+        <div class="mt-4 text-xs text-slate-400">
+          Want diagnosis first? <a href="/scan" class="text-sky-200 hover:text-sky-100">Run a free scan</a>.
+        </div>
+      </Card>
+    </div>
+  </section>
+</BaseLayout>

@@ -1,217 +1,192 @@
 ---
-import { PROBLEMS, PLATFORMS, INDUSTRIES, LOCATIONS } from "../data/pseo";
-import { siteUrl, breadcrumb, organizationSchema } from "../lib/seo";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Badge from "../components/ui/Badge.astro";
+import Button from "../components/ui/Button.astro";
+import Card from "../components/ui/Card.astro";
+import { INDUSTRIES, LOCATIONS, PLATFORMS, PROBLEMS } from "../data/pseo";
+import { breadcrumb, organizationSchema, siteUrl } from "../lib/seo";
 
-// Generate schemas
-const breadcrumbSchema = breadcrumb([
-  { name: "Home", item: "/" },
-  { name: "About SEO Engine" }
-]);
-const orgSchema = organizationSchema();
+const title = "How the SEO Engine Works";
+const description =
+  "See how Why Is My Website Slow turns structured performance data into scalable SEO landing pages for problems, platforms, and industries.";
+
+const breadcrumbJsonLd = JSON.stringify(
+  breadcrumb([
+    { name: "Home", item: "/" },
+    { name: "About SEO Engine", item: "/about-seo-engine/" },
+  ])
+);
+const organizationJsonLd = JSON.stringify(organizationSchema());
+void breadcrumbJsonLd;
+void organizationJsonLd;
+
+const totalPages = PROBLEMS.length + PLATFORMS.length + INDUSTRIES.length + LOCATIONS.length;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>How Our SEO Automation Engine Works | Why Is My Website Slow</title>
-  <meta name="description" content="Discover how our advanced SEO automation engine generates hundreds of unique, SEO-optimized pages for different website performance issues, platforms, and industries." />
-  <link rel="canonical" href={siteUrl("/about-seo-engine/")} />
-  
-  <!-- Schema markup -->
-  <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
-  <script type="application/ld+json">{JSON.stringify(orgSchema)}</script>
-  
-  <!-- Open Graph / Social Media Tags -->
-  <meta property="og:title" content="How Our SEO Automation Engine Works | Why Is My Website Slow" />
-  <meta property="og:description" content="Discover how our advanced SEO automation engine generates hundreds of unique, SEO-optimized pages for different website performance issues, platforms, and industries." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content={siteUrl("/about-seo-engine/")} />
-</head>
-<body>
-  <header>
-    <nav aria-label="Breadcrumb">
-      <ol itemscope itemtype="https://schema.org/BreadcrumbList">
-        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-          <a href="/" itemprop="item"><span itemprop="name">Home</span></a>
-          <meta itemprop="position" content="1" />
-        </li>
-        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-          <span itemprop="name">About SEO Engine</span>
-          <meta itemprop="position" content="2" />
-        </li>
-      </ol>
-    </nav>
-  </header>
+<BaseLayout title={title} description={description} canonical={siteUrl("/about-seo-engine/")}>
+  <script slot="head" type="application/ld+json" is:inline>{breadcrumbJsonLd}</script>
+  <script slot="head" type="application/ld+json" is:inline>{organizationJsonLd}</script>
 
-  <main>
-    <article>
-      <header>
-        <h1>How Our SEO Automation Engine Works</h1>
-        <p>Discover how we generate hundreds of unique, SEO-optimized pages for different website performance issues, platforms, and industries.</p>
-      </header>
+  <section class="animate-fade-up pt-10">
+    <div class="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+      <div class="space-y-6">
+        <Badge tone="info">Programmatic SEO system</Badge>
+        <h1 class="text-4xl leading-tight text-slate-100 sm:text-5xl">
+          The SEO engine is structured content, not page spam.
+        </h1>
+        <p class="max-w-3xl text-lg text-slate-300">
+          Why Is My Website Slow uses data-first templates to publish pages for specific speed
+          problems, platforms, and industries. The goal is simple: capture high-intent search
+          traffic with pages that are useful before a visitor ever runs a scan.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <Button href="/why-is-my-website-slow">Browse issue pages</Button>
+          <Button href="/website-speed-audit" variant="ghost">Browse audit pages</Button>
+        </div>
+      </div>
 
-      <section>
-        <h2>How It Works with WhyIsMyWebsiteSlow.com</h2>
-        <p>Our SEO automation engine creates targeted landing pages for specific website performance issues on your domain <strong>whyismywebsiteslow.com</strong>. Rather than using subdomains, all pages are created as subdirectories under your main domain for maximum SEO value.</p>
-        
-        <h3>URL Structure</h3>
-        <p>All generated pages follow a logical URL structure under your main domain:</p>
-        <ul>
-          <li><strong>Problem Pages:</strong> <code>https://whyismywebsiteslow.com/why-is-my-website-slow/[specific-issue]/</code></li>
-          <li><strong>Platform Pages:</strong> <code>https://whyismywebsiteslow.com/website-speed-audit/platform/[platform]/</code></li>
-          <li><strong>Industry Pages:</strong> <code>https://whyismywebsiteslow.com/website-speed-audit/industry/[industry]/</code></li>
-        </ul>
-        
-        <p>This approach consolidates SEO authority under your primary domain rather than spreading it across subdomains.</p>
-        
-        <div class="feature-grid">
-          <div class="feature-card">
-            <h3>Data-Driven Approach</h3>
-            <p>All content is generated from structured data in <code>src/data/pseo.ts</code>. Each entry contains detailed information about problems, solutions, statistics, and more.</p>
+      <Card class="glow">
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Coverage snapshot</p>
+        <div class="mt-5 grid gap-4 sm:grid-cols-2">
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div class="text-3xl text-sky-200">{PROBLEMS.length}</div>
+            <p class="mt-1 text-sm text-slate-400">Problem pages</p>
           </div>
-          
-          <div class="feature-card">
-            <h3>Template-Based Generation</h3>
-            <p>Using Astro's static path generation, we create unique pages from templates that incorporate the data to produce SEO-optimized content.</p>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div class="text-3xl text-emerald-200">{PLATFORMS.length}</div>
+            <p class="mt-1 text-sm text-slate-400">Platform pages</p>
           </div>
-          
-          <div class="feature-card">
-            <h3>SEO Optimization</h3>
-            <p>Every generated page includes proper title tags, meta descriptions, schema markup, and keyword optimization.</p>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div class="text-3xl text-violet-200">{INDUSTRIES.length}</div>
+            <p class="mt-1 text-sm text-slate-400">Industry pages</p>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div class="text-3xl text-amber-200">{totalPages}</div>
+            <p class="mt-1 text-sm text-slate-400">Current total combinations</p>
           </div>
         </div>
-      </section>
+        <p class="mt-5 text-sm text-slate-300">
+          Each page is generated from structured inputs in <code>src/data/pseo.ts</code>, then
+          wrapped with metadata, related links, proof blocks, and conversion CTAs.
+        </p>
+      </Card>
+    </div>
+  </section>
 
-      <section>
-        <h2>Types of Pages Generated</h2>
-        <p>Our system creates three main types of pages based on different data sets:</p>
-        
-        <h3>Problem-Specific Pages</h3>
-        <p>Targeted pages for specific performance issues like:</p>
-        <ul>
-          {PROBLEMS.slice(0, 3).map(problem => (
-            <li><a href={`/why-is-my-website-slow/${problem.slug}`}>{problem.keyword}</a> → <code>https://whyismywebsiteslow.com/why-is-my-website-slow/{problem.slug}/</code></li>
-          ))}
-          <li>... and more specific issues</li>
-        </ul>
-        
-        <h3>Platform-Specific Pages</h3>
-        <p>Pages tailored to specific website platforms and technologies:</p>
-        <ul>
-          {PLATFORMS.slice(0, 5).map(platform => (
-            <li><a href={`/website-speed-audit/platform/${platform.platform}`}>{platform.keyword}</a> → <code>https://whyismywebsiteslow.com/website-speed-audit/platform/{platform.platform}/</code></li>
-          ))}
-          <li>... and more platforms</li>
-        </ul>
-        
-        <h3>Industry-Specific Pages</h3>
-        <p>Pages focused on performance challenges in specific industries:</p>
-        <ul>
-          {INDUSTRIES.slice(0, 5).map(industry => (
-            <li><a href={`/website-speed-audit/industry/${industry.industry}`}>{industry.keyword}</a> → <code>https://whyismywebsiteslow.com/website-speed-audit/industry/{industry.industry}/</code></li>
-          ))}
-          <li>... and more industries</li>
-        </ul>
-      </section>
+  <section class="mt-18 animate-fade-up">
+    <div class="grid gap-6 md:grid-cols-3 stagger">
+      <Card>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Step 1</p>
+        <h2 class="mt-4 text-2xl text-slate-100">Structured inputs</h2>
+        <p class="mt-3 text-sm text-slate-300">
+          Problem, platform, industry, and location entries define the keywords, headlines,
+          supporting facts, and recommended fixes that power each page.
+        </p>
+      </Card>
+      <Card>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Step 2</p>
+        <h2 class="mt-4 text-2xl text-slate-100">Reusable Astro templates</h2>
+        <p class="mt-3 text-sm text-slate-300">
+          Templates turn those entries into fully-rendered landing pages with schema, proof
+          sections, internal linking, and branded calls to action.
+        </p>
+      </Card>
+      <Card>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Step 3</p>
+        <h2 class="mt-4 text-2xl text-slate-100">Conversion path</h2>
+        <p class="mt-3 text-sm text-slate-300">
+          Every page funnels visitors toward a scan, report unlock, or service lead instead of
+          acting like isolated blog content.
+        </p>
+      </Card>
+    </div>
+  </section>
 
-      <section>
-        <h2>SEO Features Included</h2>
-        <p>Every page generated by our system includes advanced SEO features:</p>
-        
-        <ul>
-          <li><strong>Schema Markup:</strong> FAQ, Breadcrumb, Article, and Organization schemas for rich snippets</li>
-          <li><strong>Keyword Optimization:</strong> Proper density and placement for target keywords</li>
-          <li><strong>Internal Linking:</strong> Strategic connections between related topics</li>
-          <li><strong>Social Media Tags:</strong> Open Graph and Twitter Card tags for sharing</li>
-          <li><strong>Canonical URLs:</strong> Prevents duplicate content issues</li>
-          <li><strong>Structured Content:</strong> Proper headings, lists, and readable formatting</li>
-        </ul>
-      </section>
-
-      <section>
-        <h2>Scaling to 200+ Pages</h2>
-        <p>Our system is designed to scale effortlessly:</p>
-        
-        <h3>Current Potential</h3>
-        <ul>
-          <li><strong>Problem Pages:</strong> {PROBLEMS.length} current + potential for 50+ more</li>
-          <li><strong>Platform Pages:</strong> {PLATFORMS.length} platform-specific pages</li>
-          <li><strong>Industry Pages:</strong> {INDUSTRIES.length} industry-specific pages</li>
-          <li><strong>Location Pages:</strong> {LOCATIONS.length} location-specific pages</li>
-        </ul>
-        
-        <p><strong>Total Potential:</strong> Over 80+ pages with current data, expandable to 200+ pages</p>
-        
-        <h3>How to Add More Content</h3>
-        <p>To generate more pages, simply add entries to the arrays in <code>src/data/pseo.ts</code>:</p>
-        <pre><code>// Example problem entry
-&#123;
-  slug: "why-is-my-[platform]-site-slow-due-to-[specific-issue]",
-  keyword: "why is my [platform] site slow due to [specific issue]",
-  h1: "Why Is My [Platform] Site Slow Due to [Specific Issue]?",
-  metaDescription: "[Detailed description]",
-  platform: "[platform]",
-  industry: "[industry]",
-  // ... rest of the detailed structure
-&#125;</code></pre>
-      </section>
-
-      <section>
-        <h2>Real-World Example</h2>
-        <p>Here's an example of how a generated page might look for a specific issue:</p>
-        
-        <div class="example-page">
-          <h3>Sample Page Structure</h3>
-          <ul>
-            <li><strong>Title:</strong> Why Is My WordPress Site Slow? Top Causes & Solutions</li>
-            <li><strong>Meta Description:</strong> Discover why your WordPress site is slow and learn proven solutions to speed it up...</li>
-            <li><strong>H1:</strong> Why Is My WordPress Site Slow? Top Causes & Solutions</li>
-            <li><strong>Primary Cause Section:</strong> Detailed explanation of the main issue</li>
-            <li><strong>Quick Wins Section:</strong> Actionable steps to improve performance</li>
-            <li><strong>Solutions Section:</strong> Detailed, step-by-step fixes</li>
-            <li><strong>Statistics Section:</strong> Data-backed impact information</li>
-            <li><strong>FAQ Section:</strong> Common questions with answers</li>
-            <li><strong>External Resources:</strong> Links to authoritative sources</li>
-          </ul>
+  <section class="mt-18 animate-fade-up">
+    <Card>
+      <div class="grid gap-8 lg:grid-cols-[1fr_1fr]">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">URL structure</p>
+          <h2 class="mt-4 text-3xl text-slate-100">Everything stays on the main domain</h2>
+          <p class="mt-3 text-slate-300">
+            The system keeps SEO authority consolidated under <strong>whyismywebsiteslow.com</strong>
+            instead of pushing content onto subdomains.
+          </p>
         </div>
-      </section>
-
-      <section>
-        <h2>Benefits of This Approach</h2>
-        <div class="benefits-grid">
-          <div class="benefit-card">
-            <h3>Efficiency</h3>
-            <p>Create hundreds of pages without manual effort, maintaining consistent quality across all content.</p>
+        <div class="space-y-3 text-sm text-slate-300">
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p class="text-slate-100">Problem pages</p>
+            <code class="mt-2 block text-sky-200">/why-is-my-website-slow/[issue]/</code>
           </div>
-          
-          <div class="benefit-card">
-            <h3>SEO Value</h3>
-            <p>Target long-tail keywords and specific user intents that would be difficult to address with generic content.</p>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p class="text-slate-100">Platform pages</p>
+            <code class="mt-2 block text-emerald-200">/website-speed-audit/platform/[platform]/</code>
           </div>
-          
-          <div class="benefit-card">
-            <h3>Scalability</h3>
-            <p>Easily expand to cover new topics, platforms, or industries by adding data entries.</p>
-          </div>
-          
-          <div class="benefit-card">
-            <h3>Consistency</h3>
-            <p>Maintain consistent branding, messaging, and SEO practices across all generated pages.</p>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p class="text-slate-100">Industry pages</p>
+            <code class="mt-2 block text-violet-200">/website-speed-audit/industry/[industry]/</code>
           </div>
         </div>
-      </section>
-    </article>
+      </div>
+    </Card>
+  </section>
 
-    <aside>
-      <h2>Ready to Optimize Your Site?</h2>
-      <p>Our SEO automation engine powers hundreds of targeted landing pages, but every website has unique performance challenges.</p>
-      <a href="/website-speed-audit/" class="cta-button">Get Your Free Website Speed Audit</a>
-    </aside>
-  </main>
+  <section class="mt-18 animate-fade-up">
+    <div class="grid gap-6 lg:grid-cols-3">
+      <Card>
+        <h2 class="text-2xl text-slate-100">Issue examples</h2>
+        <ul class="mt-4 space-y-3 text-sm text-slate-300">
+          {PROBLEMS.slice(0, 4).map((problem) => (
+            <li>
+              <a class="transition hover:text-sky-200" href={`/why-is-my-website-slow/${problem.slug}/`}>
+                {problem.keyword}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-2xl text-slate-100">Platform examples</h2>
+        <ul class="mt-4 space-y-3 text-sm text-slate-300">
+          {PLATFORMS.slice(0, 4).map((platform) => (
+            <li>
+              <a
+                class="transition hover:text-sky-200"
+                href={`/website-speed-audit/platform/${platform.platform}/`}
+              >
+                {platform.keyword}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </Card>
+      <Card>
+        <h2 class="text-2xl text-slate-100">Industry examples</h2>
+        <ul class="mt-4 space-y-3 text-sm text-slate-300">
+          {INDUSTRIES.slice(0, 4).map((industry) => (
+            <li>
+              <a
+                class="transition hover:text-sky-200"
+                href={`/website-speed-audit/industry/${industry.industry}/`}
+              >
+                {industry.keyword}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </Card>
+    </div>
+  </section>
 
-  <footer>
-    <p>SEO Automation Engine | Why Is My Website Slow | Generating targeted, valuable content at scale</p>
-  </footer>
-</body>
-</html>
+  <section class="mt-18 animate-fade-up">
+    <Card class="border-amber-400/20 bg-amber-400/5">
+      <p class="text-xs uppercase tracking-[0.2em] text-amber-200/80">Why this matters</p>
+      <h2 class="mt-4 text-3xl text-slate-100">The project now reads like one product</h2>
+      <p class="mt-3 max-w-4xl text-slate-300">
+        The scan flow, programmatic SEO pages, and service offer should feel like parts of the same
+        business. This page exists to make that architecture legible to collaborators, clients, and
+        future maintainers.
+      </p>
+    </Card>
+  </section>
+</BaseLayout>

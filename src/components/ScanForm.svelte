@@ -16,6 +16,24 @@
   let reportId = $state("");
   let manageToken = $state("");
 
+  function fireEvent(payload) {
+    const body = JSON.stringify(payload);
+    try {
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon("/api/events", new Blob([body], { type: "application/json" }));
+        return;
+      }
+    } catch {
+      // Fallback to fetch.
+    }
+    fetch("/api/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+    }).catch(() => {});
+  }
+
   function normalizeInput(value) {
     const trimmed = value.trim();
     if (!trimmed) return trimmed;
@@ -51,6 +69,17 @@
         return;
       }
       url = validation.value;
+      if (window.location.pathname === "/") {
+        fireEvent({
+          eventType: "homepage_cta_clicked",
+          source: "scan-form",
+          ctaVariant: "primary",
+          offerContext: "free-scan",
+          metadata: {
+            path: window.location.pathname,
+          },
+        });
+      }
 
       const headers = { "Content-Type": "application/json" };
       if (csrfToken) {

@@ -2,8 +2,30 @@ import { PROBLEMS, PLATFORMS, INDUSTRIES, LOCATIONS } from "../data/pseo";
 
 // Utility functions to help generate more content entries
 
+type ProblemEntry = (typeof PROBLEMS)[number];
+type PlatformEntry = (typeof PLATFORMS)[number];
+type IndustryEntry = (typeof INDUSTRIES)[number];
+type LocationEntry = (typeof LOCATIONS)[number];
+
+const displayName = (value: string) =>
+  value
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+const issueKeywordFragment = (issue: string) =>
+  issue
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .split(/\s+/)
+    .slice(0, 4)
+    .join(" ");
+
 // Generate problem entries for a specific platform
-export const generatePlatformProblems = (platformName: string, industry: string = "general") => {
+export const generatePlatformProblems = (
+  platformName: string,
+  industry: string = "general"
+): ProblemEntry[] => {
   const commonIssues: Record<string, string[]> = {
     wordpress: [
       "Too many plugins causing bloat",
@@ -48,14 +70,16 @@ export const generatePlatformProblems = (platformName: string, industry: string 
   };
 
   const issues = commonIssues[platformName as keyof typeof commonIssues] || commonIssues.wordpress;
+  const platformLabel = displayName(platformName);
   
   return issues.map((issue, index) => ({
     slug: `why-is-my-${platformName}-site-slow-issue-${index + 1}`.replace(/\s+/g, '-').toLowerCase(),
-    keyword: `why is my ${platformName} site slow ${issue.split(' ')[0]} ${issue.split(' ')[1]}`.substring(0, 60).replace(/[^\w\s-]/g, '').replace(/\s+/g, ' ').trim(),
-    h1: `Why Is My ${platformName.charAt(0).toUpperCase() + platformName.slice(1)} Site Slow Due to ${issue.split(' ')[0].charAt(0).toUpperCase() + issue.split(' ')[0].slice(1)}?`,
-    metaDescription: `Learn why your ${platformName} site is slow due to ${issue.split(' ')[0]}. Expert solutions to fix ${issue} and improve performance.`,
+    keyword: `why is my ${platformName} site slow ${issueKeywordFragment(issue)}`.substring(0, 65).replace(/\s+/g, ' ').trim(),
+    h1: `Why Is My ${platformLabel} Site Slow? ${displayName(issue)} Could Be the Reason`,
+    metaDescription: `Learn why ${platformLabel} sites get slow because of ${issue.toLowerCase()}. See the impact, quick wins, and the first fixes to prioritize.`,
     platform: platformName,
     industry,
+    issueTitle: issue,
     primaryCause: issue,
     quickWins: [
       `Address the specific ${issue.split(' ')[0]} issue`,
@@ -103,7 +127,7 @@ export const generatePlatformProblems = (platformName: string, industry: string 
 };
 
 // Generate industry-specific entries
-export const generateIndustryEntries = (industryName: string) => {
+export const generateIndustryEntries = (industryName: string): IndustryEntry => {
   const industryData = {
     ecommerce: {
       keyword: "website speed audit for ecommerce",
@@ -150,7 +174,7 @@ export const generateIndustryEntries = (industryName: string) => {
 };
 
 // Generate location-specific entries
-export const generateLocationEntries = (locationName: string) => {
+export const generateLocationEntries = (locationName: string): LocationEntry => {
   // Generate realistic statistics for the location
   const randomPercentage = Math.floor(Math.random() * 10) + 60; // 60-70%
   const randomRevenue = (Math.random() * 10 + 1).toFixed(1); // $1M-$10M
@@ -168,10 +192,10 @@ export const generateLocationEntries = (locationName: string) => {
 
 // Combine all entries to scale the system
 export const generateScaledContent = () => {
-  let allProblems = [...PROBLEMS];
-  let allPlatforms = [...PLATFORMS];
-  let allIndustries = [...INDUSTRIES];
-  let allLocations = [...LOCATIONS];
+  let allProblems: ProblemEntry[] = [...PROBLEMS];
+  let allPlatforms: PlatformEntry[] = [...PLATFORMS];
+  let allIndustries: IndustryEntry[] = [...INDUSTRIES];
+  let allLocations: LocationEntry[] = [...LOCATIONS];
   
   // Generate additional problems for each platform
   for (const platform of PLATFORMS) {
@@ -180,7 +204,7 @@ export const generateScaledContent = () => {
   }
   
   // Add more platforms
-  const additionalPlatforms = [
+  const additionalPlatforms: PlatformEntry[] = [
     { platform: "magento", keyword: "magento website speed audit", topIssues: ["Complex architecture", "Database queries", "Extension bloat"], bestFor: ["Ecommerce"], avgLoadTime: "4.5s", commonSolutions: ["Database optimization", "Caching", "Code optimization"] },
     { platform: "react", keyword: "react website speed audit", topIssues: ["Bundle size", "Client-side rendering", "Unused dependencies"], bestFor: ["SPAs"], avgLoadTime: "3.2s", commonSolutions: ["Code splitting", "SSR", "Tree shaking"] },
     { platform: "vue", keyword: "vue website speed audit", topIssues: ["Bundle size", "Client-side rendering", "State management"], bestFor: ["SPAs"], avgLoadTime: "3.0s", commonSolutions: ["Lazy loading", "SSR", "Optimization"] },
@@ -192,7 +216,7 @@ export const generateScaledContent = () => {
   allPlatforms = [...allPlatforms, ...additionalPlatforms];
   
   // Add more industries
-  const additionalIndustries = [
+  const additionalIndustries: IndustryEntry[] = [
     generateIndustryEntries("healthcare"),
     generateIndustryEntries("finance"),
     generateIndustryEntries("education"),
@@ -204,7 +228,7 @@ export const generateScaledContent = () => {
   allIndustries = [...allIndustries, ...additionalIndustries];
   
   // Add more locations
-  const additionalLocations = [
+  const additionalLocations: LocationEntry[] = [
     generateLocationEntries("florida"),
     generateLocationEntries("illinois"),
     generateLocationEntries("washington"),

@@ -1,0 +1,121 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Badge from "../../components/ui/Badge.astro";
+import Button from "../../components/ui/Button.astro";
+import Card from "../../components/ui/Card.astro";
+import { INDUSTRIES, PLATFORMS } from "../../data/pseo";
+import { breadcrumb, organizationSchema, siteUrl } from "../../lib/seo";
+
+const title = "Website Speed Audit Guides";
+const description =
+  "Browse website speed audit guides by platform and industry, compare common bottlenecks, and run a live scan when you need page-specific findings.";
+
+const breadcrumbJsonLd = JSON.stringify(
+  breadcrumb([
+    { name: "Home", item: "/" },
+    { name: "Website Speed Audit", item: "/website-speed-audit/" },
+  ])
+);
+const organizationJsonLd = JSON.stringify(organizationSchema());
+void breadcrumbJsonLd;
+void organizationJsonLd;
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonical={siteUrl("/website-speed-audit/")}
+>
+  <script slot="head" type="application/ld+json" is:inline>{breadcrumbJsonLd}</script>
+  <script slot="head" type="application/ld+json" is:inline>{organizationJsonLd}</script>
+
+  <section class="animate-fade-up pt-10">
+    <div class="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+      <div class="space-y-6">
+        <Badge tone="info">Audit library</Badge>
+        <h1 class="text-4xl leading-tight text-slate-100 sm:text-5xl">
+          Website speed audit pages for the stacks and industries you actually work in.
+        </h1>
+        <p class="max-w-3xl text-lg text-slate-300">
+          These pages sit between generic blog content and a live scan. Use them to understand
+          likely bottlenecks for a platform or vertical before you prioritize implementation work.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <Button href="/scan">Run a live scan</Button>
+          <Button href="/why-is-my-website-slow" variant="ghost">Browse issue pages</Button>
+        </div>
+      </div>
+
+      <Card class="glow">
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Coverage</p>
+        <div class="mt-5 grid gap-4 sm:grid-cols-2">
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div class="text-3xl text-emerald-200">{PLATFORMS.length}</div>
+            <p class="mt-1 text-sm text-slate-400">Platform audit pages</p>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div class="text-3xl text-violet-200">{INDUSTRIES.length}</div>
+            <p class="mt-1 text-sm text-slate-400">Industry audit pages</p>
+          </div>
+        </div>
+        <p class="mt-5 text-sm text-slate-300">
+          Platform guides answer "what usually goes wrong here?" Industry guides answer "what does
+          slowness cost in this business context?"
+        </p>
+      </Card>
+    </div>
+  </section>
+
+  <section class="mt-18 animate-fade-up">
+    <Card>
+      <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Platform guides</p>
+      <h2 class="mt-3 text-3xl text-slate-100">Audit by CMS, framework, or commerce stack</h2>
+      <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {PLATFORMS.map((platform) => (
+          <a
+            href={`/website-speed-audit/platform/${platform.platform}/`}
+            class="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-emerald-400/30 hover:bg-white/[0.08]"
+          >
+            <h3 class="text-lg text-slate-100">{platform.keyword}</h3>
+            <p class="mt-2 text-sm text-slate-400">
+              Average load time: {platform.avgLoadTime}. Typical issues: {platform.topIssues.slice(0, 2).join(", ")}.
+            </p>
+          </a>
+        ))}
+      </div>
+    </Card>
+  </section>
+
+  <section class="mt-12 animate-fade-up">
+    <Card>
+      <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Industry guides</p>
+      <h2 class="mt-3 text-3xl text-slate-100">Audit by conversion pressure and business model</h2>
+      <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {INDUSTRIES.map((industry) => (
+          <a
+            href={`/website-speed-audit/industry/${industry.industry}/`}
+            class="rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:border-violet-400/30 hover:bg-white/[0.08]"
+          >
+            <h3 class="text-lg text-slate-100">{industry.keyword}</h3>
+            <p class="mt-2 text-sm text-slate-400">
+              Average conversion loss: {industry.avgConversionLoss}. Common stacks: {industry.commonStack.slice(0, 2).join(", ")}.
+            </p>
+          </a>
+        ))}
+      </div>
+    </Card>
+  </section>
+
+  <section class="mt-12 animate-fade-up">
+    <Card class="border-amber-400/20 bg-amber-400/5">
+      <h2 class="text-3xl text-slate-100">Use the guides to frame the problem. Use the scanner to confirm it.</h2>
+      <p class="mt-3 max-w-3xl text-slate-300">
+        The guides help you reason about likely causes. The scanner gives you the actual score,
+        report, and prioritized fixes for your own URL.
+      </p>
+      <div class="mt-5">
+        <Button href="/scan">Start a scan</Button>
+      </div>
+    </Card>
+  </section>
+</BaseLayout>

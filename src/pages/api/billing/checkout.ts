@@ -3,22 +3,31 @@ import { requireUser } from "../../../lib/auth";
 import { env } from "../../../lib/env";
 import { getStripe } from "../../../lib/stripe";
 import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
+import { trackEvent } from "../../../lib/analytics";
 
 async function readBody(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
     const body = await request.json().catch(() => ({}));
-    return { plan: String((body as any).plan ?? "pro") }; // Default to pro
+    return {
+      plan: String((body as any).plan ?? "pro"),
+      offerContext: String((body as any).offerContext ?? (body as any).offer_context ?? ""),
+      ctaVariant: String((body as any).ctaVariant ?? (body as any).cta_variant ?? ""),
+    };
   }
   const form = await request.formData();
-  return { plan: String(form.get("plan") ?? "pro") }; // Default to pro
+  return {
+    plan: String(form.get("plan") ?? "pro"),
+    offerContext: String(form.get("offerContext") ?? form.get("offer_context") ?? ""),
+    ctaVariant: String(form.get("ctaVariant") ?? form.get("cta_variant") ?? ""),
+  };
 }
 
 export const POST: APIRoute = async (context) => {
   const required = await requireUser(context);
   if (required instanceof Response) return required;
 
-  const { plan } = await readBody(context.request);
+  const { plan, offerContext, ctaVariant } = await readBody(context.request);
   if (!["pro", "agency", "pro-yearly"].includes(plan)) {
     return new Response(JSON.stringify({ error: "Invalid plan" }), {
       status: 400,
@@ -87,7 +96,12 @@ export const POST: APIRoute = async (context) => {
     cancel_url: `${baseUrl}/billing?canceled=1`,
     client_reference_id: required.user.id,
     subscription_data: {
-      metadata: { user_id: required.user.id, plan_type: plan },
+      metadata: {
+        user_id: required.user.id,
+        plan_type: plan,
+        offer_context: offerContext || "billing",
+        cta_variant: ctaVariant || "primary",
+      },
     },
   });
 
@@ -97,6 +111,40 @@ export const POST: APIRoute = async (context) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  await trackEvent(
+    {
+      eventType: "subscription_checkout_started",
+      userId: required.user.id,
+      source: "billing-checkout",
+      offerContext: offerContext || "billing",
+      ctaVariant: ctaVariant || "primary",
+      referrer: context.request.headers.get("referer"),
+      userAgent: context.request.headers.get("user-agent"),
+      path: new URL(context.request.url).pathname,
+      metadata: {
+        plan,
+      },
+    },
+    admin
+  );
+  await trackEvent(
+    {
+      eventType: "checkout_started",
+      userId: required.user.id,
+      source: "billing-checkout",
+      offerContext: offerContext || "billing",
+      ctaVariant: ctaVariant || "primary",
+      referrer: context.request.headers.get("referer"),
+      userAgent: context.request.headers.get("user-agent"),
+      path: new URL(context.request.url).pathname,
+      metadata: {
+        plan,
+        checkoutType: "subscription",
+      },
+    },
+    admin
+  );
 
   return context.redirect(session.url);
 };

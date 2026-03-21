@@ -1,14 +1,27 @@
 ---
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { INDUSTRIES, PROBLEMS } from "../../../data/pseo";
-import { siteUrl, breadcrumb, organizationSchema, calculateKeywordDensity } from "../../../lib/seo";
+import {
+  siteUrl,
+  breadcrumb,
+  organizationSchema,
+  buildSeoDescription,
+  buildSeoTitle,
+  humanizeSlug,
+  titleCase,
+} from "../../../lib/seo";
 import { relatedForIndustry } from "../../../lib/related";
 import RelatedLinks from "../../../components/seo/RelatedLinks.astro";
 import ProofBlock from "../../../components/seo/ProofBlock.astro";
 import { buildIndustryProofDataset } from "../../../lib/proof";
 import { deriveVariationTokens, sectionOrderMap, shouldRenderOptionalSection } from "../../../lib/variation";
+import RecentScans from "../../../components/RecentScans.svelte";
+import ScanBox from "../../../components/ScanBox.astro";
 
-export const prerender = false;
+import { generateIndustryPaths } from "../../../lib/staticPaths";
+
+export const prerender = true;
+export const getStaticPaths = generateIndustryPaths;
 
 const industry = INDUSTRIES.find((entry) => entry.industry === Astro.params.slug);
 if (!industry) {
@@ -29,27 +42,48 @@ const variationTokens = deriveVariationTokens({
 const sectionOrder = sectionOrderMap(variationTokens.sectionOrder);
 const showReferences = shouldRenderOptionalSection(variationTokens, "resources");
 const ogImage = siteUrl(`/og/industry/${industry.industry}.svg`);
+const industryName = titleCase(humanizeSlug(industry.industry));
+const primaryKeyword = `website speed audit for ${humanizeSlug(industry.industry)}`;
+const pageTitle = buildSeoTitle(
+  `Website speed audit for ${industryName}`,
+  "Benchmarks, risks and fixes"
+);
+const description = buildSeoDescription(
+  `See why speed matters for ${industryName.toLowerCase()} websites and what to improve first.`,
+  [
+    `Use this page to frame performance work around conversion risk, common stacks, and realistic optimization priorities.`,
+  ]
+);
+const heroTitle = `Website Speed Audit for ${industryName}`;
+const heroSummary = `This template targets owners and teams searching for a ${primaryKeyword} because they need business-first guidance, not just raw metrics.`;
+const priorityFixes = [
+  `Reduce the heaviest scripts on landing and lead-generation pages.`,
+  `Improve image delivery and caching on high-traffic templates.`,
+  `Fix slow server response on pages that directly support conversions or inquiries.`,
+];
 
-const allContent = `${industry.conversionImpact} ${industry.stats.map((s) => `${s.value} ${s.label}`).join(" ")}`;
-const keywordDensity = calculateKeywordDensity(allContent, industry.keyword);
-const description = `Specialized website speed benchmark and optimization plan for ${industry.industry} teams.`;
+const breadcrumbJsonLd = JSON.stringify(breadcrumb([
+  { name: "Home", item: "/" },
+  { name: "Website Speed Audit", item: "/website-speed-audit/" },
+  { name: industryName, item: `/website-speed-audit/industry/${industry.industry}/` }
+]));
+const organizationJsonLd = JSON.stringify(organizationSchema());
+// Astro's TS analyzer treats frontmatter separately from template usage.
+void breadcrumbJsonLd;
+void organizationJsonLd;
 
 const ctaPrimaryHref = variationTokens.ctaVariant === "pricing" ? "/billing" : "/scan";
 const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Start Monitoring" : "Run Another Scan";
 ---
 
 <BaseLayout
-  title={industry.keyword}
+  title={pageTitle}
   description={description}
   canonical={siteUrl(`/website-speed-audit/industry/${industry.industry}/`)}
   ogImage={ogImage}
 >
-  <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(breadcrumb([
-    { name: "Home", item: "/" },
-    { name: "Website Speed Audit", item: "/website-speed-audit/" },
-    { name: industry.industry, item: `/website-speed-audit/industry/${industry.industry}/` }
-  ]))}</script>
-  <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(organizationSchema())}</script>
+  <script slot="head" type="application/ld+json" is:inline>{breadcrumbJsonLd}</script>
+  <script slot="head" type="application/ld+json" is:inline>{organizationJsonLd}</script>
 
   <section class="mb-10 rounded-3xl border border-white/10 bg-linear-gradient(to bottom, #0093E9, #80D0C7) p-8">
     <nav aria-label="Breadcrumb" class="mb-5 text-sm text-slate-400">
@@ -57,17 +91,45 @@ const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Start Monito
       <span class="mx-2">/</span>
       <a href="/website-speed-audit/" class="hover:text-sky-300">Website Speed Audit</a>
       <span class="mx-2">/</span>
-      <span class="text-slate-200">{industry.industry}</span>
+      <span class="text-slate-200">{industryName}</span>
     </nav>
-    <h1 class="text-4xl font-bold text-slate-100">{industry.keyword}</h1>
+    <p class="text-sm font-semibold uppercase tracking-[0.18em] text-sky-100/80">{primaryKeyword}</p>
+    <h1 class="mt-3 text-4xl font-bold text-slate-100">{heroTitle}</h1>
+
+    <ScanBox csrfToken={Astro.locals.csrfToken} />
+    <RecentScans client:load />
     <p class="mt-3 max-w-3xl text-lg text-slate-300">
-      Industry-specific performance benchmarks and optimization priorities for conversion-sensitive pages.
+      {heroSummary}
+    </p>
+    <div class="mt-6 grid gap-4 md:grid-cols-3">
+      <div class="rounded-2xl border border-white/10 bg-slate-950/25 p-4">
+        <div class="text-sm uppercase tracking-[0.14em] text-slate-100/70">Primary topic</div>
+        <div class="mt-2 text-lg font-semibold text-white">{primaryKeyword}</div>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-slate-950/25 p-4">
+        <div class="text-sm uppercase tracking-[0.14em] text-slate-100/70">Avg conversion risk</div>
+        <div class="mt-2 text-lg font-semibold text-white">{industry.avgConversionLoss}</div>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-slate-950/25 p-4">
+        <div class="text-sm uppercase tracking-[0.14em] text-slate-100/70">Common stacks</div>
+        <div class="mt-2 text-lg font-semibold text-white">{industry.commonStack.join(", ")}</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mb-10 rounded-3xl border border-white/10 bg-white/3 p-8">
+    <h2 class="text-2xl font-bold text-slate-100">Why speed matters for {industryName} websites</h2>
+    <p class="mt-4 max-w-4xl text-slate-300">
+      {industry.conversionImpact} Pages in {industryName.toLowerCase()} often carry more commercial pressure than a generic brochure site, so even small delays can affect inquiries, purchases, booked calls, or repeat visits.
+    </p>
+    <p class="mt-3 max-w-4xl text-slate-300">
+      The keyword strategy for these pages should stay intent-first: use the exact audit phrase in the title, H1, intro, and one H2, then support it with related wording around revenue impact, benchmarks, and fixes instead of repeating the same phrase mechanically.
     </p>
   </section>
 
   <ProofBlock
-    title={`${industry.industry} performance proof`}
-    subtitle="This proof block changes by page token but always uses measurable inputs."
+    title={`${industryName} performance proof`}
+    subtitle="This gives the page measurable proof while your proprietary dataset is still growing."
     proofType={variationTokens.proofType}
     visualMode={variationTokens.visualMode}
     dataset={proofDataset}
@@ -75,7 +137,7 @@ const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Start Monito
   />
 
   <div class="mb-8 flex flex-col">
-    <section class="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6" style={`order:${sectionOrder["impact"] ?? 1}`}>
+    <section class="mb-8 rounded-2xl border border-white/10 bg-white/3 p-6" style={`order:${sectionOrder["impact"] ?? 1}`}>
       <h2 class="text-2xl text-slate-100">Industry-specific performance impact</h2>
       <p class="mt-3 text-slate-300">{industry.conversionImpact}</p>
       <p class="mt-2 text-slate-300">
@@ -83,25 +145,65 @@ const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Start Monito
       </p>
     </section>
 
-    <section class="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6" style={`order:${sectionOrder["stats"] ?? 2}`}>
-      <h2 class="text-2xl text-slate-100">Key benchmark stats</h2>
-      <ul class="mt-4 grid gap-2 text-slate-300 md:grid-cols-2">
+    <section class="mb-8 rounded-2xl border border-white/10 bg-white/3 p-6" style={`order:${sectionOrder["stats"] ?? 2}`}>
+      <h2 class="text-2xl text-slate-100">Key benchmark stats for {industryName}</h2>
+      <div class="mt-4 grid gap-3 md:grid-cols-2">
         {industry.stats.map((stat) => (
-          <li class="rounded-lg border border-white/10 bg-slate-950/30 px-3 py-2">
-            <strong>{stat.value}</strong> {stat.label}
-          </li>
+          <article class="rounded-lg border border-white/10 bg-slate-950/30 px-4 py-3">
+            <h3 class="text-lg font-semibold text-slate-100">{stat.value}</h3>
+            <p class="mt-1 text-sm text-slate-300">{stat.label}</p>
+          </article>
         ))}
-      </ul>
-      <p class="mt-2 text-xs text-slate-500">Keyword density marker: {keywordDensity}%</p>
+      </div>
     </section>
 
-    <section class="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6" style={`order:${sectionOrder["stack"] ?? 3}`}>
-      <h2 class="text-2xl text-slate-100">Common stacks in this industry</h2>
-      <p class="mt-3 text-slate-300">{industry.commonStack.join(", ")}.</p>
+    <section class="mb-8 rounded-2xl border border-white/10 bg-white/3 p-6" style={`order:${sectionOrder["stack"] ?? 3}`}>
+      <h2 class="text-2xl text-slate-100">Common stacks in {industryName}</h2>
+      <div class="mt-4 grid gap-3 md:grid-cols-3">
+        {industry.commonStack.map((stack) => (
+          <article class="rounded-lg border border-white/10 bg-slate-950/30 px-4 py-3">
+            <h3 class="text-lg font-semibold text-slate-100">{titleCase(humanizeSlug(stack))}</h3>
+            <p class="mt-1 text-sm text-slate-300">
+              Often used on {industryName.toLowerCase()} sites where performance and conversion quality need to stay aligned.
+            </p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    {relatedProblems.length > 0 ? (
+      <section class="mb-8 rounded-2xl border border-white/10 bg-white/3 p-6" style={`order:${sectionOrder["related"] ?? 4}`}>
+        <h2 class="text-2xl text-slate-100">Common slow-site patterns in {industryName}</h2>
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          {relatedProblems.map((problem) => (
+            <article class="rounded-xl border border-white/10 bg-slate-950/30 p-4">
+              <h3 class="text-lg font-semibold text-slate-100">
+                <a href={`/why-is-my-website-slow/${problem.slug}/`} class="hover:text-sky-300">{problem.issueTitle}</a>
+              </h3>
+              <p class="mt-2 text-sm text-slate-300">{problem.primaryCause}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    ) : null}
+
+    <section class="mb-8 rounded-2xl border border-white/10 bg-white/3 p-6">
+      <h2 class="text-2xl text-slate-100">Priority fixes for {industryName} teams</h2>
+      <div class="mt-4 grid gap-4 md:grid-cols-3">
+        {priorityFixes.map((fix) => (
+          <article class="rounded-xl border border-white/10 bg-slate-950/30 p-4">
+            <h3 class="text-lg font-semibold text-slate-100">Fix first</h3>
+            <p class="mt-2 text-sm text-slate-300">{fix}</p>
+          </article>
+        ))}
+      </div>
+      <div class="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+        Natural keyword coverage is enough here. Put the exact phrase in the title, H1, intro, and one strong H2, then let the rest of the page expand into related terms.
+      </div>
     </section>
 
     {showReferences ? (
-      <section class="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6" style={`order:${sectionOrder["references"] ?? 4}`}>
+      <section class="mb-8 rounded-2xl border border-white/10 bg-white/3 p-6" style={`order:${sectionOrder["references"] ?? 5}`}>
         <h2 class="text-2xl text-slate-100">References</h2>
         <ul class="mt-4 space-y-2 text-slate-300">
           <li><a href="https://developers.google.com/speed/docs/insights/v5/about" target="_blank" rel="noopener noreferrer" class="hover:text-sky-300">Google PageSpeed Insights Documentation</a></li>
@@ -112,17 +214,19 @@ const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Start Monito
     ) : null}
   </div>
 
-  <RelatedLinks items={relatedLinks} heading={`Related ${industry.industry} pages`} />
+  <RelatedLinks items={relatedLinks} heading={`Related ${industryName} pages`} />
 
-  <aside class="mb-10 rounded-3xl border border-white/10 bg-gradient-to-r from-emerald-600/20 via-cyan-600/20 to-sky-600/20 p-8">
-    <h2 class="text-2xl text-slate-100">Improve your {industry.industry} site performance</h2>
-    <p class="mt-2 text-slate-300">Get a scan that prioritizes fixes by conversion impact.</p>
+  <aside class="mb-10 rounded-3xl border border-white/10 bg-linear-to-r from-emerald-600/20 via-cyan-600/20 to-sky-600/20 p-8">
+    <h2 class="text-2xl text-slate-100">Improve your {industryName} site performance</h2>
+    <p class="mt-2 text-slate-300">Get a scan that prioritizes fixes by conversion risk, revenue impact, and the pages that matter most.</p>
     <div class="mt-5 flex flex-wrap items-center gap-3">
       <a href={ctaPrimaryHref} class="rounded-xl bg-sky-500 px-6 py-3 font-semibold text-white hover:bg-sky-400">{ctaPrimaryLabel}</a>
       {variationTokens.ctaVariant === "email" ? (
         <form method="post" action="/api/leads/preview" class="flex flex-wrap items-center gap-2">
           <input type="hidden" name="source" value={`seo-industry:${industry.industry}`} />
           <input type="hidden" name="next" value={`/website-speed-audit/industry/${industry.industry}/`} />
+          <input type="hidden" name="offerContext" value="seo-industry" />
+          <input type="hidden" name="ctaVariant" value="email" />
           <input type="email" name="email" required placeholder="Weekly performance tips" class="rounded-xl border border-white/20 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-400" />
           <button type="submit" class="rounded-xl border border-emerald-300/40 bg-emerald-500/20 px-4 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/30">Email me</button>
         </form>

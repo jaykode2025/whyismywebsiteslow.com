@@ -1,0 +1,184 @@
+---
+import BaseLayout from "../../../../../layouts/BaseLayout.astro";
+import { PLATFORMS, INDUSTRIES, PROBLEMS } from "../../../../../data/pseo";
+import {
+  siteUrl,
+  breadcrumb,
+  organizationSchema,
+  buildSeoDescription,
+  buildSeoTitle,
+  humanizeSlug,
+  titleCase,
+} from "../../../../../lib/seo";
+import RelatedLinks from "../../../../../components/seo/RelatedLinks.astro";
+import ProofBlock from "../../../../../components/seo/ProofBlock.astro";
+import { buildIndustryProofDataset } from "../../../../../lib/proof";
+import { deriveVariationTokens, sectionOrderMap } from "../../../../../lib/variation";
+import RecentScans from "../../../../../components/RecentScans.svelte";
+import ScanBox from "../../../../../components/ScanBox.astro";
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const paths = [];
+  for (const p of PLATFORMS) {
+    for (const i of INDUSTRIES) {
+      paths.push({
+        params: { platform: p.platform, industry: i.industry },
+      });
+    }
+  }
+  return paths;
+}
+
+const { platform: platformSlug, industry: industrySlug } = Astro.params;
+const platform = PLATFORMS.find((p) => p.platform === platformSlug);
+const industry = INDUSTRIES.find((i) => i.industry === industrySlug);
+
+if (!platform || !industry) {
+  throw new Error(`Platform or Industry not found for: ${platformSlug}/${industrySlug}`);
+}
+
+const platformName = titleCase(humanizeSlug(platform.platform));
+const industryName = titleCase(humanizeSlug(industry.industry));
+
+const pageTitle = buildSeoTitle(
+  `${platformName} Speed Audit for ${industryName}`,
+  "Platform-specific industry benchmarks"
+);
+const description = buildSeoDescription(
+  `Custom performance audit for ${platformName} websites in the ${industryName.toLowerCase()} sector.`,
+  [`Identify ${platformName}-specific bottlenecks affecting ${industryName} conversions.`]
+);
+
+const variationTokens = deriveVariationTokens({
+  slug: `combo:${platform.platform}:${industry.industry}`,
+  availableSections: ["impact", "issues", "solutions", "benchmarks"],
+});
+const sectionOrder = sectionOrderMap(variationTokens.sectionOrder);
+
+const relatedProblems = PROBLEMS.filter(
+  (p) => p.platform === platform.platform && p.industry === industry.industry
+).slice(0, 4);
+
+const proofDataset = buildIndustryProofDataset(industry, [
+  ...platform.topIssues,
+  ...relatedProblems.map((p) => p.issueTitle),
+]);
+
+const breadcrumbJsonLd = JSON.stringify(breadcrumb([
+  { name: "Home", item: "/" },
+  { name: "Website Speed Audit", item: "/website-speed-audit/" },
+  { name: platformName, item: `/website-speed-audit/platform/${platform.platform}/` },
+  { name: industryName, item: `/website-speed-audit/platform/${platform.platform}/industry/${industry.industry}/` }
+]));
+const organizationJsonLd = JSON.stringify(organizationSchema());
+---
+
+<BaseLayout
+  title={pageTitle}
+  description={description}
+  canonical={siteUrl(`/website-speed-audit/platform/${platform.platform}/industry/${industry.industry}/`)}
+>
+  <script slot="head" type="application/ld+json" is:inline>{breadcrumbJsonLd}</script>
+  <script slot="head" type="application/ld+json" is:inline>{organizationJsonLd}</script>
+
+  <section class="mb-10 rounded-3xl border border-white/10 bg-gradient-to-br from-sky-600/20 via-blue-600/20 to-indigo-600/20 p-8">
+    <nav aria-label="Breadcrumb" class="mb-5 text-sm text-slate-400">
+      <a href="/" class="hover:text-sky-300">Home</a>
+      <span class="mx-2">/</span>
+      <a href="/website-speed-audit/" class="hover:text-sky-300">Website Speed Audit</a>
+      <span class="mx-2">/</span>
+      <a href={`/website-speed-audit/platform/${platform.platform}/`} class="hover:text-sky-300">{platformName}</a>
+      <span class="mx-2">/</span>
+      <span class="text-slate-200">{industryName}</span>
+    </nav>
+    <h1 class="text-4xl font-bold text-slate-100 md:text-5xl">{pageTitle}</h1>
+
+    <ScanBox csrfToken={Astro.locals.csrfToken} />
+    <RecentScans client:load />
+    <p class="mt-4 max-w-3xl text-xl text-slate-300">
+      Optimizing {platformName} for the unique performance demands of the {industryName} industry.
+    </p>
+  </section>
+
+  <div class="flex flex-col">
+    <section class="mb-12" style={`order:${sectionOrder["impact"] ?? 1}`}>
+      <div class="grid gap-6 md:grid-cols-2">
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 class="text-xl font-bold text-slate-100 mb-4">Why it matters for {industryName}</h2>
+          <p class="text-slate-300">{industry.conversionImpact}</p>
+          <div class="mt-4 flex items-center gap-2 text-rose-400 font-semibold">
+            <span>Avg. Revenue Loss:</span>
+            <span class="text-2xl">{industry.avgConversionLoss}</span>
+          </div>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h2 class="text-xl font-bold text-slate-100 mb-4">{platformName} Benchmarks</h2>
+          <p class="text-slate-300">Typical {platformName} load time: <strong>{platform.avgLoadTime}</strong></p>
+          <div class="mt-4 flex items-center gap-2 text-emerald-400 font-semibold">
+            <span>Target Speed:</span>
+            <span class="text-2xl">{platform.platform === 'shopify' ? '< 2.5s' : '< 3.0s'}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <ProofBlock
+      title={`${platformName} + ${industryName} Data Proof`}
+      subtitle="Combined performance dataset for this specific stack and sector."
+      proofType="chart"
+      visualMode="mixed"
+      dataset={proofDataset}
+      slug={`combo-${platform.platform}-${industry.industry}`}
+    />
+
+    <section class="mb-12" style={`order:${sectionOrder["issues"] ?? 2}`}>
+      <h2 class="text-2xl font-bold text-slate-100 mb-6">Common Issues for {platformName} in {industryName}</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        {platform.topIssues.map((issue) => (
+          <div class="rounded-xl border border-white/10 bg-white/3 p-4">
+            <h3 class="font-semibold text-slate-100">{issue}</h3>
+            <p class="mt-2 text-sm text-slate-400">Common {platformName} bottleneck affecting {industryName.toLowerCase()} sites.</p>
+          </div>
+        ))}
+        {relatedProblems.map((problem) => (
+          <div class="rounded-xl border border-white/10 bg-slate-900/40 p-4">
+            <h3 class="font-semibold text-sky-400">
+              <a href={`/why-is-my-website-slow/${problem.slug}/`}>{problem.issueTitle}</a>
+            </h3>
+            <p class="mt-2 text-sm text-slate-400">{problem.primaryCause}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="mb-12" style={`order:${sectionOrder["solutions"] ?? 3}`}>
+      <h2 class="text-2xl font-bold text-slate-100 mb-6">Recommended Fixes</h2>
+      <div class="grid gap-4 md:grid-cols-3">
+        {platform.commonSolutions.map((solution) => (
+          <div class="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+            <h3 class="font-semibold text-emerald-400 mb-2">{solution}</h3>
+            <p class="text-sm text-slate-400">Proven to improve {platformName} performance in {industryName.toLowerCase()}.</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  </div>
+
+  <aside class="mb-12 rounded-3xl border border-white/10 bg-gradient-to-r from-sky-600/20 to-emerald-600/20 p-8 text-center">
+    <h2 class="text-2xl text-slate-100 font-bold mb-4">Run Your {platformName} Speed Audit</h2>
+    <p class="text-slate-300 mb-6">Get a professional report for your {industryName} business in under 60 seconds.</p>
+    <a href="/scan" class="inline-block rounded-xl bg-sky-500 px-8 py-4 font-semibold text-white hover:bg-sky-400">
+      Start Free Scan
+    </a>
+  </aside>
+
+  <RelatedLinks 
+    items={[
+      { href: `/website-speed-audit/platform/${platform.platform}/`, label: `More ${platformName} Audits` },
+      { href: `/website-speed-audit/industry/${industry.industry}/`, label: `More ${industryName} Audits` },
+    ]} 
+    heading="Explore Related Audits" 
+  />
+</BaseLayout>

@@ -15,6 +15,59 @@ export type ScanRequest = {
   includeImageAudit?: boolean;
 };
 
+export type BusinessImpact = {
+  riskLevel: "low" | "medium" | "high";
+  headline: string;
+  bullets: string[];
+  estimatedRange: {
+    conversionLiftPct: string;
+    leadRecoveryPct: string;
+    revenueProtection: string;
+  };
+};
+
+export type DetectedStack = {
+  frameworkGuess: string | null;
+  cmsGuess: string | null;
+  hostingGuess: string | null;
+  confidence: "low" | "medium" | "high";
+};
+
+export type RecommendationSummary = {
+  quickWins: string[];
+  highestLeverageFixes: string[];
+  nextBestAction: "unlock-report" | "start-monitoring" | "request-service";
+};
+
+export type ReportBenchmark = {
+  cohort: string;
+  sampleSize: number;
+  percentile?: number;
+  median?: number;
+  comparisonText: string;
+};
+
+export type ProjectHealthSummary = {
+  projectId: string;
+  latestScore: number | null;
+  previousScore: number | null;
+  scoreDelta: number | null;
+  latestCwvStatus: "pass" | "fail" | "unknown" | null;
+  previousCwvStatus: "pass" | "fail" | "unknown" | null;
+  trend: "improving" | "stable" | "regressed" | "unknown";
+  lastScannedAt: string | null;
+};
+
+export type RegressionSummary = {
+  projectId: string;
+  projectUrl: string;
+  previousScore: number | null;
+  currentScore: number | null;
+  previousCwvStatus: "pass" | "fail" | "unknown" | null;
+  currentCwvStatus: "pass" | "fail" | "unknown" | null;
+  summary: string;
+};
+
 export type Report = {
   id: string;
   createdAt: string;
@@ -99,6 +152,10 @@ export type Report = {
     score100: number;
     topIssues: string[];
   };
+  businessImpact: BusinessImpact;
+  detectedStack: DetectedStack;
+  recommendationSummary: RecommendationSummary;
+  benchmarks?: ReportBenchmark[];
   kscore?: KScoreResult;
   seoAnalysis?: SeoAnalysisResult;
   imageAudit?: ImageAuditResult;

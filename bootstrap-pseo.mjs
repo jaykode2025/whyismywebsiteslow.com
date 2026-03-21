@@ -205,7 +205,7 @@ export const LOCATIONS = [
 write(
   "src/lib/seo.ts",
   `
-export const siteUrl = (p: string) => "https://whyismywebsiteslow.com" + p;
+export const siteUrl = (p: string) => "https://www.whyismywebsiteslow.com" + p;
 export const titleCase = (s: string) => s.replace(/\\b\\w/g, (m: string) => m.toUpperCase());
 export const truncate = (s: string, n: number) => s.length > n ? s.slice(0, n - 1) + "…" : s;
 export const jsonLd = (o: any) => JSON.stringify(o);
@@ -229,7 +229,7 @@ export const faq = (faqs: Array<{question: string, answer: string}>) => ({
   mainEntity: faqs.map(f => ({
     "@type": "Question",
     name: f.question,
-    acceptedAnswer: { "@type": "Answer", text: f.a }
+    acceptedAnswer: { "@type": "Answer", text: f.answer }
   }))
 });
 
@@ -321,14 +321,14 @@ export const relatedForProblem = (slug: string) => {
   return [
     {href:TIER1.audit, label:"Free Website Speed Audit"},
     {href:TIER1.coreWebVitals, label:"Core Web Vitals Optimization"},
-    {href:\`/website-speed-audit/\${p.platform}\`, label:\`\${p.platform.charAt(0).toUpperCase() + p.platform.slice(1)} Speed Audit\`},
+    {href:\`/website-speed-audit/platform/\${p.platform}\`, label:\`\${p.platform.charAt(0).toUpperCase() + p.platform.slice(1)} Speed Audit\`},
     ...relatedProblemsByIndustry.map(x => ({href:\`/why-is-my-website-slow/\${x.slug}\`, label:x.keyword})),
     ...relatedByPlatform.slice(0, 1).map(platform => ({
       href: \`/why-is-my-\${platform.platform}-site-slow\`,
       label: platform.keyword
     })),
     ...relatedByIndustry.slice(0, 1).map(industry => ({
-      href: \`/website-speed-audit/\${industry.industry}\`,
+      href: \`/website-speed-audit/industry/\${industry.industry}\`,
       label: industry.keyword
     })),
     {href:TIER1.monitoring, label:"Continuous Performance Monitoring"}
@@ -610,7 +610,7 @@ const orgSchema = organizationSchema();
       <h2>By Industry</h2>
       <ul>
         {INDUSTRIES.map(industry => (
-          <li><a href={\`/website-speed-audit/\${industry.industry}\`} title={\`Website speed audit for \${industry.keyword}\`}>{industry.keyword}</a></li>
+          <li><a href={\`/website-speed-audit/industry/\${industry.industry}\`} title={\`Website speed audit for \${industry.keyword}\`}>{industry.keyword}</a></li>
         ))}
       </ul>
     </section>
@@ -626,19 +626,19 @@ const orgSchema = organizationSchema();
 `,
 );
 
-/* ------------------ PLATFORM PAGES ------------------ */
+/* ------------------ PLATFORM PAGES (platform/[slug].astro to avoid route conflict with industry) ------------------ */
 write(
-  "src/pages/website-speed-audit/[platform].astro",
+  "src/pages/website-speed-audit/platform/[slug].astro",
   `
 ---
-import { PLATFORMS, TIER1 } from "../../data/pseo";
-import { siteUrl, breadcrumb, organizationSchema, calculateKeywordDensity } from "../../lib/seo";
+import { PLATFORMS, TIER1 } from "../../../data/pseo";
+import { siteUrl, breadcrumb, organizationSchema, calculateKeywordDensity } from "../../../lib/seo";
 
 export const prerender = false;
 
-const platform = PLATFORMS.find(p => p.platform === Astro.params.platform);
+const platform = PLATFORMS.find(p => p.platform === Astro.params.slug);
 if (!platform) {
-  throw new Error(\`Platform not found for: \${Astro.params.platform ?? "unknown"}\`);
+  throw new Error(\`Platform not found for: \${Astro.params.slug ?? "unknown"}\`);
 }
 
 // Generate schemas
@@ -661,7 +661,7 @@ const keywordDensity = calculateKeywordDensity(allContent, platform.keyword);
   <title>{platform.keyword}</title>
   <meta name="description" content={\`Comprehensive speed audit for \${platform.platform} websites. Identify performance bottlenecks and optimize your \${platform.platform} site for better user experience and search rankings.\`} />
   <meta name="keywords" content={platform.keyword} />
-  <link rel="canonical" href={siteUrl(\`/website-speed-audit/\${platform.platform}/\`)} />
+  <link rel="canonical" href={siteUrl(\`/website-speed-audit/platform/\${platform.platform}/\`)} />
   
   <!-- Schema markup -->
   <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
@@ -671,7 +671,7 @@ const keywordDensity = calculateKeywordDensity(allContent, platform.keyword);
   <meta property="og:title" content={platform.keyword} />
   <meta property="og:description" content={\`Comprehensive speed audit for \${platform.platform} websites. Identify performance bottlenecks and optimize your \${platform.platform} site for better user experience and search rankings.\`} />
   <meta property="og:type" content="article" />
-  <meta property="og:url" content={siteUrl(\`/website-speed-audit/\${platform.platform}/\`)} />
+  <meta property="og:url" content={siteUrl(\`/website-speed-audit/platform/\${platform.platform}/\`)} />
 </head>
 <body>
   <header>
@@ -735,19 +735,19 @@ const keywordDensity = calculateKeywordDensity(allContent, platform.keyword);
 `,
 );
 
-/* ------------------ INDUSTRY PAGES ------------------ */
+/* ------------------ INDUSTRY PAGES (industry/[slug].astro to avoid route conflict with platform) ------------------ */
 write(
-  "src/pages/website-speed-audit/[industry].astro",
+  "src/pages/website-speed-audit/industry/[slug].astro",
   `
 ---
-import { INDUSTRIES, TIER1 } from "../../data/pseo";
-import { siteUrl, breadcrumb, organizationSchema, calculateKeywordDensity } from "../../lib/seo";
+import { INDUSTRIES, TIER1 } from "../../../data/pseo";
+import { siteUrl, breadcrumb, organizationSchema, calculateKeywordDensity } from "../../../lib/seo";
 
 export const prerender = false;
 
-const industry = INDUSTRIES.find(i => i.industry === Astro.params.industry);
+const industry = INDUSTRIES.find(i => i.industry === Astro.params.slug);
 if (!industry) {
-  throw new Error(\`Industry not found for: \${Astro.params.industry ?? "unknown"}\`);
+  throw new Error(\`Industry not found for: \${Astro.params.slug ?? "unknown"}\`);
 }
 
 // Generate schemas
@@ -770,7 +770,7 @@ const keywordDensity = calculateKeywordDensity(allContent, industry.keyword);
   <title>{industry.keyword}</title>
   <meta name="description" content={\`Specialized website speed audit for \${industry.industry} businesses. Improve performance, conversions, and search rankings with our industry-specific optimization.\`} />
   <meta name="keywords" content={industry.keyword} />
-  <link rel="canonical" href={siteUrl(\`/website-speed-audit/\${industry.industry}/\`)} />
+  <link rel="canonical" href={siteUrl(\`/website-speed-audit/industry/\${industry.industry}/\`)} />
   
   <!-- Schema markup -->
   <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
@@ -780,7 +780,7 @@ const keywordDensity = calculateKeywordDensity(allContent, industry.keyword);
   <meta property="og:title" content={industry.keyword} />
   <meta property="og:description" content={\`Specialized website speed audit for \${industry.industry} businesses. Improve performance, conversions, and search rankings with our industry-specific optimization.\`} />
   <meta property="og:type" content="article" />
-  <meta property="og:url" content={siteUrl(\`/website-speed-audit/\${industry.industry}/\`)} />
+  <meta property="og:url" content={siteUrl(\`/website-speed-audit/industry/\${industry.industry}/\`)} />
 </head>
 <body>
   <header>
@@ -851,10 +851,10 @@ write(
   `
 import { PROBLEMS, PLATFORMS, INDUSTRIES } from "../data/pseo";
 
-// Generate static paths for all dynamic routes
+// Generate static paths for all dynamic routes (platform/[slug], industry/[slug] use param "slug")
 export const generateProblemPaths = () => PROBLEMS.map(p => ({params: {slug: p.slug}}));
-export const generatePlatformPaths = () => PLATFORMS.map(p => ({params: {platform: p.platform}}));
-export const generateIndustryPaths = () => INDUSTRIES.map(i => ({params: {industry: i.industry}}));
+export const generatePlatformPaths = () => PLATFORMS.map(p => ({params: {slug: p.platform}}));
+export const generateIndustryPaths = () => INDUSTRIES.map(i => ({params: {slug: i.industry}}));
 `);
 
 /* ------------------ SITEMAP INTEGRATION ------------------ */
@@ -881,14 +881,14 @@ export const getSitemapUrls = () => {
 
     // Platform pages
     ...PLATFORMS.map(p => ({
-      url: "/website-speed-audit/" + p.platform + "/",
+      url: "/website-speed-audit/platform/" + p.platform + "/",
       changefreq: "weekly",
       priority: 0.8
     })),
 
     // Industry pages
     ...INDUSTRIES.map(i => ({
-      url: "/website-speed-audit/" + i.industry + "/",
+      url: "/website-speed-audit/industry/" + i.industry + "/",
       changefreq: "weekly",
       priority: 0.8
     }))

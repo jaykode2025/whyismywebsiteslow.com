@@ -1,5 +1,5 @@
 import type { Report, ScanRequest, StoredReport } from "./types";
-import { loadReports, persistReports, persistReportsAsync } from "./db";
+import { loadReports, persistReports } from "./db";
 import { generateId, hashToken } from "./tokens";
 
 const reports = loadReports();
@@ -8,12 +8,12 @@ let persistenceTimeout: NodeJS.Timeout | null = null;
 function debouncedPersist() {
   if (persistenceTimeout) clearTimeout(persistenceTimeout);
   persistenceTimeout = setTimeout(() => {
-    // Using the sync version for now to avoid async issues with setTimeout
     persistReports(reports);
     persistenceTimeout = null;
   }, 100);
 }
 
+/** Create a scan placeholder and persist immediately so "scan started" is never lost. */
 export async function createReportPlaceholder(input: ScanRequest, writeToken: string) {
   void input;
   const id = generateId();
@@ -21,8 +21,7 @@ export async function createReportPlaceholder(input: ScanRequest, writeToken: st
     status: "queued",
   };
   reports.set(id, stored);
-  await debouncedPersist();
-
+  persistReports(reports);
   return { id, writeToken, writeTokenHash: hashToken(writeToken) };
 }
 

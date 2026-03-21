@@ -10,6 +10,7 @@ import { analyzeSeo } from "./seoAnalyzer";
 import { auditImages } from "./imageAudit";
 import { sanitizeHtml } from "./sanitize";
 import { fetchWithRetry } from "./retry";
+import { buildBusinessImpact, buildRecommendationSummary, detectStack } from "./reportIntelligence";
 
 type EnhancedScanOptions = {
   includeSeoAnalysis?: boolean;
@@ -108,8 +109,28 @@ export async function runEnhancedScan(
     includeSeoAnalysis && html !== null ? analyzeSeo(html, options.targetKeyword ?? input.targetKeyword) : undefined;
   const imageAudit = includeImageAudit && html !== null ? await auditImages(html, primaryUrl) : undefined;
   const kscore = computeKScore(psi, checks, seoAnalysis);
+  const detectedStack = detectStack({ html, headers: response?.headers ?? null });
 
   const enhancedSummary = buildEnhancedSummary({ kscore, insights, seoAnalysis, imageAudit });
+  const businessImpact = buildBusinessImpact({
+    canonicalHost: getHost(normalizedUrl),
+    summary: {
+      grade,
+      score100: score,
+      topIssues: insights.slice(0, 3).map((item) => item.title),
+    },
+    psi,
+    checks,
+    insights,
+  });
+  const recommendationSummary = buildRecommendationSummary({
+    insights,
+    summary: {
+      grade,
+      score100: score,
+      topIssues: insights.slice(0, 3).map((item) => item.title),
+    },
+  });
 
   return {
     id,
@@ -132,6 +153,9 @@ export async function runEnhancedScan(
       score100: score,
       topIssues: insights.slice(0, 3).map((item) => item.title),
     },
+    businessImpact,
+    detectedStack,
+    recommendationSummary,
     kscore,
     seoAnalysis,
     imageAudit,

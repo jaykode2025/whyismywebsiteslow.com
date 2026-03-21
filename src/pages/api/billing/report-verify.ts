@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { getStripe } from "../../../lib/stripe";
 import { unlockReport } from "../../../lib/entitlements";
 import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
+import { trackEvent, updateScanFactStatus } from "../../../lib/analytics";
 
 export const GET: APIRoute = async (context) => {
   const sessionId = context.url.searchParams.get("session_id") ?? "";
@@ -24,8 +25,62 @@ export const GET: APIRoute = async (context) => {
     const admin = createSupabaseAdminClient();
     if (admin) {
       await unlockReport(reportId, session.id, { supabase: admin });
+      await updateScanFactStatus(reportId, { unlockStatus: "purchased" }, admin);
+      await trackEvent(
+        {
+          eventType: "report_purchased",
+          scanId: reportId,
+          reportId,
+          source: "report-verify",
+          offerContext: session.metadata?.offer_context ?? "report",
+          ctaVariant: session.metadata?.cta_variant ?? "primary",
+          metadata: {
+            sessionId: session.id,
+          },
+        },
+        admin
+      );
+      await trackEvent(
+        {
+          eventType: "purchase_completed",
+          scanId: reportId,
+          reportId,
+          source: "report-verify",
+          offerContext: session.metadata?.offer_context ?? "report",
+          ctaVariant: session.metadata?.cta_variant ?? "primary",
+          metadata: {
+            sessionId: session.id,
+            purchaseType: "report-unlock",
+          },
+        },
+        admin
+      );
     } else {
       await unlockReport(reportId, session.id);
+      await updateScanFactStatus(reportId, { unlockStatus: "purchased" });
+      await trackEvent({
+        eventType: "report_purchased",
+        scanId: reportId,
+        reportId,
+        source: "report-verify",
+        offerContext: session.metadata?.offer_context ?? "report",
+        ctaVariant: session.metadata?.cta_variant ?? "primary",
+        metadata: {
+          sessionId: session.id,
+        },
+      });
+      await trackEvent({
+        eventType: "purchase_completed",
+        scanId: reportId,
+        reportId,
+        source: "report-verify",
+        offerContext: session.metadata?.offer_context ?? "report",
+        ctaVariant: session.metadata?.cta_variant ?? "primary",
+        metadata: {
+          sessionId: session.id,
+          purchaseType: "report-unlock",
+        },
+      });
     }
   }
 

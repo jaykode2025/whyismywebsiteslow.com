@@ -33,8 +33,11 @@ This project is optimized for a high-conversion SaaS flow:
 
 ```bash
 npm install
+cp .env.example .env
 npm run dev
 ```
+
+**See [RUNNING.md](./RUNNING.md)** for what env you need for each feature (scan-only works with no keys; auth + billing need Supabase + Stripe).
 
 ### Environment Configuration
 

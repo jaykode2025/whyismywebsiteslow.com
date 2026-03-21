@@ -1,4 +1,5 @@
 import type { Device } from "./types";
+import { env } from "./env";
 
 export type PsiResult = {
   source: "live" | "mock";
@@ -36,7 +37,7 @@ export async function fetchPsi(url: string, device: Device): Promise<PsiResult> 
   // NOTE: Playwright has been intentionally disabled for serverless stability.
   // We use Google PageSpeed Insights (PSI) API when available; otherwise we fall back to mock data.
   const strategy = device === "mobile" ? "mobile" : "desktop";
-  const key = process.env.PSI_API_KEY;
+  const key = env.PSI_API_KEY() || undefined;
   const endpoint = new URL("https://www.googleapis.com/pagespeedonline/v5/runPagespeed");
   endpoint.searchParams.set("url", url);
   endpoint.searchParams.set("strategy", strategy);

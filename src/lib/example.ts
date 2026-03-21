@@ -97,6 +97,31 @@ export function exampleReport(id = "example"): Report {
       score100: 94,
       topIssues: ["Third-party scripts add latency", "Font loading blocks first paint"],
     },
+    businessImpact: {
+      riskLevel: "low",
+      headline: "The site is already in a strong place, but a few cleanup tasks would protect conversion gains.",
+      bullets: [
+        "Main content appears quickly enough that most visitors should not feel obvious friction.",
+        "Third-party scripts are still the biggest business risk because they can regress interactivity without warning.",
+        "Small cleanup work now should keep the site fast as marketing tools and content grow.",
+      ],
+      estimatedRange: {
+        conversionLiftPct: "2-6%",
+        leadRecoveryPct: "1-4%",
+        revenueProtection: "$100-$500/mo",
+      },
+    },
+    detectedStack: {
+      frameworkGuess: "Astro",
+      cmsGuess: null,
+      hostingGuess: "Vercel",
+      confidence: "high",
+    },
+    recommendationSummary: {
+      quickWins: ["Font loading blocks first paint"],
+      highestLeverageFixes: ["Third-party scripts add latency", "Font loading blocks first paint"],
+      nextBestAction: "start-monitoring",
+    },
     kscore: {
       overall: 91,
       grade: "A",

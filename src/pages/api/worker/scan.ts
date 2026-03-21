@@ -4,6 +4,7 @@ import { env } from "../../../lib/env";
 import { isPaidStatus, type Plan } from "../../../lib/plan";
 import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
 import { runEnhancedScan } from "../../../lib/scan.enhanced";
+import { recordScanFact, trackEvent } from "../../../lib/analytics";
 
 interface WorkerRequestBody {
   scanId?: string;
@@ -184,6 +185,41 @@ export const POST: APIRoute = async ({ request }) => {
         finished_at: finishedAt,
       })
       .eq("id", scanId);
+
+    const { data: subscription } = scan.user_id
+      ? await admin
+          .from("subscriptions")
+          .select("status")
+          .eq("user_id", scan.user_id)
+          .maybeSingle()
+      : { data: null };
+
+    await recordScanFact(
+      report,
+      {
+        projectId: scan.project_id ?? null,
+        userId: scan.user_id ?? null,
+        unlockStatus: "locked",
+        subscriptionStatus: subscription?.status ?? null,
+        serviceLeadStatus: "none",
+      },
+      admin
+    );
+    await trackEvent(
+      {
+        eventType: "scan_completed",
+        scanId,
+        reportId: scanId,
+        projectId: scan.project_id ?? null,
+        userId: scan.user_id ?? null,
+        source: "worker",
+        metadata: {
+          score100: report.summary.score100,
+          cwvStatus: report.psi.cwv.status,
+        },
+      },
+      admin
+    );
 
     try {
       await maybeSendRegressionAlert({ admin, scanId, scan, report });

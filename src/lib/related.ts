@@ -1,4 +1,4 @@
-import { PROBLEMS, PLATFORMS, INDUSTRIES } from "../data/pseo";
+import { PROBLEMS, PLATFORMS, INDUSTRIES, LOCATIONS } from "../data/pseo";
 
 type RelatedLink = { href: string; label: string };
 
@@ -76,6 +76,12 @@ export const relatedForProblem = (slug: string, count = 5): RelatedLink[] => {
       label: `Speed audit for ${titleCase(problem.industry)}`,
       score: 8,
     },
+    // Cross-link to a few locations to build the spiderweb
+    ...LOCATIONS.slice(0, 2).map(l => ({
+      href: `/website-speed-audit/location/${l.location}/`,
+      label: `Local benchmarks for ${titleCase(l.location)}`,
+      score: 4
+    })),
     { href: "/scan", label: "Run another speed scan", score: 11 },
     { href: "/billing", label: "Start monitoring", score: 7 }
   );
@@ -133,8 +139,78 @@ export const relatedForIndustry = (industrySlug: string, count = 5): RelatedLink
     });
   }
 
+  // Link to location audits to build the spiderweb
+  for (const loc of LOCATIONS.slice(0, 3)) {
+    candidates.push({
+      href: `/website-speed-audit/location/${loc.location}/`,
+      label: `Speed audit in ${titleCase(loc.location)}`,
+      score: 5,
+    });
+  }
+
   candidates.push({ href: "/scan", label: "Run another speed scan", score: 11 });
   candidates.push({ href: "/billing", label: "Start monitoring", score: 7 });
+
+  return topLinks(candidates, count);
+};
+
+export const relatedForLocation = (locationSlug: string, count = 5): RelatedLink[] => {
+  const location = LOCATIONS.find((l) => l.location === locationSlug);
+  if (!location) return [];
+
+  const candidates: Candidate[] = [
+    { href: "/scan", label: "Run a free local speed scan", score: 10 },
+    { href: "/website-speed-audit/", label: "Full audit library", score: 9 },
+  ];
+
+  // Link to top industries
+  for (const ind of INDUSTRIES.slice(0, 3)) {
+    candidates.push({
+      href: `/website-speed-audit/industry/${ind.industry}/`,
+      label: `${titleCase(ind.industry)} speed benchmarks`,
+      score: 8,
+    });
+  }
+
+  // Link to other locations in the same "region" (just take next 3 for now)
+  const locIndex = LOCATIONS.findIndex(l => l.location === locationSlug);
+  const otherLocs = [...LOCATIONS.slice(locIndex + 1), ...LOCATIONS.slice(0, locIndex)].slice(0, 3);
+  for (const loc of otherLocs) {
+    candidates.push({
+      href: `/website-speed-audit/location/${loc.location}/`,
+      label: `Speed audit for ${titleCase(loc.location)}`,
+      score: 7,
+    });
+  }
+
+  return topLinks(candidates, count);
+};
+
+export const relatedForCombo = (platformSlug: string, industrySlug: string, count = 5): RelatedLink[] => {
+  const candidates: Candidate[] = [
+    { href: `/website-speed-audit/platform/${platformSlug}/`, label: `More ${titleCase(platformSlug)} audits`, score: 10 },
+    { href: `/website-speed-audit/industry/${industrySlug}/`, label: `More ${titleCase(industrySlug)} audits`, score: 10 },
+    { href: "/scan", label: "Run a live scan", score: 9 },
+  ];
+
+  // Related problems for this specific combo
+  const problems = PROBLEMS.filter(p => p.platform === platformSlug && p.industry === industrySlug).slice(0, 3);
+  for (const p of problems) {
+    candidates.push({
+      href: `/why-is-my-website-slow/${p.slug}/`,
+      label: p.issueTitle,
+      score: 11,
+    });
+  }
+
+  // Add location links
+  for (const loc of LOCATIONS.slice(0, 2)) {
+    candidates.push({
+      href: `/website-speed-audit/location/${loc.location}/`,
+      label: `Speed benchmarks in ${titleCase(loc.location)}`,
+      score: 5,
+    });
+  }
 
   return topLinks(candidates, count);
 };

@@ -212,13 +212,15 @@ const clsScore = (cls: number) => {
   return 35;
 };
 
-const tokenize = (value: string) =>
-  value
+const tokenize = (value: string | undefined | null) => {
+  if (!value) return [];
+  return value
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, " ")
     .split(/\s+/)
     .map((token) => token.trim())
     .filter((token) => token.length > 2 && !STOP_TOKENS.has(token));
+};
 
 const reportText = (report: ReportSnapshot) => {
   const insightText = report.insights
@@ -386,7 +388,7 @@ const buildAnalyzerFallback = ({
       <head>
         <title>${title}</title>
         <meta name="description" content="${description}" />
-        <link rel="canonical" href="https://whyismywebsiteslow.com/" />
+        <link rel="canonical" href="https://www.whyismywebsiteslow.com/" />
       </head>
       <body>
         <h1>${title}</h1>

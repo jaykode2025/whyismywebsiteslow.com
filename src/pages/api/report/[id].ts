@@ -13,6 +13,9 @@ function toPreview(report: Report) {
     device: report.device,
     visibility: report.visibility,
     summary: report.summary,
+    businessImpact: report.businessImpact,
+    recommendationSummary: report.recommendationSummary,
+    detectedStack: report.detectedStack,
     psi: {
       source: report.psi.source,
       message: report.psi.message,
@@ -32,56 +35,68 @@ function toLeadGatePreview(report: Report) {
     canonicalHost: report.canonicalHost,
     device: report.device,
     visibility: report.visibility,
+    summary: report.summary,
+    businessImpact: report.businessImpact,
+    recommendationSummary: report.recommendationSummary,
+    detectedStack: report.detectedStack,
   };
 }
 
 export const GET: APIRoute = async (context) => {
   const id = context.params.id ?? "";
-  const stored = await loadStoredReport(id, context.locals);
+  try {
+    const stored = await loadStoredReport(id, context.locals);
 
-  if (!stored) {
-    return new Response(JSON.stringify({ status: "failed", error: "Report not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+    if (!stored) {
+      return new Response(JSON.stringify({ status: "failed", error: "Report not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-  if (stored.status !== "done" || !stored.report) {
-    return new Response(JSON.stringify({ status: stored.status, error: stored.error }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+    if (stored.status !== "done" || !stored.report) {
+      return new Response(JSON.stringify({ status: stored.status, error: stored.error }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-  const unlocked = await isReportUnlocked(id, context.locals);
-  const leadAccessRaw = context.cookies.get(LEAD_ACCESS_COOKIE_NAME)?.value;
-  const previewAccess = hasLeadAccess(leadAccessRaw, id);
-  if (!unlocked) {
-    if (!previewAccess) {
+    const unlocked = await isReportUnlocked(id, context.locals);
+    const leadAccessRaw = context.cookies.get(LEAD_ACCESS_COOKIE_NAME)?.value;
+    const previewAccess = hasLeadAccess(leadAccessRaw, id);
+    if (!unlocked) {
+      if (!previewAccess) {
+        return new Response(
+          JSON.stringify({
+            status: "done",
+            locked: true,
+            requiresLead: true,
+            preview: toLeadGatePreview(stored.report),
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
       return new Response(
-        JSON.stringify({
-          status: "done",
-          locked: true,
-          requiresLead: true,
-          preview: toLeadGatePreview(stored.report),
-        }),
+        JSON.stringify({ status: "done", locked: true, requiresLead: false, preview: toPreview(stored.report) }),
         {
           status: 200,
           headers: { "Content-Type": "application/json" },
         }
       );
     }
+
+    return new Response(JSON.stringify({ status: "done", locked: false, report: stored.report }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("Report API error:", err);
     return new Response(
-      JSON.stringify({ status: "done", locked: true, requiresLead: false, preview: toPreview(stored.report) }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: "Internal error", status: "failed" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
-
-  return new Response(JSON.stringify({ status: "done", locked: false, report: stored.report }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
 };

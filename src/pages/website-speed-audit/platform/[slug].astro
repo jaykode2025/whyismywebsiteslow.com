@@ -1,14 +1,27 @@
 ---
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { PLATFORMS, PROBLEMS } from "../../../data/pseo";
-import { siteUrl, breadcrumb, organizationSchema, calculateKeywordDensity } from "../../../lib/seo";
+import {
+  siteUrl,
+  breadcrumb,
+  organizationSchema,
+  buildSeoDescription,
+  buildSeoTitle,
+  humanizeSlug,
+  titleCase,
+} from "../../../lib/seo";
 import { relatedForPlatform } from "../../../lib/related";
 import RelatedLinks from "../../../components/seo/RelatedLinks.astro";
 import ProofBlock from "../../../components/seo/ProofBlock.astro";
 import { buildPlatformProofDataset } from "../../../lib/proof";
 import { deriveVariationTokens, sectionOrderMap, shouldRenderOptionalSection } from "../../../lib/variation";
+import RecentScans from "../../../components/RecentScans.svelte";
+import ScanBox from "../../../components/ScanBox.astro";
 
-export const prerender = false;
+import { generatePlatformPaths } from "../../../lib/staticPaths";
+
+export const prerender = true;
+export const getStaticPaths = generatePlatformPaths;
 
 const platform = PLATFORMS.find((p) => p.platform === Astro.params.slug);
 if (!platform) {
@@ -29,30 +42,53 @@ const variationTokens = deriveVariationTokens({
 const sectionOrder = sectionOrderMap(variationTokens.sectionOrder);
 const showReferences = shouldRenderOptionalSection(variationTokens, "resources");
 const ogImage = siteUrl(`/og/platform/${platform.platform}.svg`);
+const platformName = titleCase(humanizeSlug(platform.platform));
+const primaryKeyword = `${platformName} website speed audit`;
+const pageTitle = buildSeoTitle(primaryKeyword, "Issues, fixes and speed targets");
+const description = buildSeoDescription(
+  `Find out why ${platformName} websites run slowly and what to fix first.`,
+  [
+    `See the most common ${platformName} bottlenecks, realistic speed targets, and conversion-focused improvements.`,
+  ]
+);
+const heroTitle = `${platformName} Website Speed Audit`;
+const heroSummary = `Use this page to understand the main reasons ${platformName} sites get slow, how slow is too slow, and which fixes usually move revenue pages first.`;
+const averageLoadTimeLabel = platform.avgLoadTime.startsWith("<") ? platform.avgLoadTime : `around ${platform.avgLoadTime}`;
+const speedTarget = platform.platform === "shopify" || platform.platform === "nextjs" ? "under 2.5s LCP" : "under 3s total load time";
+
+const issueNotes = platform.topIssues.map((issue) => ({
+  title: issue,
+  summary: `${issue} is a common ${platformName} bottleneck that can slow key landing pages, increase abandonment, and drag down conversion paths if it is left in place.`,
+}));
+
+const solutionNotes = platform.commonSolutions.map((solution) => ({
+  title: solution,
+  summary: `${solution} usually improves ${platformName} performance fastest when it is applied to the pages driving traffic, leads, or revenue first.`,
+}));
 
 const breadcrumbSchema = breadcrumb([
   { name: "Home", item: "/" },
   { name: "Website Speed Audit", item: "/website-speed-audit/" },
-  { name: platform.platform, item: `/website-speed-audit/platform/${platform.platform}/` }
+  { name: platformName, item: `/website-speed-audit/platform/${platform.platform}/` }
 ]);
 const orgSchema = organizationSchema();
-
-const allContent = `${platform.topIssues.join(" ")} ${platform.commonSolutions.join(" ")}`;
-const keywordDensity = calculateKeywordDensity(allContent, platform.keyword);
-const description = `Comprehensive speed audit for ${platform.platform} websites. Identify bottlenecks and prioritize fixes with real benchmark data.`;
+const breadcrumbJsonLd = JSON.stringify(breadcrumbSchema);
+const organizationJsonLd = JSON.stringify(orgSchema);
+void breadcrumbJsonLd;
+void organizationJsonLd;
 
 const ctaPrimaryHref = variationTokens.ctaVariant === "pricing" ? "/billing" : "/scan";
 const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Start Monitoring" : "Run Another Scan";
 ---
 
 <BaseLayout
-  title={platform.keyword}
+  title={pageTitle}
   description={description}
   canonical={siteUrl(`/website-speed-audit/platform/${platform.platform}/`)}
   ogImage={ogImage}
 >
-  <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(breadcrumbSchema)}</script>
-  <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(orgSchema)}</script>
+  <script slot="head" type="application/ld+json" is:inline>{breadcrumbJsonLd}</script>
+  <script slot="head" type="application/ld+json" is:inline>{organizationJsonLd}</script>
 
   <section class="mb-10 rounded-3xl border border-white/10 bg-gradient-to-br from-cyan-600/20 via-blue-600/20 to-slate-950/30 p-8">
     <nav aria-label="Breadcrumb" class="mb-5 text-sm text-slate-400">
@@ -60,17 +96,45 @@ const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Start Monito
       <span class="mx-2">/</span>
       <a href="/website-speed-audit/" class="hover:text-sky-300">Website Speed Audit</a>
       <span class="mx-2">/</span>
-      <span class="text-slate-200">{platform.platform}</span>
+      <span class="text-slate-200">{platformName}</span>
     </nav>
-    <h1 class="text-4xl font-bold text-slate-100">{platform.keyword}</h1>
+    <p class="text-sm font-semibold uppercase tracking-[0.18em] text-sky-200/80">{primaryKeyword}</p>
+    <h1 class="mt-3 text-4xl font-bold text-slate-100">{heroTitle}</h1>
+
+    <ScanBox csrfToken={Astro.locals.csrfToken} />
+    <RecentScans client:load />
     <p class="mt-3 max-w-3xl text-lg text-slate-300">
-      Focused optimization playbook for {platform.platform} sites, with benchmark-backed priorities.
+      {heroSummary}
+    </p>
+    <div class="mt-6 grid gap-4 md:grid-cols-3">
+      <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+        <div class="text-sm uppercase tracking-[0.14em] text-slate-400">Primary topic</div>
+        <div class="mt-2 text-lg font-semibold text-slate-100">{primaryKeyword}</div>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+        <div class="text-sm uppercase tracking-[0.14em] text-slate-400">Typical load time</div>
+        <div class="mt-2 text-lg font-semibold text-slate-100">{averageLoadTimeLabel}</div>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+        <div class="text-sm uppercase tracking-[0.14em] text-slate-400">Practical target</div>
+        <div class="mt-2 text-lg font-semibold text-slate-100">{speedTarget}</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mb-10 rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+    <h2 class="text-2xl font-bold text-slate-100">Why {platformName} websites get slow</h2>
+    <p class="mt-4 max-w-4xl text-slate-300">
+      Most owners searching for a {primaryKeyword.toLowerCase()} need the same answer: what is slowing the site down, how much that delay hurts conversions, and which fix should come first. {platformName} sites usually slow down because too much code, media, or third-party tooling is competing for a limited performance budget.
+    </p>
+    <p class="mt-3 max-w-4xl text-slate-300">
+      This template is structured around that intent. The H1 targets the core audit query, the H2 sections break out causes and fixes, and the supporting H3 blocks help the page rank for closely related long-tail searches around {platformName.toLowerCase()} speed issues.
     </p>
   </section>
 
   <ProofBlock
-    title={`${platform.platform} performance proof`}
-    subtitle="Exactly one proof format is selected per page using deterministic variation tokens."
+    title={`${platformName} performance proof`}
+    subtitle="This section gives the page real substance even before your own benchmark dataset is large."
     proofType={variationTokens.proofType}
     visualMode={variationTokens.visualMode}
     dataset={proofDataset}
@@ -79,29 +143,78 @@ const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Start Monito
 
   <div class="mb-8 flex flex-col">
     <section class="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6" style={`order:${sectionOrder["issues"] ?? 1}`}>
-      <h2 class="text-2xl text-slate-100">Common performance issues with {platform.platform}</h2>
-      <ul class="mt-4 grid gap-2 text-slate-300 md:grid-cols-2">
-        {platform.topIssues.map((issue) => <li class="rounded-lg border border-white/10 bg-slate-950/30 px-3 py-2">{issue}</li>)}
-      </ul>
+      <h2 class="text-2xl text-slate-100">Common performance issues with {platformName}</h2>
+      <div class="mt-5 grid gap-4 md:grid-cols-2">
+        {issueNotes.map((issue) => (
+          <article class="rounded-xl border border-white/10 bg-slate-950/30 p-4">
+            <h3 class="text-lg font-semibold text-slate-100">{issue.title}</h3>
+            <p class="mt-2 text-sm text-slate-300">{issue.summary}</p>
+          </article>
+        ))}
+      </div>
     </section>
 
     <section class="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6" style={`order:${sectionOrder["solutions"] ?? 2}`}>
-      <h2 class="text-2xl text-slate-100">Best solutions</h2>
-      <ul class="mt-4 grid gap-2 text-slate-300 md:grid-cols-2">
-        {platform.commonSolutions.map((solution) => <li class="rounded-lg border border-white/10 bg-slate-950/30 px-3 py-2">{solution}</li>)}
-      </ul>
+      <h2 class="text-2xl text-slate-100">Best fixes for {platformName} performance</h2>
+      <div class="mt-5 grid gap-4 md:grid-cols-2">
+        {solutionNotes.map((solution) => (
+          <article class="rounded-xl border border-white/10 bg-slate-950/30 p-4">
+            <h3 class="text-lg font-semibold text-slate-100">{solution.title}</h3>
+            <p class="mt-2 text-sm text-slate-300">{solution.summary}</p>
+          </article>
+        ))}
+      </div>
     </section>
 
     <section class="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6" style={`order:${sectionOrder["load-times"] ?? 3}`}>
-      <h2 class="text-2xl text-slate-100">Average load times</h2>
+      <h2 class="text-2xl text-slate-100">What good {platformName} speed looks like</h2>
       <p class="mt-3 text-slate-300">
-        Typical {platform.platform} sites load in <strong>{platform.avgLoadTime}</strong>. Reaching sub-2.5s LCP is usually realistic after fixing top bottlenecks.
+        Typical {platformName} sites load in <strong>{averageLoadTimeLabel}</strong>. For most businesses, the first useful target is {speedTarget}, faster image delivery, and fewer blocking assets on top landing pages.
       </p>
-      <p class="mt-2 text-xs text-slate-500">Keyword density marker: {keywordDensity}%</p>
+      <p class="mt-3 text-slate-300">
+        Use the primary keyword in the title, H1, opening paragraph, and one supporting H2. After that, focus on related phrases such as "{platformName} speed issues" and "{platformName} performance fixes" instead of repeating the exact keyword unnaturally.
+      </p>
+      <div class="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+        Natural keyword coverage usually beats keyword stuffing. If the phrase appears in the title, H1, intro, and a few relevant sections, that is enough.
+      </div>
+    </section>
+
+    {relatedProblems.length > 0 ? (
+      <section class="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6" style={`order:${sectionOrder["related"] ?? 4}`}>
+        <h2 class="text-2xl text-slate-100">{platformName} issue pages this template can support</h2>
+        <div class="mt-5 grid gap-4 md:grid-cols-2">
+          {relatedProblems.map((problem) => (
+            <article class="rounded-xl border border-white/10 bg-slate-950/30 p-4">
+              <h3 class="text-lg font-semibold text-slate-100">
+                <a href={`/why-is-my-website-slow/${problem.slug}/`} class="hover:text-sky-300">{problem.issueTitle}</a>
+              </h3>
+              <p class="mt-2 text-sm text-slate-300">{problem.primaryCause}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    ) : null}
+
+    <section class="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+      <h2 class="text-2xl text-slate-100">How to choose the right keyword angle</h2>
+      <div class="mt-5 grid gap-4 md:grid-cols-3">
+        <article class="rounded-xl border border-white/10 bg-slate-950/30 p-4">
+          <h3 class="text-lg font-semibold text-slate-100">Core keyword</h3>
+          <p class="mt-2 text-sm text-slate-300">{primaryKeyword}</p>
+        </article>
+        <article class="rounded-xl border border-white/10 bg-slate-950/30 p-4">
+          <h3 class="text-lg font-semibold text-slate-100">Long-tail support</h3>
+          <p class="mt-2 text-sm text-slate-300">{platformName} performance issues, {platformName} site slow, {platformName} speed optimization</p>
+        </article>
+        <article class="rounded-xl border border-white/10 bg-slate-950/30 p-4">
+          <h3 class="text-lg font-semibold text-slate-100">Search intent</h3>
+          <p class="mt-2 text-sm text-slate-300">Target site owners who want diagnosis, business impact, and fixes in one page.</p>
+        </article>
+      </div>
     </section>
 
     {showReferences ? (
-      <section class="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6" style={`order:${sectionOrder["references"] ?? 4}`}>
+      <section class="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6" style={`order:${sectionOrder["references"] ?? 5}`}>
         <h2 class="text-2xl text-slate-100">References</h2>
         <ul class="mt-4 space-y-2 text-slate-300">
           <li><a href="https://developers.google.com/speed/docs/insights/v5/about" target="_blank" rel="noopener noreferrer" class="hover:text-sky-300">Google PageSpeed Insights Documentation</a></li>
@@ -112,17 +225,19 @@ const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Start Monito
     ) : null}
   </div>
 
-  <RelatedLinks items={relatedLinks} heading={`Related ${platform.platform} pages`} />
+  <RelatedLinks items={relatedLinks} heading={`Related ${platformName} pages`} />
 
   <aside class="mb-10 rounded-3xl border border-white/10 bg-gradient-to-r from-sky-600/20 via-indigo-600/20 to-emerald-600/20 p-8">
-    <h2 class="text-2xl text-slate-100">Ready to optimize your {platform.platform} site?</h2>
-    <p class="mt-2 text-slate-300">Start with a fresh scan and get a prioritized, dev-ready action list.</p>
+    <h2 class="text-2xl text-slate-100">Ready to optimize your {platformName} site?</h2>
+    <p class="mt-2 text-slate-300">Start with a fresh scan and get a prioritized action list tied to speed, conversions, and revenue risk.</p>
     <div class="mt-5 flex flex-wrap items-center gap-3">
       <a href={ctaPrimaryHref} class="rounded-xl bg-sky-500 px-6 py-3 font-semibold text-white hover:bg-sky-400">{ctaPrimaryLabel}</a>
       {variationTokens.ctaVariant === "email" ? (
         <form method="post" action="/api/leads/preview" class="flex flex-wrap items-center gap-2">
           <input type="hidden" name="source" value={`seo-platform:${platform.platform}`} />
           <input type="hidden" name="next" value={`/website-speed-audit/platform/${platform.platform}/`} />
+          <input type="hidden" name="offerContext" value="seo-platform" />
+          <input type="hidden" name="ctaVariant" value="email" />
           <input type="email" name="email" required placeholder="Weekly performance tips" class="rounded-xl border border-white/20 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-400" />
           <button type="submit" class="rounded-xl border border-emerald-300/40 bg-emerald-500/20 px-4 py-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/30">Email me</button>
         </form>

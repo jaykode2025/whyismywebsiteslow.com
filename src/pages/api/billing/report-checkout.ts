@@ -4,15 +4,24 @@ import { getStripe } from "../../../lib/stripe";
 import { loadStoredReport } from "../../../lib/reports";
 import { isReportUnlocked } from "../../../lib/entitlements";
 import { verifyCsrfTokenFromRequest } from "../../../lib/csrf";
+import { trackEvent } from "../../../lib/analytics";
 
 async function readReportId(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
     const body = await request.json().catch(() => ({}));
-    return String((body as any).reportId ?? (body as any).report_id ?? "");
+    return {
+      reportId: String((body as any).reportId ?? (body as any).report_id ?? ""),
+      offerContext: String((body as any).offerContext ?? (body as any).offer_context ?? ""),
+      ctaVariant: String((body as any).ctaVariant ?? (body as any).cta_variant ?? ""),
+    };
   }
   const form = await request.formData();
-  return String(form.get("reportId") ?? form.get("report_id") ?? "");
+  return {
+    reportId: String(form.get("reportId") ?? form.get("report_id") ?? ""),
+    offerContext: String(form.get("offerContext") ?? form.get("offer_context") ?? ""),
+    ctaVariant: String(form.get("ctaVariant") ?? form.get("cta_variant") ?? ""),
+  };
 }
 
 export const POST: APIRoute = async (context) => {
@@ -25,7 +34,7 @@ export const POST: APIRoute = async (context) => {
     });
   }
   
-  const reportId = await readReportId(context.request);
+  const { reportId, offerContext, ctaVariant } = await readReportId(context.request);
   if (!reportId) {
     return new Response(JSON.stringify({ error: "reportId required" }), {
       status: 400,
@@ -65,6 +74,18 @@ export const POST: APIRoute = async (context) => {
     });
   }
 
+  await trackEvent({
+    eventType: "unlock_cta_clicked",
+    scanId: reportId,
+    reportId,
+    source: "report-checkout",
+    offerContext: offerContext || "report",
+    ctaVariant: ctaVariant || "primary",
+    referrer: context.request.headers.get("referer"),
+    userAgent: context.request.headers.get("user-agent"),
+    path: new URL(context.request.url).pathname,
+  });
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     line_items: [
@@ -75,7 +96,11 @@ export const POST: APIRoute = async (context) => {
     ],
     success_url: `${baseUrl}/api/billing/report-verify?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${baseUrl}/report/${reportId}`,
-    metadata: { report_id: reportId },
+    metadata: {
+      report_id: reportId,
+      offer_context: offerContext || "report",
+      cta_variant: ctaVariant || "primary",
+    },
     client_reference_id: reportId,
   });
 
@@ -85,6 +110,32 @@ export const POST: APIRoute = async (context) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  await trackEvent({
+    eventType: "report_checkout_started",
+    scanId: reportId,
+    reportId,
+    source: "report-checkout",
+    offerContext: offerContext || "report",
+    ctaVariant: ctaVariant || "primary",
+    referrer: context.request.headers.get("referer"),
+    userAgent: context.request.headers.get("user-agent"),
+    path: new URL(context.request.url).pathname,
+  });
+  await trackEvent({
+    eventType: "checkout_started",
+    scanId: reportId,
+    reportId,
+    source: "report-checkout",
+    offerContext: offerContext || "report",
+    ctaVariant: ctaVariant || "primary",
+    referrer: context.request.headers.get("referer"),
+    userAgent: context.request.headers.get("user-agent"),
+    path: new URL(context.request.url).pathname,
+    metadata: {
+      checkoutType: "report-unlock",
+    },
+  });
 
   return context.redirect(session.url);
 };

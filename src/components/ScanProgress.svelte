@@ -4,8 +4,10 @@
   let { id } = $props();
   let status = $state("queued");
   let error = $state("");
-  let reportUrl = $state("");
   let timer = $state(null);
+  let score = $state(null);
+  let host = $state("");
+  let locked = $state(null);
   const previewUrl = $derived(id ? `/report/${id}` : "");
 
   async function poll() {
@@ -14,13 +16,17 @@
       const res = await fetch(`/api/report/${id}`);
       const data = await res.json();
       status = data.status;
+
       if (data.status === "done") {
-        reportUrl = `/report/${id}`;
+        locked = Boolean(data.locked);
+        host = data.report?.canonicalHost ?? data.preview?.canonicalHost ?? "";
+        score = data.report?.summary?.score100 ?? data.preview?.summary?.score100 ?? null;
       }
+
       if (data.status === "failed") {
         error = data.error ?? "Scan failed";
       }
-    } catch (err) {
+    } catch {
       error = "Unable to fetch scan status";
     }
   }
@@ -43,67 +49,48 @@
   );
 </script>
 
-<div class="space-y-2">
+<div class="space-y-3">
   <div class="h-2 w-full overflow-hidden rounded-full bg-white/10">
     <div
       class="h-2 rounded-full bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 transition-all duration-700"
       style={`width: ${progress}%`}
     ></div>
   </div>
+
   <p class="text-sm text-slate-200">
     {#if status === "queued"}Scan queued. Warming up engines...
     {:else if status === "running"}Scanning now. Building your report...
-    {:else if status === "done"}Report ready.
+    {:else if status === "done"}Scan complete.
     {:else}Scan status: {status}
     {/if}
   </p>
+
   {#if status === "done"}
-    <div class="space-y-3">
-      <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Estimated impact if fixed</p>
-        <ul class="mt-2 space-y-1 text-xs text-slate-300">
-          <li>+12–28% higher conversion rate (mobile)</li>
-          <li>−0.8s LCP → lower bounce</li>
-          <li>Potential uplift: $320–$1,900/month</li>
-        </ul>
-        <p class="mt-2 text-[11px] text-slate-500">Modeled from industry benchmarks; ranges vary by site.</p>
-      </div>
-      <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">What this unlocks</p>
-        <ul class="mt-2 space-y-1 text-xs text-slate-300">
-          <li>Exact fixes, not generic advice</li>
-          <li>Priority order (what to fix first)</li>
-          <li>Dev-ready steps and benchmarks</li>
-          <li>Before/after checklist to verify wins</li>
-        </ul>
-      </div>
-      <form method="post" action="/api/billing/report-checkout">
-        <input type="hidden" name="reportId" value={id} />
-        <Button type="submit" size="lg" className="w-full rounded-xl">
-          Unlock Full Report — $19
+    <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Next step</p>
+      <h3 class="mt-2 text-xl text-slate-100">
+        {#if score !== null}
+          {host || "This site"} scored {score}/100
+        {:else}
+          Your report is ready
+        {/if}
+      </h3>
+      <p class="mt-2 text-sm text-slate-300">
+        Open the report to see the summary, top issues, performance snapshot, and recommended next steps.
+      </p>
+      {#if locked === true}
+        <p class="mt-2 text-xs text-slate-500">
+          The report page will handle preview access and any paid unlock options.
+        </p>
+      {/if}
+      <div class="mt-4">
+        <Button href={previewUrl} size="lg" className="w-full rounded-xl">
+          View full report
         </Button>
-      </form>
-      <form method="post" action="/api/leads/preview" class="flex flex-col gap-2 sm:flex-row">
-        <input type="hidden" name="reportId" value={id} />
-        <input type="hidden" name="next" value={previewUrl} />
-        <input type="text" name="company" class="hidden" tabindex="-1" autocomplete="off" />
-        <input
-          class="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500"
-          type="email"
-          name="email"
-          placeholder="Email me the preview"
-          required
-        />
-        <Button type="submit" size="sm" variant="ghost" className="rounded-xl border-white/10 text-xs">
-          Send preview
-        </Button>
-      </form>
-      <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-        <span>One-time payment • Instant access • No account required</span>
-        <span>No spam. You can unsubscribe anytime.</span>
       </div>
     </div>
   {/if}
+
   {#if error}
     <p class="text-sm text-rose-300">{error}</p>
   {/if}

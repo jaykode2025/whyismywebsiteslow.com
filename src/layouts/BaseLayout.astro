@@ -2,6 +2,8 @@
 import "../styles/global.css";
 import SiteHeader from "../components/SiteHeader.astro";
 import SiteFooter from "../components/SiteFooter.astro";
+import FunnelTracking from "../components/FunnelTracking.astro";
+import ExitIntent from "../components/ExitIntent.svelte";
 
 const {
   title = "Why Is My Website Slow?",
@@ -43,6 +45,7 @@ const ogImageUrl = ogImage ?? `${siteOrigin}/og-default.svg`;
     <slot name="head" />
   </head>
   <body class="min-h-screen bg-[#05070d]">
+    <FunnelTracking />
     <div class="relative overflow-hidden">
       <div class="pointer-events-none absolute inset-0 bg-grid opacity-25"></div>
       <div class="pointer-events-none absolute -top-40 right-[-10%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.35),rgba(5,7,13,0))]"></div>
@@ -55,5 +58,6 @@ const ogImageUrl = ogImage ?? `${siteOrigin}/og-default.svg`;
         <SiteFooter />
       </div>
     </div>
+    <ExitIntent client:only="svelte" />
   </body>
 </html>

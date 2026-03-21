@@ -5,6 +5,8 @@ import type { Report } from "./types";
 
 // Minimal JSON persistence to survive restarts.
 // Stores reports in .data/reports.json as a simple map by id.
+// WARNING: On serverless (e.g. Vercel), .data is ephemeral and not shared across instances.
+// Production should use Supabase (hasSupabaseEnv()); this file store is for local/dev only.
 
 const DATA_DIR = join(process.cwd(), ".data");
 const FILE_PATH = join(DATA_DIR, "reports.json");

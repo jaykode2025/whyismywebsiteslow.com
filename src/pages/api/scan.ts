@@ -8,6 +8,8 @@ import { generateId, generateToken, hashToken } from "../../lib/tokens";
 import { enqueueQStashJob } from "../../lib/qstash";
 import { getPlanLimits, getUserPlan } from "../../lib/plan";
 import { verifyCsrfTokenFromRequest } from "../../lib/csrf";
+import { recordScanFact, trackEvent } from "../../lib/analytics";
+import { createSupabaseAdminClient } from "../../lib/supabase/admin";
 
 export const POST: APIRoute = async (context) => {
   const { request, clientAddress, locals } = context;
@@ -170,6 +172,41 @@ export const POST: APIRoute = async (context) => {
         body: { scanId: id, targetKeyword, includeSeoAnalysis, includeImageAudit },
       });
 
+      await trackEvent({
+        eventType: "scan_submitted",
+        scanId: id,
+        projectId,
+        userId: locals.user?.id ?? null,
+        source: "scan-form",
+        referrer: request.headers.get("referer"),
+        userAgent: request.headers.get("user-agent"),
+        path: new URL(request.url).pathname,
+        metadata: {
+          url: normalized.toString(),
+          device,
+          visibility,
+          crawlEnabled,
+          maxLinks: Math.max(1, maxLinks),
+        },
+      });
+      await trackEvent({
+        eventType: "scan_started",
+        scanId: id,
+        projectId,
+        userId: locals.user?.id ?? null,
+        source: "scan-form",
+        referrer: request.headers.get("referer"),
+        userAgent: request.headers.get("user-agent"),
+        path: new URL(request.url).pathname,
+        metadata: {
+          url: normalized.toString(),
+          device,
+          visibility,
+          crawlEnabled,
+          maxLinks: Math.max(1, maxLinks),
+        },
+      });
+
       return new Response(JSON.stringify({ id, manageToken }), {
         status: 200,
         headers: {
@@ -180,20 +217,64 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    // Local fallback: run synchronously and persist to the local store (no setTimeout background work).
+    // Local fallback: run synchronously. Save to Supabase when configured, else file store.
     const manageToken = generateToken();
-    const { id, writeTokenHash } = await createReportPlaceholder(
-      {
+    const admin = createSupabaseAdminClient();
+    let id: string;
+    let writeTokenHash: string;
+    let savedToSupabase = false;
+
+    if (hasSupabaseEnv() && admin) {
+      id = generateId();
+      writeTokenHash = hashToken(manageToken);
+      const startedAt = new Date().toISOString();
+      const { error: insertError } = await admin.from("scans").insert({
+        id,
+        user_id: locals.user?.id ?? null,
+        project_id: null,
         url: normalized.toString(),
+        status: "running",
         device,
-        crawl: { enabled: crawlEnabled, maxLinks: Math.max(1, maxLinks) },
         visibility,
-      },
-      manageToken
-    );
+        crawl_enabled: crawlEnabled,
+        crawl_max_links: Math.max(1, maxLinks),
+        manage_token_hash: writeTokenHash,
+        started_at: startedAt,
+      });
+      if (!insertError) {
+        savedToSupabase = true;
+      } else {
+        console.error("Scan insert failed (Supabase), falling back to file store:", insertError);
+        const placeholder = await createReportPlaceholder(
+          {
+            url: normalized.toString(),
+            device,
+            crawl: { enabled: crawlEnabled, maxLinks: Math.max(1, maxLinks) },
+            visibility,
+          },
+          manageToken
+        );
+        id = placeholder.id;
+        writeTokenHash = placeholder.writeTokenHash;
+      }
+    } else {
+      const placeholder = await createReportPlaceholder(
+        {
+          url: normalized.toString(),
+          device,
+          crawl: { enabled: crawlEnabled, maxLinks: Math.max(1, maxLinks) },
+          visibility,
+        },
+        manageToken
+      );
+      id = placeholder.id;
+      writeTokenHash = placeholder.writeTokenHash;
+    }
 
     try {
-      await setReportStatus(id, "running");
+      if (!savedToSupabase) {
+        await setReportStatus(id, "running");
+      }
       const report = await runEnhancedScan(
         id,
         {
@@ -205,9 +286,85 @@ export const POST: APIRoute = async (context) => {
         writeTokenHash,
         { includeSeoAnalysis, includeImageAudit, targetKeyword }
       );
-      await setReport(id, report);
+
+      if (savedToSupabase && admin) {
+        const finishedAt = new Date().toISOString();
+        await admin
+          .from("scans")
+          .update({
+            status: "done",
+            report_json: report,
+            summary_json: report.summary,
+            error: null,
+            finished_at: finishedAt,
+          })
+          .eq("id", id);
+      } else {
+        await setReport(id, report);
+      }
+
+      const { data: subscription } = locals.user && admin
+        ? await admin.from("subscriptions").select("status").eq("user_id", locals.user.id).maybeSingle()
+        : { data: null };
+      await recordScanFact(report, {
+        unlockStatus: "locked",
+        subscriptionStatus: subscription?.status ?? "free",
+        serviceLeadStatus: "none",
+      }, admin ?? undefined);
+      await trackEvent({
+        eventType: "scan_submitted",
+        scanId: id,
+        source: "scan-form",
+        referrer: request.headers.get("referer"),
+        userAgent: request.headers.get("user-agent"),
+        path: new URL(request.url).pathname,
+        metadata: {
+          url: normalized.toString(),
+          device,
+          visibility,
+          crawlEnabled,
+          maxLinks: Math.max(1, maxLinks),
+          localMode: true,
+        },
+      }, admin ?? undefined);
+      await trackEvent({
+        eventType: "scan_started",
+        scanId: id,
+        source: "scan-form",
+        referrer: request.headers.get("referer"),
+        userAgent: request.headers.get("user-agent"),
+        path: new URL(request.url).pathname,
+        metadata: {
+          url: normalized.toString(),
+          device,
+          visibility,
+          crawlEnabled,
+          maxLinks: Math.max(1, maxLinks),
+          localMode: true,
+        },
+      }, admin ?? undefined);
+      await trackEvent({
+        eventType: "scan_completed",
+        scanId: id,
+        reportId: id,
+        userId: locals.user?.id ?? null,
+        source: "sync-scan",
+        path: new URL(request.url).pathname,
+        metadata: {
+          score100: report.summary.score100,
+          cwvStatus: report.psi.cwv.status,
+          localMode: true,
+        },
+      }, admin ?? undefined);
     } catch (error: any) {
-      await setReportStatus(id, "failed", error?.message ?? "Scan failed");
+      if (savedToSupabase && admin) {
+        await admin
+          .from("scans")
+          .update({ status: "failed", error: error?.message ?? "Scan failed", finished_at: new Date().toISOString() })
+          .eq("id", id);
+      } else {
+        await setReportStatus(id, "failed", error?.message ?? "Scan failed");
+      }
       return new Response(JSON.stringify({ error: "Scan execution failed", id }), {
         status: 500,
         headers: {
@@ -227,12 +384,15 @@ export const POST: APIRoute = async (context) => {
       },
     });
   } catch (error: any) {
-    // Log the actual error for debugging but don't expose it to the client
     console.error("Scan API error:", error);
-    
-    // Return generic error message to avoid exposing system details
-    return new Response(JSON.stringify({ error: "Invalid request" }), {
-      status: 400,
+    const isClientError =
+      error?.message?.includes("url") ||
+      error?.message?.includes("normalize") ||
+      error instanceof SyntaxError;
+    const status = isClientError ? 400 : 500;
+    const message = isClientError ? "Invalid request" : "Internal error";
+    return new Response(JSON.stringify({ error: message }), {
+      status,
       headers: { "Content-Type": "application/json" },
     });
   }

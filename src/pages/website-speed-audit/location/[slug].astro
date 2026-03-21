@@ -1,0 +1,103 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { LOCATIONS } from "../../../data/pseo";
+import { generateLocationPaths } from "../../../lib/staticPaths";
+import {
+  siteUrl,
+  breadcrumb,
+  organizationSchema,
+  buildSeoDescription,
+  buildSeoTitle,
+  humanizeSlug,
+  titleCase,
+} from "../../../lib/seo";
+import RelatedLinks from "../../../components/seo/RelatedLinks.astro";
+import { relatedForIndustry } from "../../../lib/related";
+import RecentScans from "../../../components/RecentScans.svelte";
+import ScanBox from "../../../components/ScanBox.astro";
+
+export const prerender = true;
+export const getStaticPaths = generateLocationPaths;
+
+const location = LOCATIONS.find((l) => l.location === Astro.params.slug);
+if (!location) {
+  throw new Error(`Location not found for: ${Astro.params.slug ?? "unknown"}`);
+}
+
+const locationName = titleCase(humanizeSlug(location.location));
+const pageTitle = buildSeoTitle(
+  `Website Speed Audit in ${locationName}`,
+  "Local performance benchmarks"
+);
+const description = buildSeoDescription(
+  `Find out why businesses in ${locationName} lose revenue to slow site speeds and how to fix it.`,
+  [location.serviceAreaNote]
+);
+
+const breadcrumbJsonLd = JSON.stringify(breadcrumb([
+  { name: "Home", item: "/" },
+  { name: "Website Speed Audit", item: "/website-speed-audit/" },
+  { name: locationName, item: `/website-speed-audit/location/${location.location}/` }
+]));
+const organizationJsonLd = JSON.stringify(organizationSchema());
+
+const relatedLinks = [
+  { href: "/scan", label: "Run a free speed scan" },
+  { href: "/website-speed-audit/", label: "Main audit library" },
+];
+---
+
+<BaseLayout
+  title={pageTitle}
+  description={description}
+  canonical={siteUrl(`/website-speed-audit/location/${location.location}/`)}
+>
+  <script slot="head" type="application/ld+json" is:inline>{breadcrumbJsonLd}</script>
+  <script slot="head" type="application/ld+json" is:inline>{organizationJsonLd}</script>
+
+  <section class="mb-10 rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-600/20 to-sky-600/20 p-8">
+    <nav aria-label="Breadcrumb" class="mb-5 text-sm text-slate-400">
+      <a href="/" class="hover:text-sky-300">Home</a>
+      <span class="mx-2">/</span>
+      <a href="/website-speed-audit/" class="hover:text-sky-300">Website Speed Audit</a>
+      <span class="mx-2">/</span>
+      <span class="text-slate-200">{locationName}</span>
+    </nav>
+    <h1 class="text-4xl font-bold text-slate-100">{pageTitle}</h1>
+
+    <ScanBox csrfToken={Astro.locals.csrfToken} />
+    <RecentScans client:load />
+    <p class="mt-4 max-w-3xl text-lg text-slate-300">
+      {description}
+    </p>
+  </section>
+
+  <div class="grid gap-8 md:grid-cols-2 mb-12">
+    {location.localStats.map((stat) => (
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+        <div class="text-4xl font-bold text-sky-400 mb-2">{stat.value}</div>
+        <div class="text-slate-300">{stat.label}</div>
+      </div>
+    ))}
+  </div>
+
+  <section class="mb-12 rounded-2xl border border-white/10 bg-white/3 p-8">
+    <h2 class="text-2xl font-bold text-slate-100 mb-4">Local Performance Impact</h2>
+    <p class="text-slate-300 mb-4">
+      In {locationName}, slow website speeds aren't just a technical annoyance—they're a significant drain on local business revenue. With {location.localStats[0].value} of businesses failing core performance benchmarks, there's a massive opportunity for forward-thinking companies to gain a competitive advantage.
+    </p>
+    <p class="text-slate-300">
+      {location.serviceAreaNote} Our specialized audits help local businesses identify exactly where they're losing customers and provide a clear, prioritized roadmap to recovery.
+    </p>
+  </section>
+
+  <aside class="mb-10 rounded-3xl border border-white/10 bg-gradient-to-r from-sky-600/20 to-violet-600/20 p-8 text-center">
+    <h2 class="text-2xl text-slate-100 font-bold mb-4">Get Your Local Speed Audit</h2>
+    <p class="text-slate-300 mb-6">See how your site compares to {locationName} benchmarks and get real fixes.</p>
+    <a href="/scan" class="inline-block rounded-xl bg-sky-500 px-8 py-4 font-semibold text-white hover:bg-sky-400 transition-all">
+      Start Free Scan
+    </a>
+  </aside>
+
+  <RelatedLinks items={relatedLinks} heading="Next Steps" />
+</BaseLayout>

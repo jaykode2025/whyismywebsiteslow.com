@@ -12,6 +12,7 @@ import { loadStoredReport } from "../../lib/reports";
 import { exampleReport } from "../../lib/example";
 import { isReportUnlocked } from "../../lib/entitlements";
 import { hasLeadAccess, LEAD_ACCESS_COOKIE_NAME } from "../../lib/leadAccess";
+import { trackEvent } from "../../lib/analytics";
 
 const { id } = Astro.params;
 const stored = id === "example" ? { status: "done", report: exampleReport() } : await loadStoredReport(id ?? "", Astro.locals);
@@ -55,16 +56,38 @@ const formatBytes = (value?: number) => {
   return mb >= 1 ? `${mb.toFixed(2)} MB` : `${Math.round(value / 1000)} KB`;
 };
 
-const timeline = report
-  ? {
-      ttfb: report.psi.cwv.ttfb_ms ?? 0,
-      fcp: report.psi.cwv.fcp_ms ?? 0,
-      lcp: report.psi.cwv.lcp_ms ?? 0,
-    }
-  : null;
+const formatPercent = (value?: number) => {
+  if (value === undefined || value === null || Number.isNaN(value)) return "-";
+  return `${value.toFixed(2)}%`;
+};
 
-const timelineMax = timeline ? Math.max(timeline.ttfb, timeline.fcp, timeline.lcp, 1) : 1;
-const timelinePct = (value: number) => Math.min(100, (value / timelineMax) * 100);
+const titleCase = (value: string) =>
+  value
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+const joinWithAnd = (items: string[]) => {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+};
+
+const impactRank = { high: 3, medium: 2, low: 1 };
+const severityRank = { critical: 4, high: 3, medium: 2, low: 1 };
+const effortRank = { low: 1, medium: 2, high: 3 };
+
+const topInsights = report
+  ? [...report.insights]
+      .sort(
+        (a, b) =>
+          impactRank[b.impact] - impactRank[a.impact] ||
+          severityRank[b.severity] - severityRank[a.severity] ||
+          effortRank[a.effort] - effortRank[b.effort]
+      )
+      .slice(0, 3)
+  : [];
 
 const groupedInsights = report && unlocked
   ? Object.entries(
@@ -77,45 +100,220 @@ const groupedInsights = report && unlocked
     )
   : [];
 
-const scoreDrivers = report
+const topIssueTitles = topInsights.map((item) => item.title);
+const timeline = report
+  ? {
+      ttfb: report.psi.cwv.ttfb_ms ?? 0,
+      fcp: report.psi.cwv.fcp_ms ?? 0,
+      lcp: report.psi.cwv.lcp_ms ?? 0,
+    }
+  : null;
+const timelineMax = timeline ? Math.max(timeline.ttfb, timeline.fcp, timeline.lcp, 1) : 1;
+const timelinePct = (value: number) => Math.min(100, (value / timelineMax) * 100);
+
+const expectedImprovement = report
+  ? (category: string) => {
+      switch (category) {
+        case "javascript":
+        case "third-party":
+          return "Likely improves interactivity and reduces main-thread blocking.";
+        case "server":
+        case "cdn":
+          return report.psi.cwv.ttfb_ms && report.psi.cwv.ttfb_ms > 800
+            ? `Could bring server response down from ${formatMs(report.psi.cwv.ttfb_ms)} toward recommended response times.`
+            : "Should make first byte delivery more consistent.";
+        case "images":
+          return "Should cut page weight and improve the largest visual load on the page.";
+        case "css":
+        case "fonts":
+          return "Should bring first paint forward and reduce render-blocking work.";
+        case "core-web-vitals":
+          return "Should improve the user-visible load experience that affects CWV pass/fail.";
+        default:
+          return "Should reduce load friction and make the page feel faster.";
+      }
+    }
+  : () => "";
+
+const toneClass = (value: string, kind: "impact" | "effort" | "status") => {
+  if (kind === "impact") {
+    return value === "high"
+      ? "border-rose-400/30 bg-rose-400/10 text-rose-200"
+      : value === "medium"
+        ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+        : "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
+  }
+
+  if (kind === "effort") {
+    return value === "low"
+      ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+      : value === "medium"
+        ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+        : "border-slate-400/30 bg-slate-400/10 text-slate-200";
+  }
+
+  return value === "good"
+    ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+    : value === "needs work"
+      ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+      : "border-rose-400/30 bg-rose-400/10 text-rose-200";
+};
+
+const comparisonRows = report
   ? [
-      report.psi.cwv.status === "fail" ? "CWV fail (-15)" : null,
-      report.psi.cwv.ttfb_ms && report.psi.cwv.ttfb_ms > 800 ? "TTFB > 800ms (-10)" : null,
-      report.psi.audits.totalByteWeight && report.psi.audits.totalByteWeight > 3_000_000
-        ? "Total weight > 3MB (-10)"
-        : null,
-    ].filter(Boolean)
+      {
+        label: "Largest Contentful Paint",
+        current: formatMs(report.psi.cwv.lcp_ms),
+        target: "2.5s or less",
+        status:
+          report.psi.cwv.lcp_ms === undefined
+            ? "needs work"
+            : report.psi.cwv.lcp_ms <= 2500
+              ? "good"
+              : report.psi.cwv.lcp_ms <= 4000
+                ? "needs work"
+                : "poor",
+        note:
+          report.psi.cwv.lcp_ms !== undefined && report.psi.cwv.lcp_ms <= 2500
+            ? "Main content appears within the recommended window."
+            : "This is the clearest signal of whether the page feels slow on first view.",
+      },
+      {
+        label: "Interaction to Next Paint",
+        current: formatMs(report.psi.cwv.inp_ms),
+        target: "200 ms or less",
+        status:
+          report.psi.cwv.inp_ms === undefined
+            ? "needs work"
+            : report.psi.cwv.inp_ms <= 200
+              ? "good"
+              : report.psi.cwv.inp_ms <= 500
+                ? "needs work"
+                : "poor",
+        note: "This tells you how responsive the page feels when users try to click or type.",
+      },
+      {
+        label: "Cumulative Layout Shift",
+        current: typeof report.psi.cwv.cls === "number" ? report.psi.cwv.cls.toFixed(2) : "-",
+        target: "0.10 or less",
+        status:
+          report.psi.cwv.cls === undefined
+            ? "needs work"
+            : report.psi.cwv.cls <= 0.1
+              ? "good"
+              : report.psi.cwv.cls <= 0.25
+                ? "needs work"
+                : "poor",
+        note: "High layout shift makes the page feel unstable and can cause missed clicks.",
+      },
+      {
+        label: "Server response",
+        current: formatMs(report.psi.cwv.ttfb_ms),
+        target: "800 ms or less",
+        status:
+          report.psi.cwv.ttfb_ms === undefined
+            ? "needs work"
+            : report.psi.cwv.ttfb_ms <= 800
+              ? "good"
+              : report.psi.cwv.ttfb_ms <= 1800
+                ? "needs work"
+                : "poor",
+        note: "Slow response time delays everything that comes after it.",
+      },
+      {
+        label: "Performance score",
+        current: `${report.summary.score100}/100`,
+        target: "90 or higher",
+        status:
+          report.summary.score100 >= 90 ? "good" : report.summary.score100 >= 70 ? "needs work" : "poor",
+        note: "This is the fastest way to gauge overall risk before reading the fixes.",
+      },
+    ]
+  : [];
+
+const summarySentences = report
+  ? [
+      report.summary.score100 >= 90
+        ? `${report.canonicalHost} is performing well overall on ${report.device}, with a score of ${report.summary.score100}/100.`
+        : report.summary.score100 >= 75
+          ? `${report.canonicalHost} has a decent baseline on ${report.device}, but it is still slower than it should be in a few key places.`
+          : report.summary.score100 >= 50
+            ? `${report.canonicalHost} is noticeably slow on ${report.device}, with a score of ${report.summary.score100}/100.`
+            : `${report.canonicalHost} is slow enough on ${report.device} to create a weak first impression and hurt conversions.`,
+      report.psi.cwv.lcp_ms
+        ? `Largest Contentful Paint is ${formatMs(report.psi.cwv.lcp_ms)}${report.psi.cwv.ttfb_ms ? ` and server response is ${formatMs(report.psi.cwv.ttfb_ms)}` : ""}.`
+        : "The current scan shows meaningful delay in how quickly content becomes visible.",
+      topIssueTitles.length > 0
+        ? `The biggest contributors right now are ${joinWithAnd(topIssueTitles.slice(0, 3)).toLowerCase()}.`
+        : "No major bottlenecks were detected in the current scan.",
+      report.psi.cwv.status === "pass"
+        ? "Core Web Vitals are passing, but tightening the highest-impact issues should make the experience feel smoother and more resilient."
+        : "Core Web Vitals are failing, which means users are more likely to feel slow loading or lag before the page settles.",
+    ]
   : [];
 
 const kscore = report?.kscore;
-const kscoreCategories = kscore ? Object.entries(kscore.categories) : [];
 const seoAnalysis = report?.seoAnalysis;
 const imageAudit = report?.imageAudit;
-const topIssue = report?.summary.topIssues?.[0] ?? "No major bottlenecks detected.";
-
-const formatPercent = (value?: number) => {
-  if (value === undefined || value === null || Number.isNaN(value)) return "-";
-  return `${value.toFixed(2)}%`;
-};
-
 const csrfToken = Astro.locals.csrfToken ?? "";
 const stickyPrimaryHref = unlocked ? "/billing" : null;
 const stickyPrimaryLabel = unlocked ? "Start monitoring" : "Unlock full report";
+const secondaryCtaHref = report ? `/fix-it?reportId=${report.id}` : "/fix-it";
+const secondaryCtaLabel = "Fix it for me";
+const isExampleReport = report?.id === "example";
+
+if (report) {
+  await trackEvent({
+    eventType: "report_viewed",
+    scanId: isExampleReport ? null : report.id,
+    reportId: isExampleReport ? null : report.id,
+    userId: Astro.locals.user?.id ?? null,
+    source: isExampleReport ? "report-example" : unlocked ? "report-unlocked" : previewUnlocked ? "report-preview" : "report-locked",
+    referrer: Astro.request.headers.get("referer"),
+    userAgent: Astro.request.headers.get("user-agent"),
+    path: Astro.url.pathname,
+    metadata: {
+      previewUnlocked,
+      unlocked,
+      isExampleReport,
+    },
+  });
+  if (isExampleReport) {
+    await trackEvent({
+      eventType: "example_report_viewed",
+      userId: Astro.locals.user?.id ?? null,
+      source: "report-example",
+      referrer: Astro.request.headers.get("referer"),
+      userAgent: Astro.request.headers.get("user-agent"),
+      path: Astro.url.pathname,
+      metadata: {
+        previewUnlocked,
+        unlocked,
+      },
+    });
+  }
+}
 ---
 <BaseLayout title={title} description={description} noindex={noindex}>
   {jsonLd ? (
     <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(jsonLd)}</script>
   ) : null}
+
   <section class="pt-6">
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <Badge tone="info">Report</Badge>
-          <h1 class="mt-3 text-3xl text-slate-100">{report ? report.url : "Generating report"}</h1>
-          <p class="mt-2 text-sm text-slate-400">
-            {report ? `Created ${new Date(report.createdAt).toLocaleString()}` : "This usually takes under 90 seconds."}
-          </p>
-        </div>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <Badge tone="info">Report</Badge>
+        <h1 class="mt-3 text-3xl text-slate-100">{report ? report.url : "Generating report"}</h1>
+        <p class="mt-2 text-sm text-slate-400">
+          {report ? `Created ${new Date(report.createdAt).toLocaleString()}` : "This usually takes under 90 seconds."}
+        </p>
+      </div>
       <div class="flex items-center gap-3">
+        {report && previewUnlocked ? (
+          <Button href="#share" variant="ghost" size="sm" class="border-white/10">
+            Share report
+          </Button>
+        ) : null}
         <Button href="/scan" variant="ghost" size="sm" class="border-white/10">
           Run another scan
         </Button>
@@ -124,425 +322,435 @@ const stickyPrimaryLabel = unlocked ? "Start monitoring" : "Unlock full report";
   </section>
 
   {report && previewUnlocked ? (
-    <section class="mt-6">
-      <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
-        <div class="grid gap-4 md:grid-cols-[0.9fr_0.8fr_1.6fr_auto] md:items-center">
-          <div>
-            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Score</p>
-            <p class="mt-2 text-2xl text-slate-100">{report.summary.score100}/100</p>
-            <p class="text-xs text-slate-400">Grade {report.summary.grade}</p>
-          </div>
-          <div>
-            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">CWV status</p>
-            <p class={report.psi.cwv.status === "pass" ? "mt-2 text-emerald-200" : "mt-2 text-rose-200"}>
-              {report.psi.cwv.status}
-            </p>
-            <p class="text-xs text-slate-400">LCP {formatMs(report.psi.cwv.lcp_ms)}</p>
-          </div>
-          <div>
-            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top issue</p>
-            <p class="mt-2 text-sm text-slate-200">{topIssue}</p>
-            <p class="text-xs text-slate-500">Prioritized in the fixes below.</p>
-          </div>
-          <div class="flex md:justify-end">
-            <Button href="#share" variant="ghost" size="sm" class="rounded-xl border-white/10">
-              Share report
-            </Button>
-          </div>
-        </div>
-      </div>
-    </section>
-  ) : null}
-
-  {report && previewUnlocked && !unlocked ? (
-    <section class="mt-6">
-      <div class="rounded-2xl border border-white/10 bg-gradient-to-r from-slate-950/70 via-slate-900/70 to-slate-950/70 p-5">
-        <div class="flex flex-col gap-4">
-          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Report locked</p>
-            <p class="mt-2 text-sm text-slate-200">
-              Unlock to see prioritized fixes, exact steps, and the full checklist.
-            </p>
-            <p class="mt-1 text-xs text-slate-400">One-time payment • Instant access • No account required</p>
-          </div>
-          <form method="post" action="/api/billing/report-checkout">
-            <input type="hidden" name="reportId" value={report.id} />
-            <input type="hidden" name="_csrf" value={csrfToken} />
-            <Button type="submit" size="lg" class="w-full rounded-xl">
-              Unlock Full Report — $19
-            </Button>
-          </form>
-        </div>
-          <div class="grid gap-3 md:grid-cols-2">
-            <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-              <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Estimated impact if fixed</p>
-              <ul class="mt-2 space-y-1 text-xs text-slate-300">
-                <li>+12–28% higher conversion rate (mobile)</li>
-                <li>−0.8s LCP → lower bounce</li>
-                <li>Potential uplift: $320–$1,900/month</li>
-              </ul>
-              <p class="mt-2 text-[11px] text-slate-500">Modeled from industry benchmarks; ranges vary by site.</p>
+    <>
+      <section class="mt-8">
+        <div class="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+          <Card class="bg-gradient-to-br from-slate-900 via-slate-900 to-sky-950/40">
+            <p class="text-xs uppercase tracking-[0.2em] text-sky-200/70">Summary</p>
+            <h2 class="mt-3 text-3xl text-slate-100">
+              {report.summary.score100 >= 90
+                ? "Fast overall, with a few cleanup opportunities."
+                : report.summary.score100 >= 75
+                  ? "Solid foundation, but users still feel avoidable delay."
+                  : report.summary.score100 >= 50
+                    ? "The site is slower than it should be where it matters."
+                    : "The site feels slow enough to cost attention and trust."}
+            </h2>
+            <div class="mt-5 space-y-3 text-sm leading-6 text-slate-300">
+              {summarySentences.map((sentence) => (
+                <p>{sentence}</p>
+              ))}
             </div>
-            <div class="rounded-xl border border-white/10 bg-white/5 p-3">
-              <p class="text-xs uppercase tracking-[0.2em] text-slate-500">What this unlocks</p>
-              <ul class="mt-2 space-y-1 text-xs text-slate-300">
-                <li>Exact fixes, not generic advice</li>
-                <li>Priority order (what to fix first)</li>
-                <li>Dev-ready steps and benchmarks</li>
-                <li>Before/after checklist to verify wins</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  ) : null}
-
-  {report && unlocked ? (
-    <section class="mt-6">
-      <div class="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
-        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p class="text-sm text-emerald-100">Want to keep this site fast forever?</p>
-            <p class="mt-1 text-xs text-emerald-200/60">Upgrade to Pro for 24/7 monitoring, weekly reports, and instant alerts.</p>
-          </div>
-          <Button href="/billing" size="sm" class="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-none">
-            Get 24/7 Monitoring — $99/mo
-          </Button>
-        </div>
-      </div>
-    </section>
-  ) : null}
-
-  {report && previewUnlocked ? (
-    <section class="mt-10 grid gap-6 lg:grid-cols-[0.35fr_0.65fr]">
-      <div class="space-y-6">
-        <Card class="text-center">
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Overall score</p>
-          <div class="mt-4 flex justify-center">
-            <ScoreDonut client:load score={report.summary.score100} />
-          </div>
-          <div class="mt-4 flex items-center justify-center gap-2">
-            <span class="text-2xl text-slate-100">Grade {report.summary.grade}</span>
-            <span class="text-sm text-slate-400">({report.summary.score100}/100)</span>
-          </div>
-        </Card>
-        {kscore ? (
-          <Card>
-            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">K-Score</p>
-            <div class="mt-4 flex items-center justify-between">
-              <div>
-                <p class="text-3xl text-slate-100">{kscore.overall}</p>
-                <p class="text-sm text-slate-400">Grade {kscore.grade}</p>
+            <div class="mt-6 grid gap-3 sm:grid-cols-3">
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Load time</p>
+                <p class="mt-2 text-2xl text-slate-100">{formatMs(report.psi.cwv.lcp_ms)}</p>
+                <p class="text-xs text-slate-400">Largest Contentful Paint</p>
               </div>
-              <div class="h-20 w-20">
-                <ScoreDonut client:load score={kscore.overall} />
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Page weight</p>
+                <p class="mt-2 text-2xl text-slate-100">{formatBytes(report.psi.audits.totalByteWeight)}</p>
+                <p class="text-xs text-slate-400">Bytes loaded on the primary page</p>
               </div>
-            </div>
-            <div class="mt-4">
-              {unlocked ? (
-                <ul class="space-y-2 text-sm text-slate-200">
-                  {kscoreCategories.map(([name, data]) => (
-                    <li class="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                      <span class="capitalize text-slate-300">{name}</span>
-                      <span class={data.status === "good" ? "text-emerald-200" : data.status === "ok" ? "text-amber-200" : "text-rose-200"}>
-                        {data.score}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p class="text-xs text-slate-400">Unlock to see the K-Score category breakdown.</p>
-              )}
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Top issue</p>
+                <p class="mt-2 text-base text-slate-100">{topIssueTitles[0] ?? "No major bottleneck detected"}</p>
+                <p class="text-xs text-slate-400">Highest-priority place to start</p>
+              </div>
             </div>
           </Card>
-        ) : null}
-        <Card>
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Score drivers</p>
-          <p class="mt-2 text-sm text-slate-300">These factors have the biggest impact on the grade.</p>
-          <ul class="mt-4 space-y-2 text-sm text-slate-200">
-            {scoreDrivers.length > 0 ? (
-              scoreDrivers.map((driver) => (
-                <li class="rounded-xl border border-white/10 bg-white/5 px-3 py-2">{driver}</li>
-              ))
-            ) : (
-              <li class="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-emerald-100">
-                No major penalties detected.
-              </li>
-            )}
-          </ul>
-        </Card>
-        <Card>
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Core Web Vitals</p>
-          <div class="mt-3 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
-            <span class="text-slate-300">CWV status</span>
-            <span class={report.psi.cwv.status === "pass" ? "text-emerald-200" : "text-rose-200"}>
-              {report.psi.cwv.status}
-            </span>
+
+          <Card class="text-center">
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Overall score</p>
+            <div class="mt-4 flex justify-center">
+              <ScoreDonut client:load score={report.summary.score100} />
+            </div>
+            <div class="mt-4 flex items-center justify-center gap-2">
+              <span class="text-2xl text-slate-100">Grade {report.summary.grade}</span>
+              <span class="text-sm text-slate-400">({report.summary.score100}/100)</span>
+            </div>
+            <div class="mt-6 grid gap-3 text-left">
+              <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">CWV status</p>
+                <p class={report.psi.cwv.status === "pass" ? "mt-2 text-emerald-200" : "mt-2 text-rose-200"}>
+                  {report.psi.cwv.status === "pass" ? "Passing" : "Failing"}
+                </p>
+              </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Requests</p>
+                <p class="mt-2 text-slate-100">{report.checks.page.requestCount ?? "-"}</p>
+              </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Device</p>
+                <p class="mt-2 text-slate-100">{titleCase(report.device)}</p>
+              </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Detected stack</p>
+                <p class="mt-2 text-slate-100">
+                  {report.detectedStack.cmsGuess ?? report.detectedStack.frameworkGuess ?? "No strong match yet"}
+                </p>
+                <p class="mt-1 text-xs text-slate-400">
+                  {report.detectedStack.hostingGuess ? `Hosting: ${report.detectedStack.hostingGuess}` : "Hosting signal still weak"}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </section>
+
+      <section class="mt-10">
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top problems</p>
+            <h2 class="mt-2 text-2xl text-slate-100">Biggest issues slowing your site</h2>
+            <p class="mt-2 text-sm text-slate-400">Start here before you worry about the long tail of smaller metrics.</p>
           </div>
-          <div class="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-200">
-            <div>
-              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">LCP</p>
-              <p>{formatMs(report.psi.cwv.lcp_ms)}</p>
+        </div>
+        <div class="mt-6 grid gap-4 lg:grid-cols-3">
+          {topInsights.length > 0 ? (
+            topInsights.map((insight, index) => (
+              <Card>
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Problem {index + 1}</p>
+                    <h3 class="mt-2 text-xl text-slate-100">{insight.title}</h3>
+                  </div>
+                  <span class={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${toneClass(insight.impact, "impact")}`}>
+                    {insight.impact} impact
+                  </span>
+                </div>
+                <p class="mt-4 text-sm leading-6 text-slate-300">{insight.whatItMeans}</p>
+                <p class="mt-3 text-sm text-slate-400">{insight.whyItHurts}</p>
+                <div class="mt-5 flex flex-wrap gap-2">
+                  <span class={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${toneClass(insight.impact, "impact")}`}>
+                    Impact: {insight.impact}
+                  </span>
+                  <span class={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${toneClass(insight.effort, "effort")}`}>
+                    Difficulty: {insight.effort}
+                  </span>
+                  <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-300">
+                    {insight.severity}
+                  </span>
+                </div>
+                <div class="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Expected improvement</p>
+                  <p class="mt-2 text-sm text-slate-200">{expectedImprovement(insight.category)}</p>
+                </div>
+              </Card>
+            ))
+          ) : (
+            <Card class="lg:col-span-3">
+              <p class="text-sm text-slate-300">No major problems were detected in the current scan.</p>
+            </Card>
+          )}
+        </div>
+      </section>
+
+      <section class="mt-10">
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Snapshot</p>
+            <h2 class="mt-2 text-2xl text-slate-100">Visual performance snapshot</h2>
+            <p class="mt-2 text-sm text-slate-400">
+              Data source: {report.psi.source}{report.psi.message ? ` — ${report.psi.message}` : ""}
+            </p>
+          </div>
+          <Badge tone={report.psi.cwv.status === "pass" ? "success" : "danger"}>
+            {report.psi.cwv.status === "pass" ? "CWV pass" : "CWV fail"}
+          </Badge>
+        </div>
+        <div class="mt-6 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+          <Card>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Load timeline</p>
+            <h3 class="mt-2 text-xl text-slate-100">How the page unfolds in the browser</h3>
+            <p class="mt-2 text-sm text-slate-400">TTFB, first paint, and largest paint show where users start to feel drag.</p>
+            {timeline ? (
+              <div class="mt-6 space-y-4">
+                <div class="relative h-3 rounded-full bg-white/10">
+                  <span
+                    class="absolute left-0 h-3 rounded-full bg-emerald-400/20"
+                    style={`width: ${timelinePct(timeline.fcp)}%`}
+                  ></span>
+                  <span
+                    class="absolute left-0 h-3 rounded-full bg-sky-400/20"
+                    style={`width: ${timelinePct(timeline.lcp)}%`}
+                  ></span>
+                  <span
+                    class="absolute -top-2 h-7 w-1 rounded-full bg-amber-300"
+                    style={`left: ${timelinePct(timeline.ttfb)}%`}
+                  ></span>
+                  <span
+                    class="absolute -top-2 h-7 w-1 rounded-full bg-emerald-300"
+                    style={`left: ${timelinePct(timeline.fcp)}%`}
+                  ></span>
+                  <span
+                    class="absolute -top-2 h-7 w-1 rounded-full bg-sky-300"
+                    style={`left: ${timelinePct(timeline.lcp)}%`}
+                  ></span>
+                </div>
+                <div class="grid gap-3 md:grid-cols-2">
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">TTFB</p>
+                    <p class="mt-2 text-slate-100">{formatMs(report.psi.cwv.ttfb_ms)}</p>
+                  </div>
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">FCP</p>
+                    <p class="mt-2 text-slate-100">{formatMs(report.psi.cwv.fcp_ms)}</p>
+                  </div>
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">LCP</p>
+                    <p class="mt-2 text-slate-100">{formatMs(report.psi.cwv.lcp_ms)}</p>
+                  </div>
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Page weight</p>
+                    <p class="mt-2 text-slate-100">{formatBytes(report.psi.audits.totalByteWeight)}</p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </Card>
+
+          <Card>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Metrics</p>
+            <h3 class="mt-2 text-xl text-slate-100">Performance overview</h3>
+            <div class="mt-6 grid gap-3 sm:grid-cols-2">
+              <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">INP</p>
+                <p class="mt-2 text-slate-100">{formatMs(report.psi.cwv.inp_ms)}</p>
+              </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">CLS</p>
+                <p class="mt-2 text-slate-100">{typeof report.psi.cwv.cls === "number" ? report.psi.cwv.cls.toFixed(2) : "-"}</p>
+              </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">JS weight</p>
+                <p class="mt-2 text-slate-100">
+                  {report.checks.page.jsKb !== undefined ? `${report.checks.page.jsKb} KB` : "-"}
+                </p>
+              </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Image weight</p>
+                <p class="mt-2 text-slate-100">
+                  {report.checks.page.imageKb !== undefined ? `${report.checks.page.imageKb} KB` : "-"}
+                </p>
+              </div>
             </div>
-            <div>
-              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">INP</p>
-              <p>{formatMs(report.psi.cwv.inp_ms)}</p>
+            <div class="mt-6 grid gap-3 sm:grid-cols-2">
+              {Object.entries(report.psi.lighthouse).map(([key, value]) => (
+                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">{titleCase(key)}</p>
+                  <p class="mt-2 text-xl text-slate-100">{Math.round(value * 100)}</p>
+                </div>
+              ))}
             </div>
-            <div>
-              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">CLS</p>
-              <p>{typeof report.psi.cwv.cls === "number" ? report.psi.cwv.cls.toFixed(2) : "-"}</p>
+            {kscore ? (
+              <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">K-Score</p>
+                <div class="mt-2 flex items-center justify-between gap-4">
+                  <div>
+                    <p class="text-2xl text-slate-100">{kscore.overall}</p>
+                    <p class="text-sm text-slate-400">Grade {kscore.grade}</p>
+                  </div>
+                  <div class="h-16 w-16">
+                    <ScoreDonut client:load score={kscore.overall} />
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </Card>
+        </div>
+      </section>
+
+      <section class="mt-10">
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Comparison</p>
+            <h2 class="mt-2 text-2xl text-slate-100">Compared with recommended web targets</h2>
+            <p class="mt-2 text-sm text-slate-400">
+              Similar-site benchmarking is not in this report payload yet, so this compares the site against accepted performance targets.
+            </p>
+          </div>
+        </div>
+        <div class="mt-6 grid gap-4">
+          {comparisonRows.map((row) => (
+            <Card class="p-0">
+              <div class="grid gap-4 px-6 py-5 md:grid-cols-[1.2fr_0.7fr_0.7fr_auto] md:items-center">
+                <div>
+                  <p class="text-sm text-slate-100">{row.label}</p>
+                  <p class="mt-1 text-xs text-slate-400">{row.note}</p>
+                </div>
+                <div>
+                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Current</p>
+                  <p class="mt-2 text-slate-100">{row.current}</p>
+                </div>
+                <div>
+                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Target</p>
+                  <p class="mt-2 text-slate-100">{row.target}</p>
+                </div>
+                <div class="md:justify-self-end">
+                  <span class={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${toneClass(row.status, "status")}`}>
+                    {row.status}
+                  </span>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section class="mt-10">
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Business impact</p>
+            <h2 class="mt-2 text-2xl text-slate-100">Why this matters beyond Lighthouse scores</h2>
+            <p class="mt-2 text-sm text-slate-400">{report.businessImpact.headline}</p>
+          </div>
+          <Badge tone={report.businessImpact.riskLevel === "high" ? "danger" : report.businessImpact.riskLevel === "medium" ? "warning" : "success"}>
+            {report.businessImpact.riskLevel} risk
+          </Badge>
+        </div>
+        <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+          <Card>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Business risks</p>
+            <ul class="mt-4 space-y-3 text-sm text-slate-200">
+              {report.businessImpact.bullets.map((bullet) => (
+                <li class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">{bullet}</li>
+              ))}
+            </ul>
+          </Card>
+          <Card>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Modeled upside</p>
+            <div class="mt-4 grid gap-3">
+              <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Conversion lift</p>
+                <p class="mt-2 text-2xl text-slate-100">{report.businessImpact.estimatedRange.conversionLiftPct}</p>
+              </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Lead recovery</p>
+                <p class="mt-2 text-2xl text-slate-100">{report.businessImpact.estimatedRange.leadRecoveryPct}</p>
+              </div>
+              <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Revenue protection</p>
+                <p class="mt-2 text-2xl text-slate-100">{report.businessImpact.estimatedRange.revenueProtection}</p>
+              </div>
             </div>
-            <div>
-              <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Status</p>
-              <p class={report.psi.cwv.status === "pass" ? "text-emerald-200" : "text-rose-200"}>
-                {report.psi.cwv.status}
+            <p class="mt-4 text-xs text-slate-500">
+              Modeled from current scan risk and common speed-to-conversion patterns. Use this as a prioritization aid, not audited financial advice.
+            </p>
+          </Card>
+        </div>
+      </section>
+
+      <section class="mt-10">
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Fix guide</p>
+            <h2 class="mt-2 text-2xl text-slate-100">What to fix first</h2>
+            <p class="mt-2 text-sm text-slate-400">Short, ranked guidance first. Detailed implementation stays in the deeper report.</p>
+          </div>
+        </div>
+        <div class="mt-6 grid gap-4 lg:grid-cols-3">
+          <Card>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Quick wins</p>
+            <ul class="mt-4 space-y-2 text-sm text-slate-200">
+              {report.recommendationSummary.quickWins.length > 0 ? (
+                report.recommendationSummary.quickWins.map((item) => (
+                  <li class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">{item}</li>
+                ))
+              ) : (
+                <li class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">No low-effort wins were detected.</li>
+              )}
+            </ul>
+          </Card>
+          <Card>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Highest leverage</p>
+            <ul class="mt-4 space-y-2 text-sm text-slate-200">
+              {report.recommendationSummary.highestLeverageFixes.map((item) => (
+                <li class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">{item}</li>
+              ))}
+            </ul>
+          </Card>
+          <Card>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Recommended next step</p>
+            <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p class="text-lg text-slate-100">
+                {report.recommendationSummary.nextBestAction === "start-monitoring"
+                  ? "Monitoring will protect your gains once the biggest fixes ship."
+                  : report.recommendationSummary.nextBestAction === "request-service"
+                    ? "This looks valuable enough to justify hands-on help."
+                    : "Unlocking the detailed report is the fastest way to sequence the work."}
+              </p>
+              <p class="mt-3 text-sm text-slate-400">
+                The current recommendation is based on score, Core Web Vitals status, and the mix of effort versus impact in the top issues.
               </p>
             </div>
-          </div>
-        </Card>
-        <Card id="share">
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Share & embed</p>
-          <p class="mt-2 text-sm text-slate-300">Use a direct link or embed this report.</p>
-          <div class="mt-4">
-            <ShareActions
-              client:load
-              url={(Astro.site?.origin ?? Astro.url.origin) + `/report/${report.id}`}
-              title={title}
-            />
-          </div>
-        </Card>
-      </div>
-      <div class="space-y-6">
-        <Card>
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Score categories</p>
-              <h2 class="mt-2 text-2xl text-slate-100">Performance breakdown</h2>
-              <p class="mt-1 text-xs text-slate-500">Data source: {report.psi.source}{report.psi.message ? ` — ${report.psi.message}` : ""}</p>
-            </div>
-            <Badge tone={report.psi.cwv.status === "pass" ? "success" : "danger"}>
-              {report.psi.cwv.status === "pass" ? "CWV pass" : "CWV fail"}
-            </Badge>
-          </div>
-          <div class="mt-6 grid gap-4 md:grid-cols-2">
-            {Object.entries(report.psi.lighthouse).map(([key, value]) => (
-              <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">{key}</p>
-                <p class="mt-2 text-2xl text-slate-100">{Math.round(value * 100)}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-        <Card>
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Waterfall summary</p>
-          <h2 class="mt-2 text-2xl text-slate-100">Load timeline (browser)</h2>
-          <p class="mt-2 text-sm text-slate-400">Estimated milestones based on the Lighthouse scan.</p>
-          {timeline ? (
-            <div class="mt-5 space-y-4">
-              <div class="relative h-3 rounded-full bg-white/10">
-                <span
-                  class="absolute left-0 h-3 rounded-full bg-emerald-400/25"
-                  style={`width: ${timelinePct(timeline.fcp)}%`}
-                ></span>
-                <span
-                  class="absolute left-0 h-3 rounded-full bg-sky-400/25"
-                  style={`width: ${timelinePct(timeline.lcp)}%`}
-                ></span>
-                <span
-                  class="absolute -top-2 h-7 w-1 rounded-full bg-amber-300"
-                  style={`left: ${timelinePct(timeline.ttfb)}%`}
-                ></span>
-                <span
-                  class="absolute -top-2 h-7 w-1 rounded-full bg-emerald-300"
-                  style={`left: ${timelinePct(timeline.fcp)}%`}
-                ></span>
-                <span
-                  class="absolute -top-2 h-7 w-1 rounded-full bg-sky-300"
-                  style={`left: ${timelinePct(timeline.lcp)}%`}
-                ></span>
-              </div>
-              <div class="grid gap-3 text-sm text-slate-200 md:grid-cols-2">
-                <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2">
-                  <span class="text-slate-400">TTFB</span>
-                  <span>{formatMs(report.psi.cwv.ttfb_ms)}</span>
-                </div>
-                <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2">
-                  <span class="text-slate-400">FCP</span>
-                  <span>{formatMs(report.psi.cwv.fcp_ms)}</span>
-                </div>
-                <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2">
-                  <span class="text-slate-400">LCP</span>
-                  <span>{formatMs(report.psi.cwv.lcp_ms)}</span>
-                </div>
-                <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2">
-                  <span class="text-slate-400">Total weight</span>
-                  <span>{formatBytes(report.psi.audits.totalByteWeight)}</span>
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </Card>
-        {seoAnalysis ? (
-          <Card class="relative">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">SEO analysis</p>
-                <h2 class="mt-2 text-2xl text-slate-100">Content health</h2>
-                <p class="mt-1 text-xs text-slate-500">
-                  {unlocked ? `Score: ${seoAnalysis.score}/100` : "Unlock to view full SEO score and recommendations."}
-                </p>
-              </div>
-            </div>
-            {unlocked ? (
-              <div class="mt-4 space-y-4">
-                <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
-                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Primary keyword</p>
-                  <p class="mt-2">{seoAnalysis.keywordAnalysis.primaryKeyword ?? "Not provided"}</p>
-                  <p class="mt-1 text-xs text-slate-400">Density: {formatPercent(seoAnalysis.keywordAnalysis.density)}</p>
-                </div>
-                <div class="grid gap-3 text-sm text-slate-200 md:grid-cols-2">
-                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Title</p>
-                    <p class="mt-2">{seoAnalysis.meta.title ?? "Missing"}</p>
-                  </div>
-                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Meta description</p>
-                    <p class="mt-2">{seoAnalysis.meta.description ?? "Missing"}</p>
-                  </div>
-                </div>
-                <div>
-                  <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top recommendations</p>
-                  <ul class="mt-3 space-y-2 text-sm text-slate-200">
-                    {seoAnalysis.recommendations.slice(0, 3).map((rec) => (
-                      <li class={`rounded-xl border border-white/10 px-3 py-2`}>
-                        <p class="text-slate-100">{rec.issue}</p>
-                        <p class="text-xs text-slate-400">{rec.recommendation}</p>
-                      </li>
-                    ))}
-                    {seoAnalysis.recommendations.length === 0 ? (
-                      <li class="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-emerald-100">
-                        No major SEO issues detected.
-                      </li>
-                    ) : null}
-                  </ul>
-                </div>
-              </div>
-            ) : (
-              <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-                Unlock to reveal keyword density, metadata gaps, and ranked SEO fixes.
-              </div>
-            )}
-            {!unlocked ? (
-              <LockedOverlay
-                reportId={report.id}
-                title="SEO details locked"
-                description="Unlock to see full SEO recommendations and keyword insights."
-                footnote={null}
-                csrfToken={csrfToken}
-              />
-            ) : null}
           </Card>
-        ) : null}
-        {imageAudit ? (
-          <Card class="relative">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Image audit</p>
-                <h2 class="mt-2 text-2xl text-slate-100">Image optimization</h2>
-                <p class="mt-1 text-xs text-slate-500">
-                  {unlocked ? `Score: ${imageAudit.score}/100` : "Unlock to view full image optimization analysis."}
-                </p>
-              </div>
+        </div>
+        <div class="mt-6 grid gap-4 lg:grid-cols-3">
+          {topInsights.length > 0 ? (
+            topInsights.map((insight) => (
+              <Card>
+                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">{titleCase(insight.category)}</p>
+                <h3 class="mt-2 text-xl text-slate-100">{insight.title}</h3>
+                <ul class="mt-4 space-y-2 text-sm text-slate-300">
+                  {(unlocked ? insight.howToFix.slice(0, 3) : insight.howToFix.slice(0, 1)).map((step) => (
+                    <li class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">{step}</li>
+                  ))}
+                </ul>
+                <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Verify the win</p>
+                  <p class="mt-2 text-sm text-slate-200">{insight.verification[0] ?? "Re-run the scan and check the affected metric."}</p>
+                </div>
+                {!unlocked ? (
+                  <p class="mt-4 text-xs text-slate-500">Unlock the full report to see the complete checklist and exact priority order.</p>
+                ) : null}
+              </Card>
+            ))
+          ) : (
+            <Card class="lg:col-span-3">
+              <p class="text-sm text-slate-300">No fix recommendations were generated for this scan.</p>
+            </Card>
+          )}
+        </div>
+
+        <div class="mt-6">
+          <Card>
+            <h3 class="text-xl text-slate-100">Detailed fix workflow</h3>
+            <p class="mt-2 text-sm text-slate-400">Use the filterable view when you are ready to assign work or build a sprint.</p>
+            <div class="relative mt-6">
+              {unlocked ? (
+                <ReportFilters client:load insights={report.insights} />
+              ) : (
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                  Unlock to see the full ranked fix list, filters, and dev-ready implementation notes.
+                </div>
+              )}
+              {!unlocked ? (
+                <LockedOverlay reportId={report.id} csrfToken={csrfToken} />
+              ) : null}
             </div>
-            {unlocked ? (
-              <div class="mt-4 space-y-4">
-                <div class="grid gap-3 text-sm text-slate-200 md:grid-cols-3">
-                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Total images</p>
-                    <p class="mt-2">{imageAudit.totalImages}</p>
-                  </div>
-                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Savings</p>
-                    <p class="mt-2">{formatBytes(imageAudit.potentialSavings)}</p>
-                  </div>
-                  <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Missing alt</p>
-                    <p class="mt-2">{imageAudit.issues.missingAlt}</p>
-                  </div>
-                </div>
-                <div>
-                  <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Top recommendations</p>
-                  <ul class="mt-3 space-y-2 text-sm text-slate-200">
-                    {imageAudit.recommendations.slice(0, 3).map((rec) => (
-                      <li class="rounded-xl border border-white/10 px-3 py-2">
-                        <p class="text-slate-100">{rec.issue}</p>
-                        <p class="text-xs text-slate-400">{rec.recommendation}</p>
-                        <p class="mt-1 text-[11px] text-slate-500">{rec.impact}</p>
-                      </li>
-                    ))}
-                    {imageAudit.recommendations.length === 0 ? (
-                      <li class="rounded-xl border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-emerald-100">
-                        Images look optimized.
-                      </li>
-                    ) : null}
-                  </ul>
-                </div>
-              </div>
-            ) : (
-              <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-                Unlock to see image-level savings, missing alt details, and priority fixes.
-              </div>
-            )}
-            {!unlocked ? (
-              <LockedOverlay
-                reportId={report.id}
-                title="Image audit locked"
-                description="Unlock to see full image optimization details."
-                footnote={null}
-                csrfToken={csrfToken}
-              />
-            ) : null}
           </Card>
-        ) : null}
-        <Card>
-          <h2 class="text-2xl text-slate-100">Prioritized fixes</h2>
-          <p class="mt-2 text-sm text-slate-400">Filter by severity or category to focus on quick wins.</p>
-          <div class="relative mt-6">
-            {unlocked ? (
-              <ReportFilters client:load insights={report.insights} />
-            ) : (
-              <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-                Unlock to filter and prioritize the full fix list.
-              </div>
-            )}
-            {!unlocked ? (
-              <LockedOverlay reportId={report.id} csrfToken={csrfToken} />
-            ) : null}
-          </div>
-        </Card>
-        <Card>
-          <h2 class="text-2xl text-slate-100">Fix checklist</h2>
-          <p class="mt-2 text-sm text-slate-400">Grouped by category so you can assign work faster.</p>
-          <div class="relative mt-6">
-            {unlocked ? (
-              <div class="space-y-4">
+        </div>
+
+        {unlocked ? (
+          <div class="mt-6">
+            <Card>
+              <h3 class="text-xl text-slate-100">Category checklist</h3>
+              <p class="mt-2 text-sm text-slate-400">Grouped so you can hand work to the right owner faster.</p>
+              <div class="mt-6 space-y-4">
                 {groupedInsights.length === 0 ? (
-                  <p class="text-sm text-slate-400">No fixes detected yet.</p>
+                  <p class="text-sm text-slate-400">No additional fixes detected yet.</p>
                 ) : (
                   groupedInsights.map(([category, items]) => (
                     <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p class="text-xs uppercase tracking-[0.2em] text-slate-500">{category.replace(/-/g, " ")}</p>
+                      <p class="text-xs uppercase tracking-[0.2em] text-slate-500">{titleCase(category)}</p>
                       <ul class="mt-3 space-y-3 text-sm text-slate-200">
                         {items.map((insight) => (
                           <li class="flex gap-3">
                             <span class="mt-1 h-4 w-4 rounded-md border border-white/10 bg-white/5"></span>
                             <div>
                               <p class="text-slate-100">{insight.title}</p>
-                              <p class="text-xs text-slate-400">
-                                {insight.howToFix[0] ?? "Review audit details"}
-                              </p>
+                              <p class="text-xs text-slate-400">{insight.howToFix[0] ?? "Review the audit details."}</p>
                             </div>
                           </li>
                         ))}
@@ -551,18 +759,175 @@ const stickyPrimaryLabel = unlocked ? "Start monitoring" : "Unlock full report";
                   ))
                 )}
               </div>
-            ) : (
-              <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-                Unlock to see the full dev-ready checklist and category breakdown.
-              </div>
-            )}
-            {!unlocked ? (
-              <LockedOverlay reportId={report.id} csrfToken={csrfToken} />
+            </Card>
+          </div>
+        ) : null}
+      </section>
+
+      {seoAnalysis || imageAudit ? (
+        <section class="mt-10">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Additional analysis</p>
+            <h2 class="mt-2 text-2xl text-slate-100">Supporting audits</h2>
+            <p class="mt-2 text-sm text-slate-400">Extra checks that support the main diagnosis without changing the report hierarchy.</p>
+          </div>
+          <div class="mt-6 grid gap-6 lg:grid-cols-2">
+            {seoAnalysis ? (
+              <Card class="relative">
+                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">SEO analysis</p>
+                <h3 class="mt-2 text-xl text-slate-100">Content health</h3>
+                <p class="mt-2 text-sm text-slate-400">
+                  {unlocked ? `Score: ${seoAnalysis.score}/100` : "Unlock to view full SEO score and recommendations."}
+                </p>
+                {unlocked ? (
+                  <div class="mt-5 space-y-4">
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+                      <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Primary keyword</p>
+                      <p class="mt-2">{seoAnalysis.keywordAnalysis.primaryKeyword ?? "Not provided"}</p>
+                      <p class="mt-1 text-xs text-slate-400">Density: {formatPercent(seoAnalysis.keywordAnalysis.density)}</p>
+                    </div>
+                    <ul class="space-y-2 text-sm text-slate-200">
+                      {seoAnalysis.recommendations.slice(0, 3).map((rec) => (
+                        <li class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                          <p class="text-slate-100">{rec.issue}</p>
+                          <p class="mt-1 text-xs text-slate-400">{rec.recommendation}</p>
+                        </li>
+                      ))}
+                      {seoAnalysis.recommendations.length === 0 ? (
+                        <li class="rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-emerald-100">
+                          No major SEO issues detected.
+                        </li>
+                      ) : null}
+                    </ul>
+                  </div>
+                ) : (
+                  <div class="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                    Unlock to reveal keyword density, metadata gaps, and ranked SEO fixes.
+                  </div>
+                )}
+                {!unlocked ? (
+                  <LockedOverlay
+                    reportId={report.id}
+                    title="SEO details locked"
+                    description="Unlock to see full SEO recommendations and keyword insights."
+                    footnote={null}
+                    csrfToken={csrfToken}
+                  />
+                ) : null}
+              </Card>
+            ) : null}
+
+            {imageAudit ? (
+              <Card class="relative">
+                <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Image audit</p>
+                <h3 class="mt-2 text-xl text-slate-100">Image optimization</h3>
+                <p class="mt-2 text-sm text-slate-400">
+                  {unlocked ? `Score: ${imageAudit.score}/100` : "Unlock to view full image optimization analysis."}
+                </p>
+                {unlocked ? (
+                  <div class="mt-5 space-y-4">
+                    <div class="grid gap-3 sm:grid-cols-3">
+                      <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                        <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Total images</p>
+                        <p class="mt-2 text-slate-100">{imageAudit.totalImages}</p>
+                      </div>
+                      <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                        <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Savings</p>
+                        <p class="mt-2 text-slate-100">{formatBytes(imageAudit.potentialSavings)}</p>
+                      </div>
+                      <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                        <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Missing alt</p>
+                        <p class="mt-2 text-slate-100">{imageAudit.issues.missingAlt}</p>
+                      </div>
+                    </div>
+                    <ul class="space-y-2 text-sm text-slate-200">
+                      {imageAudit.recommendations.slice(0, 3).map((rec) => (
+                        <li class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                          <p class="text-slate-100">{rec.issue}</p>
+                          <p class="mt-1 text-xs text-slate-400">{rec.recommendation}</p>
+                          <p class="mt-1 text-[11px] text-slate-500">{rec.impact}</p>
+                        </li>
+                      ))}
+                      {imageAudit.recommendations.length === 0 ? (
+                        <li class="rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-emerald-100">
+                          Images look optimized.
+                        </li>
+                      ) : null}
+                    </ul>
+                  </div>
+                ) : (
+                  <div class="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                    Unlock to see image-level savings, missing alt details, and priority fixes.
+                  </div>
+                )}
+                {!unlocked ? (
+                  <LockedOverlay
+                    reportId={report.id}
+                    title="Image audit locked"
+                    description="Unlock to see full image optimization details."
+                    footnote={null}
+                    csrfToken={csrfToken}
+                  />
+                ) : null}
+              </Card>
             ) : null}
           </div>
+        </section>
+      ) : null}
+
+      <section class="mt-10">
+        <Card id="share" class={unlocked ? "border-emerald-500/20 bg-emerald-500/5" : "bg-gradient-to-r from-slate-950/70 via-slate-900/70 to-slate-950/70"}>
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Next step</p>
+              <h2 class="mt-2 text-2xl text-slate-100">
+                {unlocked ? "Keep this site healthy after the fixes ship." : "Turn this diagnosis into a full remediation plan."}
+              </h2>
+              <p class="mt-2 text-sm text-slate-300">
+                {unlocked
+                  ? "Move from one-off analysis to monitoring, weekly regressions, and alerts."
+                  : "Unlock the detailed checklist, exact priority order, and implementation guidance when you are ready."}
+              </p>
+            </div>
+            <div class="flex flex-col gap-3 sm:flex-row">
+              {unlocked ? (
+                <Button href="/billing" size="lg" class="rounded-xl bg-emerald-500 text-slate-950 hover:bg-emerald-400 border-none">
+                  Start monitoring
+                </Button>
+              ) : (
+                <>
+                  <form method="post" action="/api/billing/report-checkout">
+                    <input type="hidden" name="reportId" value={report.id} />
+                    <input type="hidden" name="_csrf" value={csrfToken} />
+                    <input type="hidden" name="offerContext" value="report-final-cta" />
+                    <input type="hidden" name="ctaVariant" value="primary" />
+                    <Button type="submit" size="lg" class="w-full rounded-xl">
+                      Unlock Full Report — $19
+                    </Button>
+                  </form>
+                  <Button href="/billing" variant="ghost" size="lg" class="rounded-xl border-white/10">
+                    Monitor weekly — $12/month
+                  </Button>
+                </>
+              )}
+              <Button href={secondaryCtaHref} variant="ghost" size="lg" class="rounded-xl border-white/10" data-track-event="service_cta_clicked" data-track-source="report-next-step" data-track-offer-context="report-next-step" data-track-cta-variant="secondary" data-track-report-id={report.id}>
+                {secondaryCtaLabel}
+              </Button>
+            </div>
+          </div>
+          <div class="mt-6">
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Share</p>
+            <div class="mt-3">
+              <ShareActions
+                client:load
+                url={(Astro.site?.origin ?? Astro.url.origin) + `/report/${report.id}`}
+                title={title}
+              />
+            </div>
+          </div>
         </Card>
-      </div>
-    </section>
+      </section>
+    </>
   ) : report ? (
     <section class="mt-10">
       <Card>
@@ -574,6 +939,8 @@ const stickyPrimaryLabel = unlocked ? "Start monitoring" : "Unlock full report";
           <input type="hidden" name="reportId" value={report.id} />
           <input type="hidden" name="source" value="report-preview-gate" />
           <input type="hidden" name="next" value={`/report/${report.id}`} />
+          <input type="hidden" name="offerContext" value="report-preview-gate" />
+          <input type="hidden" name="ctaVariant" value="primary" />
           <input type="text" name="company" class="hidden" tabindex="-1" autocomplete="off" />
           <input
             type="email"
@@ -595,6 +962,8 @@ const stickyPrimaryLabel = unlocked ? "Start monitoring" : "Unlock full report";
         <form method="post" action="/api/billing/report-checkout" class="mt-4">
           <input type="hidden" name="reportId" value={report.id} />
           <input type="hidden" name="_csrf" value={csrfToken} />
+          <input type="hidden" name="offerContext" value="report-preview-gate" />
+          <input type="hidden" name="ctaVariant" value="secondary" />
           <button
             type="submit"
             class="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400"
@@ -615,6 +984,7 @@ const stickyPrimaryLabel = unlocked ? "Start monitoring" : "Unlock full report";
       </Card>
     </section>
   )}
+
   {report ? <div class="h-28" aria-hidden="true"></div> : null}
 
   {report ? (
@@ -625,14 +995,14 @@ const stickyPrimaryLabel = unlocked ? "Start monitoring" : "Unlock full report";
             {unlocked
               ? "Keep this report healthy with automated monitoring."
               : previewUnlocked
-                ? "Primary CTA: unlock the full report now."
-                : "Unlock this preview by email, then upgrade when ready."}
+                ? "Next step: unlock the detailed remediation plan."
+                : "Next step: unlock the preview, then decide if you want the full checklist."}
           </p>
           <p class="text-xs text-slate-400">
             {unlocked
               ? "Weekly regressions, alerts, and trend tracking."
               : previewUnlocked
-                ? "Not ready to buy yet? Get a follow-up by email."
+                ? "You already have the diagnosis. The paid unlock is for full prioritization and implementation detail."
                 : "Email gate enabled for this locked report preview."}
           </p>
         </div>
@@ -648,6 +1018,8 @@ const stickyPrimaryLabel = unlocked ? "Start monitoring" : "Unlock full report";
             <form method="post" action="/api/billing/report-checkout">
               <input type="hidden" name="reportId" value={report.id} />
               <input type="hidden" name="_csrf" value={csrfToken} />
+              <input type="hidden" name="offerContext" value="report-sticky-cta" />
+              <input type="hidden" name="ctaVariant" value="primary" />
               <button
                 type="submit"
                 class="rounded-xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400"
@@ -656,32 +1028,25 @@ const stickyPrimaryLabel = unlocked ? "Start monitoring" : "Unlock full report";
               </button>
             </form>
           )}
+          {!stickyPrimaryHref ? (
+            <a
+              href="/billing"
+              class="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-center text-sm font-semibold text-slate-100 hover:bg-white/10"
+            >
+              Monitor weekly - $12/month
+            </a>
+          ) : null}
           <a
-            href="/scan"
+            href={secondaryCtaHref}
+            data-track-event="service_cta_clicked"
+            data-track-source="report-sticky"
+            data-track-offer-context="report-sticky"
+            data-track-cta-variant="secondary"
+            data-track-report-id={report.id}
             class="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-center text-sm font-semibold text-slate-100 hover:bg-white/10"
           >
-            Run another scan
+            {secondaryCtaLabel}
           </a>
-          {!unlocked ? (
-            <form method="post" action="/api/leads/preview" class="flex gap-2">
-              <input type="hidden" name="reportId" value={report.id} />
-              <input type="hidden" name="source" value="report-sticky-cta" />
-              <input type="hidden" name="next" value={`/report/${report.id}`} />
-              <input
-                type="email"
-                name="email"
-                required
-                placeholder="Email follow-up"
-                class="rounded-xl border border-white/15 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-400"
-              />
-              <button
-                type="submit"
-                class="rounded-xl border border-emerald-300/40 bg-emerald-500/20 px-3 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/30"
-              >
-                Send
-              </button>
-            </form>
-          ) : null}
         </div>
       </div>
     </aside>
