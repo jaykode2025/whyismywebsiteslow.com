@@ -13,6 +13,10 @@
     @apply antialiased;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     background-color: var(--color-ink);
     color: var(--color-slate-100);
@@ -79,8 +83,8 @@
   }
 
   .glass {
-    @apply border border-white/10 bg-white/5 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.9)];
-    backdrop-filter: blur(20px);
+    @apply border border-white/10 bg-white/10 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.9),inset_0_1px_0_0_rgba(255,255,255,0.05)];
+    backdrop-filter: blur(24px);
   }
 
   .glow {

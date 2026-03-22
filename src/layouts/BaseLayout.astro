@@ -4,6 +4,7 @@ import SiteHeader from "../components/SiteHeader.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import FunnelTracking from "../components/FunnelTracking.astro";
 import ExitIntent from "../components/ExitIntent.svelte";
+import BackToTop from "../components/ui/BackToTop.svelte";
 
 const {
   title = "Why Is My Website Slow?",
@@ -59,5 +60,6 @@ const ogImageUrl = ogImage ?? `${siteOrigin}/og-default.svg`;
       </div>
     </div>
     <ExitIntent client:only="svelte" />
+    <BackToTop client:idle />
   </body>
 </html>

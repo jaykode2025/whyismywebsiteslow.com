@@ -1,6 +1,7 @@
 import type { EnhancedReport, ScanRequest } from "./types";
 import { crawlSite } from "./crawl";
 import { fetchPsi } from "./psi";
+import { runEnhancedScanner } from "./scanner/enhanced";
 import { runChecks } from "./checks";
 import { computeScore } from "./scoring";
 import { generateInsights } from "./insights";
@@ -99,8 +100,19 @@ export async function runEnhancedScan(
     response = null;
   }
 
-  // PSI is our source of truth for performance metrics
-  const psi = await fetchPsi(primaryUrl, input.device);
+  // Use enhanced scanner (CrUX + PSI + network) for better accuracy
+  // Falls back to PSI-only if CrUX data unavailable
+  const enhancedScan = await runEnhancedScanner(primaryUrl, input.device);
+  const psi = enhancedScan.lab;
+  
+  // Store enhanced data in psi for backward compatibility
+  // Add real-user metrics and overall score to psi object
+  psi.rum = enhancedScan.rum;
+  psi.network = enhancedScan.network;
+  psi.overallScore = enhancedScan.overallScore;
+  psi.grade = enhancedScan.grade;
+  psi.sources = enhancedScan.sources;
+  
   const checks = await runChecks(primaryUrl, html !== null && response ? { html, response } : undefined);
   const insights = generateInsights(psi, checks);
   const { score, grade } = computeScore(psi);

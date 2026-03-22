@@ -106,6 +106,33 @@ export type Report = {
       imageOptimization?: boolean;
       cachePolicy?: boolean;
     };
+    // Enhanced scanner fields (optional, for backward compatibility)
+    rum?: {
+      lcp_ms: number;
+      inp_ms: number;
+      cls: number;
+      fcp_ms: number;
+      ttfb_ms: number;
+      status: "pass" | "fail" | "warning";
+      sampleSize: number;
+      confidence: "high" | "medium" | "low";
+    };
+    network?: {
+      ttfb_ms?: number;
+      dns_ms?: number;
+      tls_ms?: number;
+      redirect_count?: number;
+      redirect_time_ms?: number;
+      total_requests?: number;
+      total_size_bytes?: number;
+    };
+    overallScore?: number;
+    grade?: "A" | "B" | "C" | "D" | "F";
+    sources?: {
+      rumAvailable: boolean;
+      labAvailable: boolean;
+      networkAvailable: boolean;
+    };
   };
   checks: {
     headers: {
