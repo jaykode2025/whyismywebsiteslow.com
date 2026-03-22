@@ -15,6 +15,7 @@ import {
   titleCase,
 } from "../../lib/seo";
 import ProofBlock from "../../components/seo/ProofBlock.astro";
+import ProofBlockEnhanced from "../../components/seo/ProofBlock.enhanced.astro";
 import { buildProblemProofDataset } from "../../lib/proof";
 import { deriveVariationTokens, sectionOrderMap, shouldRenderOptionalSection } from "../../lib/variation";
 import RecentScans from "../../components/RecentScans.svelte";
@@ -225,13 +226,14 @@ const impactStat = entry?.statistics[0] ?? { value: "—", label: "impact" };
       </section>
 
       {proofDataset ? (
-        <ProofBlock
+        <ProofBlockEnhanced
           title={`Performance Proof for ${entry.platform}`}
           subtitle="Data-backed snapshot generated from this issue profile."
           proofType={variationTokens.proofType}
           visualMode={variationTokens.visualMode}
           dataset={proofDataset}
           slug={entry.slug}
+          pageType="problem"
         />
       ) : null}
 

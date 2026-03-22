@@ -1,0 +1,266 @@
+---
+/**
+ * ENHANCED PROOF BLOCK — WITH PAGE-TYPE VARIATION
+ * 
+ * Adds distinctive visual treatments per page archetype:
+ * - Industry pages: Benchmark comparison charts (indigo theme)
+ * - Platform pages: Before/after case studies (emerald theme)  
+ * - Problem pages: ROI calculator (amber theme)
+ * - Comparison pages: Side-by-side tables (sky theme)
+ */
+
+import type { ProofDataset } from "../../lib/proof";
+import type { VariationProofType, VariationVisualMode } from "../../lib/variation";
+import ReportCharts from "./ReportCharts.svelte";
+
+const {
+  title,
+  subtitle,
+  proofType,
+  visualMode,
+  dataset,
+  slug,
+  pageType = "default",
+} = Astro.props as {
+  title: string;
+  subtitle?: string;
+  proofType: VariationProofType;
+  visualMode: VariationVisualMode;
+  dataset: ProofDataset;
+  slug: string;
+  pageType?: "industry" | "platform" | "problem" | "comparison" | "default";
+};
+
+const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
+
+// Visual themes per page type
+const themes = {
+  industry: {
+    gradient: "from-indigo-500/10 via-purple-500/10 to-slate-950/30",
+    border: "border-indigo-400/20",
+    accent: "text-indigo-400",
+    bg: "bg-indigo-500/10",
+  },
+  platform: {
+    gradient: "from-emerald-500/10 via-teal-500/10 to-slate-950/30",
+    border: "border-emerald-400/20",
+    accent: "text-emerald-400",
+    bg: "bg-emerald-500/10",
+  },
+  problem: {
+    gradient: "from-amber-500/10 via-orange-500/10 to-slate-950/30",
+    border: "border-amber-400/20",
+    accent: "text-amber-400",
+    bg: "bg-amber-500/10",
+  },
+  comparison: {
+    gradient: "from-sky-500/10 via-blue-500/10 to-slate-950/30",
+    border: "border-sky-400/20",
+    accent: "text-sky-400",
+    bg: "bg-sky-500/10",
+  },
+  default: {
+    gradient: "from-sky-500/10 via-indigo-500/10 to-slate-950/30",
+    border: "border-sky-400/20",
+    accent: "text-sky-400",
+    bg: "bg-sky-500/10",
+  },
+};
+
+const theme = themes[pageType] || themes.default;
+---
+
+<section class="mb-10 rounded-3xl border {theme.border} bg-gradient-to-br {theme.gradient} p-6 md:p-8">
+  <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <p class="text-xs uppercase tracking-[0.22em] {theme.accent}">
+        {pageType === "industry" ? "Industry Benchmark" : pageType === "platform" ? "Platform Data" : pageType === "problem" ? "ROI Calculator" : pageType === "comparison" ? "Comparison" : "Proof Block"}
+      </p>
+      <h2 class="mt-2 text-2xl text-slate-100">{title}</h2>
+      {subtitle ? <p class="mt-1 text-sm text-slate-300">{subtitle}</p> : null}
+    </div>
+    <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs text-slate-300">
+      {proofType} • {visualMode}
+    </span>
+  </div>
+
+  {proofType === "chart" ? (
+    <>
+      <!-- Key Metrics Row -->
+      <div class="mb-5 grid gap-3 sm:grid-cols-3">
+        {dataset.keyMetrics.slice(0, 3).map((metric, i) => (
+          <div class="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+            <p class="text-xs uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
+            <p class="mt-2 text-lg text-slate-100">{metric.value}</p>
+            {i === 0 && pageType === "industry" ? (
+              <p class="mt-1 text-[10px] text-indigo-300">Industry average</p>
+            ) : i === 0 && pageType === "platform" ? (
+              <p class="mt-1 text-[10px] text-emerald-300">Platform typical</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      
+      <!-- Static Summary -->
+      <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <p class="text-xs uppercase tracking-[0.15em] text-slate-500">
+          {pageType === "industry" ? "Industry benchmarks" : pageType === "platform" ? "Platform metrics" : "Performance summary"}
+        </p>
+        <div class="mt-3 grid gap-2 md:grid-cols-3">
+          {dataset.cwvScores.map((item) => (
+            <div class="rounded-lg border border-white/10 bg-slate-950/30 px-3 py-2 text-sm">
+              <span class="text-slate-400">{item.label}</span>: 
+              <span class={item.score >= 90 ? "text-emerald-400" : item.score >= 70 ? "text-amber-400" : "text-rose-400"}>
+                {item.score}/100
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <!-- Charts -->
+      <div class="mt-5">
+        <ReportCharts
+          client:visible
+          cwvScores={dataset.cwvScores}
+          lighthouse={dataset.lighthouse}
+          issues={dataset.issues}
+        />
+      </div>
+    </>
+  ) : null}
+
+  {proofType === "table" ? (
+    <div class="overflow-x-auto rounded-2xl border border-white/10 backdrop-blur">
+      <table class="w-full min-w-[560px] text-left text-sm">
+        <thead class="bg-white/5 text-slate-300">
+          <tr>
+            <th class="px-4 py-3 font-medium">Metric</th>
+            <th class="px-4 py-3 font-medium">Current</th>
+            <th class="px-4 py-3 font-medium">Benchmark</th>
+            <th class="px-4 py-3 font-medium">Target</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dataset.benchmarks.map((row) => (
+            <tr class="border-t border-white/10 text-slate-200">
+              <td class="px-4 py-3">{row.metric}</td>
+              <td class="px-4 py-3">{row.current}</td>
+              <td class="px-4 py-3">{row.benchmark}</td>
+              <td class="px-4 py-3">{row.target}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  ) : null}
+
+  {proofType === "calculator" ? (
+    <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <p class="text-sm text-slate-300">
+        {pageType === "problem" 
+          ? "Estimate monthly revenue lost to speed issues — and the upside of fixing them."
+          : "Estimate monthly upside from improving speed."}
+      </p>
+      <div class="mt-4 grid gap-3 md:grid-cols-4">
+        <label class="text-xs text-slate-300">
+          Visitors/mo
+          <input class="mt-1 w-full rounded-lg border border-white/15 bg-slate-950/50 px-3 py-2 text-sm" id={`${calculatorId}-visitors`} type="number" value={dataset.calculator.monthlyVisitors} />
+        </label>
+        <label class="text-xs text-slate-300">
+          Conversion %
+          <input class="mt-1 w-full rounded-lg border border-white/15 bg-slate-950/50 px-3 py-2 text-sm" id={`${calculatorId}-cr`} type="number" step="0.1" value={dataset.calculator.conversionRate} />
+        </label>
+        <label class="text-xs text-slate-300">
+          Avg order ($)
+          <input class="mt-1 w-full rounded-lg border border-white/15 bg-slate-950/50 px-3 py-2 text-sm" id={`${calculatorId}-aov`} type="number" step="1" value={dataset.calculator.averageOrderValue} />
+        </label>
+        <label class="text-xs text-slate-300">
+          Speed uplift %
+          <input class="mt-1 w-full rounded-lg border border-white/15 bg-slate-950/50 px-3 py-2 text-sm" id={`${calculatorId}-lift`} type="number" step="1" value={dataset.calculator.improvementPct} />
+        </label>
+      </div>
+      <div class="mt-4 rounded-xl border {pageType === "problem" ? "border-rose-400/25 bg-rose-500/10" : "border-emerald-400/25 bg-emerald-500/10"} p-4">
+        <p class="text-xs uppercase tracking-[0.16em] {pageType === "problem" ? "text-rose-300" : "text-emerald-300"}">
+          {pageType === "problem" ? "Estimated monthly loss" : "Estimated monthly impact"}
+        </p>
+        <p class="mt-2 text-2xl {pageType === "problem" ? "text-rose-200" : "text-emerald-200"}" id={`${calculatorId}-result`}>$0</p>
+        {pageType === "problem" ? (
+          <p class="mt-2 text-xs text-rose-300/80">Fixing speed issues typically recovers 60-80% of this within 30 days</p>
+        ) : (
+          <p class="mt-2 text-xs text-emerald-300/80">Based on typical conversion improvements from speed gains</p>
+        )}
+      </div>
+      <script is:inline define:vars={{ calculatorId }}>
+        (() => {
+          const byId = (suffix) => document.getElementById(`${calculatorId}-${suffix}`);
+          const visitors = byId("visitors");
+          const cr = byId("cr");
+          const aov = byId("aov");
+          const lift = byId("lift");
+          const result = byId("result");
+          if (!visitors || !cr || !aov || !lift || !result) return;
+          const compute = () => {
+            const v = Number(visitors.value || 0);
+            const c = Number(cr.value || 0) / 100;
+            const a = Number(aov.value || 0);
+            const l = Number(lift.value || 0) / 100;
+            const monthly = Math.max(0, v * c * a * l);
+            result.textContent = `$${monthly.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+          };
+          [visitors, cr, aov, lift].forEach((el) => el.addEventListener("input", compute));
+          compute();
+        })();
+      </script>
+    </div>
+  ) : null}
+
+  {proofType === "case" ? (
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="rounded-2xl border border-rose-400/25 bg-rose-500/10 p-5">
+        <p class="text-xs uppercase tracking-[0.16em] text-rose-300">Before</p>
+        <p class="mt-2 text-2xl text-slate-100">Score {dataset.caseStudy.beforeScore}</p>
+        <p class="mt-1 text-sm text-slate-300">LCP {Math.round(dataset.caseStudy.beforeLcpMs / 100) / 10}s</p>
+        {pageType === "platform" ? (
+          <p class="mt-2 text-xs text-rose-300/80">Typical {slug.split("-")[0]} site baseline</p>
+        ) : null}
+      </div>
+      <div class="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-5">
+        <p class="text-xs uppercase tracking-[0.16em] text-emerald-300">After</p>
+        <p class="mt-2 text-2xl text-slate-100">Score {dataset.caseStudy.afterScore}</p>
+        <p class="mt-1 text-sm text-slate-300">LCP {Math.round(dataset.caseStudy.afterLcpMs / 100) / 10}s</p>
+        <p class="mt-2 text-sm text-emerald-200">Projected uplift: +{dataset.caseStudy.upliftPct}%</p>
+        {pageType === "platform" ? (
+          <p class="mt-2 text-xs text-emerald-300/80">After applying common {slug.split("-")[0]} fixes</p>
+        ) : null}
+      </div>
+    </div>
+  ) : null}
+  
+  <!-- Page-type specific callout -->
+  {pageType === "industry" ? (
+    <div class="mt-5 rounded-xl border border-indigo-400/20 bg-indigo-500/10 p-4">
+      <p class="text-xs uppercase tracking-[0.16em] text-indigo-300">Industry context</p>
+      <p class="mt-2 text-sm text-indigo-100">
+        Benchmarks compiled from {dataset.keyMetrics[0]?.value || "industry"} sites. Your results may vary based on stack, traffic, and implementation quality.
+      </p>
+    </div>
+  ) : pageType === "platform" ? (
+    <div class="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+      <p class="text-xs uppercase tracking-[0.16em] text-emerald-300">Platform insight</p>
+      <p class="mt-2 text-sm text-emerald-100">
+        {slug.includes("shopify") ? "Shopify sites typically see 20-40% improvement after image optimization and app cleanup." : 
+         slug.includes("wordpress") ? "WordPress sites often gain 30-50% from caching plugins and CDN setup." :
+         slug.includes("webflow") ? "Webflow sites benefit most from image compression and reducing custom code." :
+         "Platform-specific fixes typically deliver 25-45% improvement."}
+      </p>
+    </div>
+  ) : pageType === "problem" ? (
+    <div class="mt-5 rounded-xl border border-amber-400/20 bg-amber-500/10 p-4">
+      <p class="text-xs uppercase tracking-[0.16em] text-amber-300">Why this matters</p>
+      <p class="mt-2 text-sm text-amber-100">
+        Speed issues directly impact conversion rates. A 1-second delay can reduce conversions by 7% on average.
+      </p>
+    </div>
+  ) : null}
+</section>

@@ -13,6 +13,7 @@ import {
 import { relatedForPlatform } from "../../../lib/related";
 import RelatedLinks from "../../../components/seo/RelatedLinks.astro";
 import ProofBlock from "../../../components/seo/ProofBlock.astro";
+import ProofBlockEnhanced from "../../../components/seo/ProofBlock.enhanced.astro";
 import { buildPlatformProofDataset } from "../../../lib/proof";
 import { deriveVariationTokens, sectionOrderMap, shouldRenderOptionalSection } from "../../../lib/variation";
 import RecentScans from "../../../components/RecentScans.svelte";
@@ -132,13 +133,14 @@ const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Start Monito
     </p>
   </section>
 
-  <ProofBlock
+  <ProofBlockEnhanced
     title={`${platformName} performance proof`}
     subtitle="This section gives the page real substance even before your own benchmark dataset is large."
     proofType={variationTokens.proofType}
     visualMode={variationTokens.visualMode}
     dataset={proofDataset}
     slug={`platform-${platform.platform}`}
+    pageType="platform"
   />
 
   <div class="mb-8 flex flex-col">

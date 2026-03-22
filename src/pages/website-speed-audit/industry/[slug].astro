@@ -13,6 +13,7 @@ import {
 import { relatedForIndustry } from "../../../lib/related";
 import RelatedLinks from "../../../components/seo/RelatedLinks.astro";
 import ProofBlock from "../../../components/seo/ProofBlock.astro";
+import ProofBlockEnhanced from "../../../components/seo/ProofBlock.enhanced.astro";
 import { buildIndustryProofDataset } from "../../../lib/proof";
 import { deriveVariationTokens, sectionOrderMap, shouldRenderOptionalSection } from "../../../lib/variation";
 import RecentScans from "../../../components/RecentScans.svelte";
@@ -127,13 +128,14 @@ const ctaPrimaryLabel = variationTokens.ctaVariant === "pricing" ? "Start Monito
     </p>
   </section>
 
-  <ProofBlock
+  <ProofBlockEnhanced
     title={`${industryName} performance proof`}
     subtitle="This gives the page measurable proof while your proprietary dataset is still growing."
     proofType={variationTokens.proofType}
     visualMode={variationTokens.visualMode}
     dataset={proofDataset}
     slug={`industry-${industry.industry}`}
+    pageType="industry"
   />
 
   <div class="mb-8 flex flex-col">
