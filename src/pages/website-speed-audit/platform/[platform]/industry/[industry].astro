@@ -21,15 +21,69 @@ import ScanBox from "../../../../../components/ScanBox.astro";
 export const prerender = true;
 
 export async function getStaticPaths() {
-  const paths = [];
-  for (const p of PLATFORMS) {
-    for (const i of INDUSTRIES) {
-      paths.push({
-        params: { platform: p.platform, industry: i.industry },
-      });
-    }
-  }
-  return paths;
+  // Target long-tail keywords with REAL search intent
+  // Only generate combos where BOTH platform and industry exist in data
+  // Start with ~35 high-value pages (not 38k spam)
+  const combos = [
+    // WordPress (most popular) + major industries
+    { platform: "wordpress", industry: "small businesses" },
+    { platform: "wordpress", industry: "ecommerce" },
+    { platform: "wordpress", industry: "healthcare" },
+    { platform: "wordpress", industry: "real-estate" },
+    { platform: "wordpress", industry: "restaurant" },
+    { platform: "wordpress", industry: "saas" },
+    { platform: "wordpress", industry: "finance" },
+    { platform: "wordpress", industry: "education" },
+    { platform: "wordpress", industry: "news" },
+    { platform: "wordpress", industry: "travel" },
+    { platform: "wordpress", industry: "spas" },
+    
+    // Shopify + ecommerce
+    { platform: "shopify", industry: "ecommerce" },
+    { platform: "shopify", industry: "ecommerce brands" },
+    { platform: "shopify", industry: "small businesses" },
+    
+    // Wix + local business
+    { platform: "wix", industry: "small businesses" },
+    { platform: "wix", industry: "restaurant" },
+    { platform: "wix", industry: "real-estate" },
+    { platform: "wix", industry: "spas" },
+    
+    // React/Next.js + tech
+    { platform: "react", industry: "saas" },
+    { platform: "react", industry: "modern web apps" },
+    { platform: "react", industry: "ecommerce" },
+    { platform: "nextjs", industry: "saas" },
+    { platform: "nextjs", industry: "modern web apps" },
+    { platform: "nextjs", industry: "ecommerce" },
+    
+    // Vue + apps
+    { platform: "vue", industry: "modern web apps" },
+    { platform: "vue", industry: "saas" },
+    
+    // Magento + enterprise
+    { platform: "magento", industry: "ecommerce" },
+    { platform: "magento", industry: "enterprise" },
+    { platform: "magento", industry: "enterprise websites" },
+    
+    // Drupal + enterprise
+    { platform: "drupal", industry: "enterprise" },
+    { platform: "drupal", industry: "enterprise websites" },
+    { platform: "drupal", industry: "education" },
+    
+    // Gatsby + marketing
+    { platform: "gatsby", industry: "marketing sites" },
+    { platform: "gatsby", industry: "saas" },
+    
+    // Angular + enterprise
+    { platform: "angular", industry: "enterprise" },
+    { platform: "angular", industry: "enterprise websites" },
+    { platform: "angular", industry: "finance" },
+  ];
+  
+  return combos.map((combo) => ({
+    params: { platform: combo.platform, industry: combo.industry },
+  }));
 }
 
 const { platform: platformSlug, industry: industrySlug } = Astro.params;
@@ -37,7 +91,8 @@ const platform = PLATFORMS.find((p) => p.platform === platformSlug);
 const industry = INDUSTRIES.find((i) => i.industry === industrySlug);
 
 if (!platform || !industry) {
-  throw new Error(`Platform or Industry not found for: ${platformSlug}/${industrySlug}`);
+  // This combo doesn't exist - redirect to main audit page
+  return Astro.redirect('/website-speed-audit/');
 }
 
 const platformName = titleCase(humanizeSlug(platform.platform));
