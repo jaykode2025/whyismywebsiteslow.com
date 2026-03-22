@@ -12,6 +12,7 @@ import {
 } from "../../../../../lib/seo";
 import RelatedLinks from "../../../../../components/seo/RelatedLinks.astro";
 import ProofBlock from "../../../../../components/seo/ProofBlock.astro";
+import ProofBlockEnhanced from "../../../../../components/seo/ProofBlock.enhanced.astro";
 import { buildIndustryProofDataset } from "../../../../../lib/proof";
 import { deriveVariationTokens, sectionOrderMap } from "../../../../../lib/variation";
 import RecentScans from "../../../../../components/RecentScans.svelte";
@@ -51,6 +52,8 @@ const description = buildSeoDescription(
   [`Identify ${platformName}-specific bottlenecks affecting ${industryName} conversions.`]
 );
 
+const ogImage = siteUrl(`/og/platform/${platform.platform}/industry/${industry.industry}.svg`);
+
 const variationTokens = deriveVariationTokens({
   slug: `combo:${platform.platform}:${industry.industry}`,
   availableSections: ["impact", "issues", "solutions", "benchmarks"],
@@ -79,6 +82,7 @@ const organizationJsonLd = JSON.stringify(organizationSchema());
   title={pageTitle}
   description={description}
   canonical={siteUrl(`/website-speed-audit/platform/${platform.platform}/industry/${industry.industry}/`)}
+  ogImage={ogImage}
 >
   <script slot="head" type="application/ld+json" is:inline>{breadcrumbJsonLd}</script>
   <script slot="head" type="application/ld+json" is:inline>{organizationJsonLd}</script>
@@ -124,13 +128,14 @@ const organizationJsonLd = JSON.stringify(organizationSchema());
       </div>
     </section>
 
-    <ProofBlock
+    <ProofBlockEnhanced
       title={`${platformName} + ${industryName} Data Proof`}
       subtitle="Combined performance dataset for this specific stack and sector."
       proofType="chart"
       visualMode="mixed"
       dataset={proofDataset}
       slug={`combo-${platform.platform}-${industry.industry}`}
+      pageType="platform"
     />
 
     <section class="mb-12" style={`order:${sectionOrder["issues"] ?? 2}`}>
