@@ -44,6 +44,9 @@ const description = report
   : "We are generating your performance report.";
 
 const noindex = !report || report.visibility !== "public";
+const ogImage = report
+  ? `${Astro.site?.origin ?? Astro.url.origin}/og/report/${report.id}.svg`
+  : `${Astro.site?.origin ?? Astro.url.origin}/og-default.svg`;
 const jsonLd = report
   ? {
       "@context": "https://schema.org",
@@ -130,7 +133,7 @@ if (report) {
 }
 ---
 
-<BaseLayout title={title} description={description} noindex={noindex}>
+<BaseLayout title={title} description={description} noindex={noindex} ogImage={ogImage}>
   {jsonLd ? (
     <script slot="head" type="application/ld+json" is:inline>{JSON.stringify(jsonLd)}</script>
   ) : null}

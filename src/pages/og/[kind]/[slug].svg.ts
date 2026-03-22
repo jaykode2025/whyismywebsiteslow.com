@@ -1,3 +1,15 @@
+/**
+ * ENHANCED OG IMAGE GENERATOR
+ *
+ * Generates dynamic social preview images for:
+ * - Industry pages (indigo theme)
+ * - Platform pages (emerald theme)
+ * - Problem pages (amber theme)
+ * - Report pages (score-based color)
+ *
+ * Each type has distinctive colors matching the proof block themes.
+ */
+
 import type { APIRoute } from "astro";
 import { INDUSTRIES, PLATFORMS, PROBLEMS } from "../../../data/pseo";
 import {
@@ -5,6 +17,7 @@ import {
   buildPlatformProofDataset,
   buildProblemProofDataset,
 } from "../../../lib/proof";
+import { loadStoredReport } from "../../../lib/reports";
 
 const escapeXml = (value: string) =>
   value
@@ -14,95 +27,222 @@ const escapeXml = (value: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 
-const renderSvg = (title: string, score: number, metrics: Array<{ label: string; value: string }>) => {
-  const safeTitle = escapeXml(title);
+// Theme colors per page type
+const themes = {
+  industry: {
+    primary: "#818cf8",    // indigo-400
+    secondary: "#c084fc",  // purple-400
+    bgStart: "#312e81",    // indigo-950
+    bgEnd: "#0f172a",      // slate-950
+    accent: "#e0e7ff",     // indigo-100
+  },
+  platform: {
+    primary: "#34d399",    // emerald-400
+    secondary: "#2dd4bf",  // teal-400
+    bgStart: "#022c22",    // emerald-950
+    bgEnd: "#0f172a",      // slate-950
+    accent: "#d1fae5",     // emerald-100
+  },
+  problem: {
+    primary: "#fbbf24",    // amber-400
+    secondary: "#fb923c",  // orange-400
+    bgStart: "#451a03",    // amber-950
+    bgEnd: "#0f172a",      // slate-950
+    accent: "#fef3c7",     // amber-100
+  },
+  report: {
+    // Dynamic based on score
+    good: { primary: "#34d399", secondary: "#2dd4bf", bgStart: "#022c22" },
+    medium: { primary: "#fbbf24", secondary: "#fb923c", bgStart: "#451a03" },
+    bad: { primary: "#fb7185", secondary: "#f43f5e", bgStart: "#4c0519" },
+  },
+};
+
+const getScoreColor = (score: number) => {
+  if (score >= 90) return themes.report.good;
+  if (score >= 70) return themes.report.medium;
+  return themes.report.bad;
+};
+
+const renderSvg = ({
+  title,
+  subtitle,
+  score,
+  metrics,
+  theme,
+}: {
+  title: string;
+  subtitle?: string;
+  score: number;
+  metrics: Array<{ label: string; value: string }>;
+  theme: typeof themes.industry;
+}) => {
+  const safeTitle = escapeXml(title.length > 45 ? title.slice(0, 42) + "..." : title);
+  const safeSubtitle = subtitle ? escapeXml(subtitle) : "Performance proof snapshot";
+  
   const safeMetrics = metrics
     .slice(0, 3)
     .map(
       (metric, index) => `
-      <g transform="translate(0, ${index * 52})">
-        <text x="64" y="0" fill="#94a3b8" font-size="18" font-family="ui-sans-serif, system-ui">${escapeXml(metric.label)}</text>
-        <text x="64" y="26" fill="#e2e8f0" font-size="28" font-family="ui-sans-serif, system-ui" font-weight="700">${escapeXml(metric.value)}</text>
+      <g transform="translate(64, ${340 + index * 70})">
+        <text x="0" y="0" fill="#94a3b8" font-size="18" font-family="ui-sans-serif, system-ui, -apple-system">${escapeXml(metric.label)}</text>
+        <text x="0" y="32" fill="#e2e8f0" font-size="34" font-family="ui-sans-serif, system-ui, -apple-system" font-weight="700">${escapeXml(metric.value)}</text>
       </g>
     `
     )
     .join("");
 
+  const scoreColor = score >= 90 ? "#34d399" : score >= 70 ? "#fbbf24" : "#fb7185";
+  const scoreGlow = score >= 90 ? "rgba(52,211,153,0.3)" : score >= 70 ? "rgba(251,191,36,0.3)" : "rgba(251,113,133,0.3)";
+
   return `
   <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
     <defs>
       <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#0b1120" />
-        <stop offset="50%" stop-color="#172554" />
-        <stop offset="100%" stop-color="#1e293b" />
+        <stop offset="0%" stop-color="${theme.bgStart}" />
+        <stop offset="60%" stop-color="#1e293b" />
+        <stop offset="100%" stop-color="${theme.bgEnd}" />
+      </linearGradient>
+      <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${theme.primary}" />
+        <stop offset="100%" stop-color="${theme.secondary}" />
       </linearGradient>
       <radialGradient id="glow" cx="20%" cy="10%" r="80%">
-        <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.4" />
-        <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
+        <stop offset="0%" stop-color="${theme.primary}" stop-opacity="0.3" />
+        <stop offset="100%" stop-color="${theme.primary}" stop-opacity="0" />
       </radialGradient>
     </defs>
+    
+    <!-- Background -->
     <rect width="1200" height="630" fill="url(#bg)" />
     <rect width="1200" height="630" fill="url(#glow)" />
-    <rect x="48" y="48" width="1104" height="534" rx="30" fill="rgba(15,23,42,0.55)" stroke="rgba(148,163,184,0.25)" />
-    <text x="64" y="120" fill="#93c5fd" font-size="20" font-family="ui-sans-serif, system-ui" letter-spacing="4">WHY IS MY WEBSITE SLOW</text>
-    <text x="64" y="190" fill="#f8fafc" font-size="54" font-family="ui-sans-serif, system-ui" font-weight="700">${safeTitle}</text>
-    <text x="64" y="250" fill="#cbd5e1" font-size="26" font-family="ui-sans-serif, system-ui">Performance proof snapshot</text>
-    <g transform="translate(0, 320)">
-      ${safeMetrics}
+    
+    <!-- Border frame -->
+    <rect x="40" y="40" width="1120" height="550" rx="36" fill="rgba(15,23,42,0.6)" stroke="url(#accent)" stroke-width="3" />
+    
+    <!-- Header badge -->
+    <text x="64" y="110" fill="${theme.primary}" font-size="18" font-family="ui-sans-serif, system-ui, -apple-system" letter-spacing="3" font-weight="600">WHY IS MY WEBSITE SLOW</text>
+    
+    <!-- Main title -->
+    <text x="64" y="175" fill="#f8fafc" font-size="48" font-family="ui-sans-serif, system-ui, -apple-system" font-weight="700">${safeTitle}</text>
+    
+    <!-- Subtitle -->
+    <text x="64" y="225" fill="#94a3b8" font-size="22" font-family="ui-sans-serif, system-ui, -apple-system">${safeSubtitle}</text>
+    
+    <!-- Metrics -->
+    ${safeMetrics}
+    
+    <!-- Score circle -->
+    <g transform="translate(880, 180)">
+      <circle cx="110" cy="110" r="110" fill="${scoreGlow}" />
+      <circle cx="110" cy="110" r="95" fill="rgba(15,23,42,0.8)" stroke="${scoreColor}" stroke-width="4" />
+      <text x="110" y="95" text-anchor="middle" fill="#94a3b8" font-size="18" font-family="ui-sans-serif, system-ui, -apple-system">Score</text>
+      <text x="110" y="155" text-anchor="middle" fill="${scoreColor}" font-size="72" font-family="ui-sans-serif, system-ui, -apple-system" font-weight="700">${score}</text>
     </g>
-    <g transform="translate(860, 138)">
-      <rect x="0" y="0" width="250" height="250" rx="125" fill="rgba(56,189,248,0.18)" stroke="rgba(56,189,248,0.45)" />
-      <text x="125" y="116" text-anchor="middle" fill="#e2e8f0" font-size="24" font-family="ui-sans-serif, system-ui">Score</text>
-      <text x="125" y="172" text-anchor="middle" fill="#22d3ee" font-size="76" font-family="ui-sans-serif, system-ui" font-weight="700">${score}</text>
-    </g>
+    
+    <!-- Footer branding -->
+    <text x="64" y="570" fill="#475569" font-size="14" font-family="ui-sans-serif, system-ui, -apple-system">whyismywebsiteslow.com</text>
   </svg>
 `;
 };
 
-export const GET: APIRoute = async ({ params }) => {
+export const GET: APIRoute = async ({ params, url }) => {
   const kind = params.kind ?? "";
   const slug = params.slug ?? "";
 
   let title = "Website speed proof";
+  let subtitle: string | undefined = "Performance benchmarks and fixes";
   let score = 72;
   let metrics: Array<{ label: string; value: string }> = [
     { label: "LCP", value: "3.1s" },
     { label: "INP", value: "260ms" },
     { label: "CLS", value: "0.16" },
   ];
+  let theme = themes.industry;
 
-  if (kind === "problem") {
-    const entry = PROBLEMS.find((item) => item.slug === slug);
-    if (!entry) return new Response("Not found", { status: 404 });
-    const proof = buildProblemProofDataset(entry);
-    title = entry.h1;
-    score = proof.caseStudy.afterScore;
-    metrics = proof.keyMetrics;
-  } else if (kind === "platform") {
-    const platform = PLATFORMS.find((item) => item.platform === slug);
-    if (!platform) return new Response("Not found", { status: 404 });
-    const platformIssues = PROBLEMS.filter((item) => item.platform === platform.platform).map((item) => item.issueTitle);
-    const proof = buildPlatformProofDataset(platform, platformIssues);
-    title = platform.keyword;
-    score = proof.caseStudy.afterScore;
-    metrics = proof.keyMetrics;
-  } else if (kind === "industry") {
-    const industry = INDUSTRIES.find((item) => item.industry === slug);
-    if (!industry) return new Response("Not found", { status: 404 });
-    const issueTitles = PROBLEMS.filter((item) => item.industry === industry.industry).map((item) => item.issueTitle);
-    const proof = buildIndustryProofDataset(industry, issueTitles);
-    title = industry.keyword;
-    score = proof.caseStudy.afterScore;
-    metrics = proof.keyMetrics;
-  } else {
-    return new Response("Not found", { status: 404 });
+  try {
+    if (kind === "problem") {
+      const entry = PROBLEMS.find((item) => item.slug === slug);
+      if (!entry) return new Response("Not found", { status: 404 });
+      const proof = buildProblemProofDataset(entry);
+      title = entry.h1;
+      subtitle = `Fix ${entry.issueTitle}`;
+      score = proof.caseStudy.afterScore;
+      metrics = proof.keyMetrics;
+      theme = themes.problem;
+      
+    } else if (kind === "platform") {
+      const platform = PLATFORMS.find((item) => item.platform === slug);
+      if (!platform) return new Response("Not found", { status: 404 });
+      const platformIssues = PROBLEMS.filter((item) => item.platform === platform.platform).map((item) => item.issueTitle);
+      const proof = buildPlatformProofDataset(platform, platformIssues);
+      title = `${platform.platform} speed audit`;
+      subtitle = `Common ${platform.platform} issues and fixes`;
+      score = proof.caseStudy.afterScore;
+      metrics = proof.keyMetrics;
+      theme = themes.platform;
+      
+    } else if (kind === "industry") {
+      const industry = INDUSTRIES.find((item) => item.industry === slug);
+      if (!industry) return new Response("Not found", { status: 404 });
+      const issueTitles = PROBLEMS.filter((item) => item.industry === industry.industry).map((item) => item.issueTitle);
+      const proof = buildIndustryProofDataset(industry, issueTitles);
+      title = `${industry.industry} speed audit`;
+      subtitle = `Industry benchmarks and risks`;
+      score = proof.caseStudy.afterScore;
+      metrics = proof.keyMetrics;
+      theme = themes.industry;
+      
+    } else if (kind === "report") {
+      // For report pages, try to load actual report data
+      const reportId = slug;
+      let report = null;
+      
+      try {
+        // Try to load from Supabase if available
+        const stored = await loadStoredReport(reportId, {} as any);
+        report = stored?.report;
+      } catch (e) {
+        // Fall through to default
+      }
+      
+      if (report) {
+        const host = report.canonicalHost;
+        const grade = report.summary?.grade || "C";
+        const score100 = report.summary?.score100 || 65;
+        
+        title = `${host} performance report`;
+        subtitle = `Grade ${grade} • ${report.device || "mobile"} scan`;
+        score = score100;
+        
+        // Use actual metrics from report
+        metrics = [
+          { label: "LCP", value: report.psi?.cwv?.lcp_ms ? `${Math.round(report.psi.cwv.lcp_ms)}ms` : "-" },
+          { label: "INP", value: report.psi?.cwv?.inp_ms ? `${Math.round(report.psi.cwv.inp_ms)}ms` : "-" },
+          { label: "CLS", value: report.psi?.cwv?.cls ? report.psi.cwv.cls.toFixed(2) : "-" },
+        ].filter(m => m.value !== "-");
+        
+        theme = getScoreColor(score100);
+      } else {
+        title = "Performance Report";
+        subtitle = "Website speed analysis";
+        score = 72;
+        theme = themes.report.medium;
+      }
+      
+    } else {
+      return new Response("Not found", { status: 404 });
+    }
+  } catch (error) {
+    // Fallback to default on any error
+    console.error("OG image generation error:", error);
   }
 
-  return new Response(renderSvg(title, score, metrics), {
+  return new Response(renderSvg({ title, subtitle, score, metrics, theme }), {
     status: 200,
     headers: {
       "Content-Type": "image/svg+xml",
-      "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      "Cache-Control": "public, max-age=86400, s-maxage=86400", // 24 hours
     },
   });
 };
