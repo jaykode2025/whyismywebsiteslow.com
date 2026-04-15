@@ -1,0 +1,66 @@
+[
+  {
+    "slug": "why-is-my-wordpress-site-slow-on-mobile",
+    "overallScore": 64,
+    "grade": "D",
+    "confidence": "medium",
+    "rum": {
+      "lcp_ms": 3200,
+      "inp_ms": 220,
+      "cls": 0.18,
+      "status": "poor",
+      "sampleSize": 1240,
+      "confidence": "medium"
+    },
+    "cwvScores": [
+      { "label": "Performance", "score": 64 },
+      { "label": "LCP", "score": 58 },
+      { "label": "CLS", "score": 82 }
+    ],
+    "lighthouse": {
+      "performance": 0.64,
+      "accessibility": 0.91,
+      "bestPractices": 0.88,
+      "seo": 0.95
+    },
+    "issues": [],
+    "calculator": {
+      "monthlyVisitors": 12000,
+      "conversionRate": 2.5,
+      "averageOrderValue": 85,
+      "improvementPct": 40
+    }
+  },
+  {
+    "slug": "shopify-store-slow-after-theme-update",
+    "overallScore": 71,
+    "grade": "C",
+    "confidence": "high",
+    "rum": {
+      "lcp_ms": 2800,
+      "inp_ms": 180,
+      "cls": 0.12,
+      "status": "needs-improvement",
+      "sampleSize": 8900,
+      "confidence": "high"
+    },
+    "cwvScores": [
+      { "label": "Performance", "score": 71 },
+      { "label": "LCP", "score": 65 },
+      { "label": "CLS", "score": 88 }
+    ],
+    "lighthouse": {
+      "performance": 0.71,
+      "accessibility": 0.93,
+      "bestPractices": 0.85,
+      "seo": 0.92
+    },
+    "issues": [],
+    "calculator": {
+      "monthlyVisitors": 8500,
+      "conversionRate": 3.1,
+      "averageOrderValue": 120,
+      "improvementPct": 35
+    }
+  }
+]
