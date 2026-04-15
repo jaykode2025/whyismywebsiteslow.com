@@ -1,0 +1,63 @@
+---
+import datasets from '../data/performance-datasets.json';
+import ReportProofBlock from '../components/ReportProofBlock.astro';
+import Layout from '../layouts/BaseLayout.astro'; // use your existing layout
+
+export async function getStaticPaths() {
+  return datasets.map((dataset) => ({
+    params: { slug: dataset.slug },
+    props: { dataset }
+  }));
+}
+
+const { dataset } = Astro.props;
+
+// Dynamic SEO title/description
+const pageTitle = dataset.slug
+  .replace(/-/g, ' ')
+  .replace(/\b\w/g, l => l.toUpperCase());
+
+const description = `Real performance data for ${pageTitle}. Overall score \( {dataset.overallScore}/100 ( \){dataset.grade} grade). See real-user metrics, revenue impact calculator, and fix recommendations.`;
+---
+
+<Layout title={pageTitle} description={description}>
+  <article class="max-w-4xl mx-auto px-4 py-8">
+    <h1 class="text-4xl font-bold text-slate-100 mb-2">{pageTitle}</h1>
+    <p class="text-slate-400 mb-8">Real performance analysis • Updated with live data</p>
+
+    <!-- Main proof block with full dataset -->
+    <ReportProofBlock
+      title="Performance Proof"
+      subtitle="Real-user data + lab metrics"
+      proofType="chart"
+      visualMode="default"
+      dataset={dataset}
+      slug={dataset.slug}
+    />
+
+    <!-- Revenue risk callout -->
+    {dataset.overallScore < 75 && (
+      <div class="mt-12 p-6 bg-amber-500/10 border border-amber-400/30 rounded-3xl text-center">
+        <p class="text-amber-200 text-lg">
+          Based on your data, you’re likely losing <strong>${Math.round(dataset.calculator.monthlyVisitors * dataset.calculator.conversionRate / 100 * dataset.calculator.averageOrderValue * (dataset.calculator.improvementPct / 100)).toLocaleString()}</strong> per month due to speed issues.
+        </p>
+        <a href="https://rocket.net/?aff=Jstilley" target="_blank"
+           class="mt-6 inline-block bg-white text-slate-900 font-medium px-8 py-4 rounded-2xl hover:bg-amber-100 transition-colors">
+          Fix it with Rocket.net → 2–4× faster loads
+        </a>
+      </div>
+    )}
+
+    <!-- Internal linking for topical authority -->
+    <div class="mt-16">
+      <h3 class="uppercase text-xs tracking-widest text-slate-400 mb-4">Related performance issues</h3>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {datasets.map((d) => d.slug !== dataset.slug && (
+          <a href={`/${d.slug}`} class="block p-4 rounded-2xl border border-white/10 hover:border-white/30 text-slate-300 hover:text-white transition-colors text-sm">
+            {d.slug.replace(/-/g, ' ')}
+          </a>
+        ))}
+      </div>
+    </div>
+  </article>
+</Layout>
