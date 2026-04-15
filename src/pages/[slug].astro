@@ -1,0 +1,78 @@
+---
+import datasets from '../data/performance-datasets.json';
+import ReportProofBlock from '../components/ReportProofBlock.astro';
+import Layout from '../layouts/BaseLayout.astro'; // your existing layout
+
+export async function getStaticPaths() {
+  return datasets.map((dataset) => ({
+    params: { slug: dataset.slug },
+    props: { dataset }
+  }));
+}
+
+const { dataset } = Astro.props;
+
+// Dynamic SEO
+const pageTitle = dataset.slug
+  .replace(/-/g, ' ')
+  .replace(/\b\w/g, l => l.toUpperCase());
+
+const description = `Real performance data for ${pageTitle}. Score \( {dataset.overallScore}/100 ( \){dataset.grade}). Real-user metrics, revenue calculator, and fix recommendations.`;
+---
+
+<Layout title={pageTitle} description={description}>
+  <article class="max-w-4xl mx-auto px-4 py-12">
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold tracking-tight text-slate-100">
+        {pageTitle}
+      </h1>
+      <p class="mt-2 text-slate-400">Live performance analysis • Powered by enhanced scanner</p>
+    </div>
+
+    <!-- Full proof block with real data -->
+    <ReportProofBlock
+      title="Performance Proof"
+      subtitle="Real-user CrUX + lab metrics"
+      proofType="chart"
+      visualMode="default"
+      dataset={dataset}
+      slug={dataset.slug}
+    />
+
+    <!-- Revenue loss callout (high-conversion) -->
+    {dataset.overallScore < 75 && (
+      <div class="mt-12 rounded-3xl border border-amber-400/30 bg-amber-500/5 p-8 text-center">
+        <p class="text-amber-200 text-lg">
+          You’re likely losing <strong>${Math.round(
+            dataset.calculator.monthlyVisitors *
+            (dataset.calculator.conversionRate / 100) *
+            dataset.calculator.averageOrderValue *
+            (dataset.calculator.improvementPct / 100)
+          ).toLocaleString()}</strong> per month due to speed issues.
+        </p>
+        <a
+          href="https://rocket.net/?aff=Jstilley"
+          target="_blank"
+          class="mt-6 inline-flex items-center gap-2 rounded-2xl bg-white px-8 py-4 text-base font-semibold text-slate-900 hover:bg-amber-100 transition-colors"
+        >
+          Fix it with Rocket.net — 2–4× faster loads
+        </a>
+      </div>
+    )}
+
+    <!-- Internal links for topical authority -->
+    <div class="mt-16 border-t border-white/10 pt-8">
+      <h3 class="mb-4 text-xs uppercase tracking-widest text-slate-400">Related speed issues</h3>
+      <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+        {datasets.map((d) => d.slug !== dataset.slug && (
+          <a
+            href={`/${d.slug}`}
+            class="rounded-2xl border border-white/10 p-4 text-sm text-slate-300 hover:border-white/30 hover:text-white transition-colors"
+          >
+            {d.slug.replace(/-/g, ' ')}
+          </a>
+        ))}
+      </div>
+    </div>
+  </article>
+</Layout>
