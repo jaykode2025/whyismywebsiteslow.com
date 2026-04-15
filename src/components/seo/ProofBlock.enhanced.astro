@@ -27,21 +27,21 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
     <div>
       <p class="text-xs uppercase tracking-[0.22em] text-slate-400">Proof block</p>
       <h2 class="mt-2 text-2xl text-slate-100">{title}</h2>
-      {subtitle ? <p class="mt-1 text-sm text-slate-300">{subtitle}</p> : null}
+      {subtitle && <p class="mt-1 text-sm text-slate-300">{subtitle}</p>}
     </div>
     <span class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs text-slate-300">
       {proofType} • {visualMode}
     </span>
   </div>
 
-  {proofType === "chart" ? (
+  {proofType === "chart" && (
     <>
-      <!-- Enhanced Scanner Summary -->
-      {#if dataset.overallScore !== undefined}
+      <!-- Enhanced Scanner Real-User Summary -->
+      {dataset.overallScore !== undefined && (
         <div class="mb-6 rounded-2xl border border-emerald-400/30 bg-emerald-500/5 p-6">
           <div class="flex flex-col items-center justify-center text-center md:flex-row md:justify-between md:text-left">
             <div>
-              <p class="text-xs uppercase tracking-widest text-emerald-300">Overall Performance</p>
+              <p class="text-xs uppercase tracking-widest text-emerald-300">Overall Performance Score</p>
               <p class="text-5xl font-semibold text-emerald-100">{dataset.overallScore}</p>
               <p class="text-emerald-200">/ 100</p>
             </div>
@@ -49,22 +49,22 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
               <span class="inline-block rounded-full bg-emerald-500/20 px-6 py-2 text-2xl font-medium text-emerald-100">
                 Grade {dataset.grade || 'C'}
               </span>
-              {#if dataset.confidence}
+              {dataset.confidence && (
                 <p class="mt-2 text-xs text-slate-400">Real-user confidence: {dataset.confidence}</p>
-              {/if}
+              )}
             </div>
           </div>
 
-          {#if dataset.rum?.lcp_ms}
+          {dataset.rum?.lcp_ms && (
             <div class="mt-4 text-center text-sm text-slate-300">
-              Real users see LCP in <span class="font-medium text-white">{Math.round(dataset.rum.lcp_ms)}ms</span>
+              Real users experience LCP in <span class="font-medium text-white">{Math.round(dataset.rum.lcp_ms)}ms</span>
             </div>
-          {/if}
+          )}
         </div>
-      {/if}
+      )}
 
       <div class="mb-5 grid gap-3 sm:grid-cols-3">
-        {dataset.keyMetrics.slice(0, 3).map((metric) => (
+        {(dataset.keyMetrics ?? []).slice(0, 3).map((metric) => (
           <div class="rounded-xl border border-white/10 bg-white/5 p-3">
             <p class="text-xs uppercase tracking-[0.14em] text-slate-500">{metric.label}</p>
             <p class="mt-2 text-lg text-slate-100">{metric.value}</p>
@@ -75,7 +75,7 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
       <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
         <p class="text-xs uppercase tracking-[0.15em] text-slate-500">Lab Summary (Lighthouse)</p>
         <div class="mt-3 grid gap-2 md:grid-cols-3">
-          {dataset.cwvScores.map((item) => (
+          {(dataset.cwvScores ?? []).map((item) => (
             <div class="rounded-lg border border-white/10 bg-slate-950/30 px-3 py-2 text-sm text-slate-200">
               <span class="text-slate-400">{item.label}</span>: {item.score}/100
             </div>
@@ -86,15 +86,15 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
       <div class="mt-5">
         <ReportCharts
           client:visible
-          cwvScores={dataset.cwvScores}
+          cwvScores={dataset.cwvScores ?? []}
           lighthouse={dataset.lighthouse}
-          issues={dataset.issues}
+          issues={dataset.issues ?? []}
         />
       </div>
     </>
-  ) : null}
+  )}
 
-  {proofType === "table" ? (
+  {proofType === "table" && (
     <div class="overflow-x-auto rounded-2xl border border-white/10">
       <table class="w-full min-w-[560px] text-left text-sm">
         <thead class="bg-white/5 text-slate-300">
@@ -106,7 +106,7 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
           </tr>
         </thead>
         <tbody>
-          {dataset.benchmarks.map((row) => (
+          {(dataset.benchmarks ?? []).map((row) => (
             <tr class="border-t border-white/10 text-slate-200">
               <td class="px-4 py-3">{row.metric}</td>
               <td class="px-4 py-3">{row.current}</td>
@@ -117,32 +117,32 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
         </tbody>
       </table>
     </div>
-  ) : null}
+  )}
 
-  {proofType === "calculator" ? (
+  {proofType === "calculator" && (
     <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <p class="text-sm text-slate-300">Estimate monthly upside from improving speed.</p>
+      <p class="text-sm text-slate-300">Estimate monthly revenue upside from improving speed.</p>
       <div class="mt-4 grid gap-3 md:grid-cols-4">
         <label class="text-xs text-slate-300">
-          Visitors
-          <input class="mt-1 w-full rounded-lg border border-white/15 bg-slate-950/50 px-3 py-2 text-sm" id={`${calculatorId}-visitors`} type="number" value={dataset.calculator.monthlyVisitors} />
+          Monthly Visitors
+          <input class="mt-1 w-full rounded-lg border border-white/15 bg-slate-950/50 px-3 py-2 text-sm" id={`${calculatorId}-visitors`} type="number" value={dataset.calculator?.monthlyVisitors ?? 5000} />
         </label>
         <label class="text-xs text-slate-300">
-          Conversion %
-          <input class="mt-1 w-full rounded-lg border border-white/15 bg-slate-950/50 px-3 py-2 text-sm" id={`${calculatorId}-cr`} type="number" step="0.1" value={dataset.calculator.conversionRate} />
+          Conversion Rate %
+          <input class="mt-1 w-full rounded-lg border border-white/15 bg-slate-950/50 px-3 py-2 text-sm" id={`${calculatorId}-cr`} type="number" step="0.1" value={dataset.calculator?.conversionRate ?? 2.5} />
         </label>
         <label class="text-xs text-slate-300">
-          Avg order ($)
-          <input class="mt-1 w-full rounded-lg border border-white/15 bg-slate-950/50 px-3 py-2 text-sm" id={`${calculatorId}-aov`} type="number" step="1" value={dataset.calculator.averageOrderValue} />
+          Avg Order Value ($)
+          <input class="mt-1 w-full rounded-lg border border-white/15 bg-slate-950/50 px-3 py-2 text-sm" id={`${calculatorId}-aov`} type="number" step="1" value={dataset.calculator?.averageOrderValue ?? 85} />
         </label>
         <label class="text-xs text-slate-300">
-          Speed uplift %
-          <input class="mt-1 w-full rounded-lg border border-white/15 bg-slate-950/50 px-3 py-2 text-sm" id={`${calculatorId}-lift`} type="number" step="1" value={dataset.calculator.improvementPct} />
+          Expected Speed Uplift %
+          <input class="mt-1 w-full rounded-lg border border-white/15 bg-slate-950/50 px-3 py-2 text-sm" id={`${calculatorId}-lift`} type="number" step="1" value={dataset.calculator?.improvementPct ?? 40} />
         </label>
       </div>
       <div class="mt-4 rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-4">
-        <p class="text-xs uppercase tracking-[0.16em] text-emerald-300">Estimated monthly impact</p>
-        <p class="mt-2 text-2xl text-emerald-200" id={`${calculatorId}-result`}>$0</p>
+        <p class="text-xs uppercase tracking-[0.16em] text-emerald-300">Estimated Monthly Revenue Gain</p>
+        <p class="mt-2 text-3xl font-semibold text-emerald-200" id={`${calculatorId}-result`}>$0</p>
       </div>
       <script is:inline define:vars={{ calculatorId }}>
         (() => {
@@ -153,48 +153,50 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
           const lift = byId("lift");
           const result = byId("result");
           if (!visitors || !cr || !aov || !lift || !result) return;
+
           const compute = () => {
             const v = Number(visitors.value || 0);
             const c = Number(cr.value || 0) / 100;
             const a = Number(aov.value || 0);
             const l = Number(lift.value || 0) / 100;
-            const monthly = Math.max(0, v * c * a * l);
-            result.textContent = `$${monthly.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+            const monthly = Math.max(0, Math.round(v * c * a * l));
+            result.textContent = `$${monthly.toLocaleString()}`;
           };
-          [visitors, cr, aov, lift].forEach((el) => el.addEventListener("input", compute));
+
+          [visitors, cr, aov, lift].forEach(el => el.addEventListener("input", compute));
           compute();
         })();
       </script>
     </div>
-  ) : null}
+  )}
 
-  {proofType === "case" ? (
+  {proofType === "case" && (
     <div class="grid gap-4 md:grid-cols-2">
       <div class="rounded-2xl border border-rose-400/25 bg-rose-500/10 p-5">
         <p class="text-xs uppercase tracking-[0.16em] text-rose-300">Before</p>
-        <p class="mt-2 text-2xl text-slate-100">Score {dataset.caseStudy.beforeScore}</p>
-        <p class="mt-1 text-sm text-slate-300">LCP {Math.round(dataset.caseStudy.beforeLcpMs / 100) / 10}s</p>
+        <p class="mt-2 text-2xl text-slate-100">Score {dataset.caseStudy?.beforeScore ?? '—'}</p>
+        <p class="mt-1 text-sm text-slate-300">LCP {Math.round((dataset.caseStudy?.beforeLcpMs ?? 0) / 100) / 10}s</p>
       </div>
       <div class="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-5">
         <p class="text-xs uppercase tracking-[0.16em] text-emerald-300">After</p>
-        <p class="mt-2 text-2xl text-slate-100">Score {dataset.caseStudy.afterScore}</p>
-        <p class="mt-1 text-sm text-slate-300">LCP {Math.round(dataset.caseStudy.afterLcpMs / 100) / 10}s</p>
-        <p class="mt-2 text-sm text-emerald-200">Projected uplift: +{dataset.caseStudy.upliftPct}%</p>
+        <p class="mt-2 text-2xl text-slate-100">Score {dataset.caseStudy?.afterScore ?? '—'}</p>
+        <p class="mt-1 text-sm text-slate-300">LCP {Math.round((dataset.caseStudy?.afterLcpMs ?? 0) / 100) / 10}s</p>
+        <p class="mt-2 text-sm text-emerald-200">Projected uplift: +{dataset.caseStudy?.upliftPct ?? 0}%</p>
       </div>
     </div>
-  ) : null}
+  )}
 
-  <!-- Natural monetization nudge when score is poor -->
-  {#if dataset.overallScore && dataset.overallScore < 75}
+  <!-- Smart monetization CTA when performance is poor -->
+  {dataset.overallScore && dataset.overallScore < 75 && (
     <div class="mt-8 rounded-2xl border border-amber-400/25 bg-amber-500/5 p-6 text-center">
-      <p class="text-amber-200">Your site is losing visitors and revenue due to speed issues.</p>
+      <p class="text-amber-200">Your site is losing visitors and revenue every day due to slow loading times.</p>
       <a 
         href="https://rocket.net/?aff=Jstilley" 
         target="_blank"
         class="mt-4 inline-block rounded-xl bg-white px-8 py-3.5 text-base font-medium text-slate-950 hover:bg-white/90 transition-colors">
-        Switch to Rocket.net — Fastest hosting for WordPress & Shopify
+        Switch to Rocket.net — Cut load times by 2–4× in 24 hours
       </a>
-      <p class="mt-3 text-xs text-slate-400">Many users see 2–4× faster loads after switching</p>
+      <p class="mt-3 text-xs text-slate-400">Used by thousands of WordPress & Shopify stores</p>
     </div>
-  {/if}
+  )}
 </section>
