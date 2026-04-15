@@ -44,6 +44,32 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
           </div>
         ))}
       </div>
+
+      <!-- New: Enhanced Scanner Summary -->
+      {#if dataset.overallScore !== undefined}
+        <div class="mb-6 rounded-2xl border border-emerald-400/30 bg-emerald-500/5 p-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs uppercase tracking-widest text-emerald-300">Overall Performance Score</p>
+              <p class="text-4xl font-semibold text-emerald-200">{dataset.overallScore}</p>
+            </div>
+            <div class="text-right">
+              <span class="inline-block rounded-full bg-emerald-500/20 px-4 py-1 text-lg font-medium text-emerald-100">
+                Grade {dataset.grade || 'C'}
+              </span>
+              {#if dataset.confidence}
+                <p class="mt-1 text-xs text-slate-400">Confidence: {dataset.confidence}</p>
+              {/if}
+            </div>
+          </div>
+          {#if dataset.rum && dataset.rum.lcp_ms}
+            <p class="mt-3 text-sm text-slate-300">
+              Real-user LCP: <span class="font-medium text-white">{Math.round(dataset.rum.lcp_ms)}ms</span>
+            </p>
+          {/if}
+        </div>
+      {/if}
+
       <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
         <p class="text-xs uppercase tracking-[0.15em] text-slate-500">Static summary</p>
         <div class="mt-3 grid gap-2 md:grid-cols-3">
@@ -54,6 +80,7 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
           ))}
         </div>
       </div>
+
       <div class="mt-5">
         <ReportCharts
           client:visible
@@ -117,7 +144,7 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
       </div>
       <script is:inline define:vars={{ calculatorId }}>
         (() => {
-          const byId = (suffix) => document.getElementById(`${calculatorId}-${suffix}`);
+          const byId = (suffix) => document.getElementById(`\( {calculatorId}- \){suffix}`);
           const visitors = byId("visitors");
           const cr = byId("cr");
           const aov = byId("aov");
@@ -154,4 +181,17 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
       </div>
     </div>
   ) : null}
+
+  <!-- Monetization nudge using enhanced data -->
+  {#if dataset.overallScore && dataset.overallScore < 75}
+    <div class="mt-6 rounded-2xl border border-amber-400/30 bg-amber-500/5 p-5 text-center">
+      <p class="text-amber-200">Your site is losing money due to speed issues.</p>
+      <a href="https://rocket.net/?aff=Jstilley" 
+         target="_blank"
+         class="mt-3 inline-block rounded-xl bg-white px-6 py-3 text-sm font-medium text-slate-900 hover:bg-white/90">
+        Switch to Rocket.net → Get faster hosting today
+      </a>
+      <p class="mt-2 text-xs text-slate-400">Trusted by thousands of WordPress &amp; Shopify owners</p>
+    </div>
+  {/if}
 </section>
