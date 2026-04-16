@@ -107,6 +107,8 @@ export async function runEnhancedScan(
   
   // Store enhanced data in psi for backward compatibility
   // Add real-user metrics and overall score to psi object
+  (psi as any).source = enhancedScan.sources.rumAvailable ? "live" : "partial";
+  (psi as any).message = enhancedScan.sources.message;
   psi.rum = enhancedScan.rum;
   psi.network = enhancedScan.network;
   psi.overallScore = enhancedScan.overallScore;

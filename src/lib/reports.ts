@@ -15,17 +15,41 @@ export async function loadStoredReport(id: string, locals: App.Locals): Promise<
 
   const { data, error } = await readClient
     .from("scans")
-    .select("status,error,report_json")
+    .select("status,error,report_json,url,device,visibility,crawl_enabled,crawl_max_links")
     .eq("id", id)
     .maybeSingle();
 
   if (error) return getReport(id);
   if (!data) return undefined;
   if (data.status !== "done" || !data.report_json) {
-    return { status: data.status as StoredReport["status"], error: data.error ?? undefined };
+    return {
+      status: data.status as StoredReport["status"],
+      error: data.error ?? undefined,
+      request: {
+        url: data.url,
+        device: data.device,
+        visibility: data.visibility,
+        crawl: {
+          enabled: Boolean(data.crawl_enabled),
+          maxLinks: data.crawl_max_links ?? 1,
+        },
+      },
+    };
   }
 
-  return { status: "done", report: stripManage(data.report_json as unknown as Report) };
+  return {
+    status: "done",
+    report: stripManage(data.report_json as unknown as Report),
+    request: {
+      url: data.url,
+      device: data.device,
+      visibility: data.visibility,
+      crawl: {
+        enabled: Boolean(data.crawl_enabled),
+        maxLinks: data.crawl_max_links ?? 1,
+      },
+    },
+  };
 }
 
 export async function listPublicReports(locals: App.Locals): Promise<Map<string, StoredReport>> {

@@ -14,6 +14,7 @@
 
 import type { Device } from "../types";
 import { env } from "../env";
+import { fetchWithRetry } from "../retry";
 
 export type EnhancedScannerResult = {
   // Real-user metrics from CrUX (highest priority)
@@ -74,6 +75,7 @@ export type EnhancedScannerResult = {
     rumAvailable: boolean;
     labAvailable: boolean;
     networkAvailable: boolean;
+    message?: string;
   };
 };
 
@@ -85,7 +87,11 @@ async function fetchCrUX(url: string, device: Device): Promise<EnhancedScannerRe
     const origin = getOrigin(url);
     if (!origin) return null;
 
-    const response = await fetch("https://chromeuxreport.googleapis.com/v1/records:queryRecord", {
+    const key = env.PSI_API_KEY() || undefined;
+    const endpoint = new URL("https://chromeuxreport.googleapis.com/v1/records:queryRecord");
+    if (key) endpoint.searchParams.set("key", key);
+
+    const response = await fetchWithRetry(endpoint.toString(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -94,6 +100,9 @@ async function fetchCrUX(url: string, device: Device): Promise<EnhancedScannerRe
         url: origin,
         formFactor: device === "mobile" ? "PHONE" : "DESKTOP",
       }),
+    }, {
+      maxRetries: 1,
+      timeout: 10000
     });
 
     if (!response.ok) {
@@ -164,8 +173,11 @@ async function fetchPSI(url: string, device: Device): Promise<EnhancedScannerRes
     endpoint.searchParams.append("category", "seo");
     if (key) endpoint.searchParams.set("key", key);
 
-    const res = await fetch(endpoint.toString(), {
+    const res = await fetchWithRetry(endpoint.toString(), {
       headers: { "User-Agent": "whyismywebsiteslow/2.0-enhanced-scanner" },
+    }, {
+      maxRetries: 1,
+      timeout: 45000 // PSI is slow, give it 45s
     });
     
     if (!res.ok) {
@@ -232,20 +244,19 @@ async function fetchPSI(url: string, device: Device): Promise<EnhancedScannerRes
 async function fetchNetworkMetrics(url: string): Promise<EnhancedScannerResult["network"]> {
   try {
     const start = Date.now();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
 
     // Use fetch with timing to get basic network metrics
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: "HEAD",
       redirect: "manual",
-      signal: controller.signal,
       headers: {
         "User-Agent": "whyismywebsiteslow/2.0-enhanced-scanner",
       },
+    }, {
+      maxRetries: 1,
+      timeout: 10000
     });
 
-    clearTimeout(timeout);
     const totalTime = Date.now() - start;
 
     // Count redirects
@@ -344,6 +355,21 @@ export async function runEnhancedScanner(
 
   const { score: overallScore, grade } = calculateOverallScore(rum, lab);
 
+  const messages: string[] = [];
+  if (!rum) {
+    if (!env.PSI_API_KEY()) {
+      messages.push("CrUX data unavailable (missing PSI_API_KEY)");
+    } else {
+      messages.push("No real-user (CrUX) data found for this origin");
+    }
+  }
+  if (!lab) {
+    messages.push("PageSpeed lab data failed to load (check rate limits)");
+  }
+  if (!network) {
+    messages.push("Manual network check failed");
+  }
+
   return {
     rum: rum || {
       lcp_ms: 0,
@@ -373,7 +399,8 @@ export async function runEnhancedScanner(
     sources: {
       rumAvailable: rum !== null,
       labAvailable: lab !== null,
-      networkAvailable: true,
+      networkAvailable: network !== null && Object.keys(network).length > 0,
+      message: messages.join("; "),
     },
   };
 }

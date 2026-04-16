@@ -1,5 +1,6 @@
 import type { Device } from "./types";
 import { env } from "./env";
+import { fetchWithRetry } from "./retry";
 
 export type PsiResult = {
   source: "live" | "mock";
@@ -49,8 +50,11 @@ export async function fetchPsi(url: string, device: Device): Promise<PsiResult> 
   if (key) endpoint.searchParams.set("key", key);
 
   try {
-    const res = await fetch(endpoint.toString(), {
+    const res = await fetchWithRetry(endpoint.toString(), {
       headers: { "User-Agent": "whyismywebsiteslow/1.0" },
+    }, {
+      maxRetries: 1,
+      timeout: 45000
     });
     if (!res.ok) {
       throw new Error(`PSI HTTP ${res.status}`);

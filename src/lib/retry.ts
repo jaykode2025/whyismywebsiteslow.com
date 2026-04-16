@@ -29,6 +29,9 @@ export async function withRetryAndTimeout<T>(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      // Execute the function once per attempt
+      const mainPromise = fn();
+      
       // Create a promise that rejects after the timeout
       const timeoutPromise = new Promise<never>((_, reject) => {
         const timer = setTimeout(() => {
@@ -36,11 +39,11 @@ export async function withRetryAndTimeout<T>(
         }, timeout);
         
         // Clear timeout if the main promise resolves first
-        fn().finally(() => clearTimeout(timer));
+        mainPromise.finally(() => clearTimeout(timer));
       });
 
-      // Race the function call against the timeout
-      const result = await Promise.race([fn(), timeoutPromise]);
+      // Race the main function call against the timeout
+      const result = await Promise.race([mainPromise, timeoutPromise]);
       return result;
     } catch (error) {
       lastError = error as Error;

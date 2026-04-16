@@ -15,6 +15,13 @@ export type ScanRequest = {
   includeImageAudit?: boolean;
 };
 
+export type StoredScanRequest = {
+  url: string;
+  device: Device;
+  crawl: { enabled: boolean; maxLinks: number };
+  visibility: Visibility;
+};
+
 export type BusinessImpact = {
   riskLevel: "low" | "medium" | "high";
   headline: string;
@@ -223,4 +230,5 @@ export type StoredReport = {
   status: ReportStatus;
   report?: Report;
   error?: string;
+  request?: StoredScanRequest;
 };

@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { FileLock } from "./fileLock";
-import type { Report } from "./types";
+import type { StoredReport } from "./types";
 
 // Minimal JSON persistence to survive restarts.
 // Stores reports in .data/reports.json as a simple map by id.
@@ -10,12 +10,6 @@ import type { Report } from "./types";
 
 const DATA_DIR = join(process.cwd(), ".data");
 const FILE_PATH = join(DATA_DIR, "reports.json");
-
-type Stored = {
-  status: "queued" | "running" | "done" | "failed";
-  report?: Report;
-  error?: string;
-};
 
 function ensureFile() {
   try {
@@ -37,11 +31,11 @@ function exists() {
   }
 }
 
-export function loadReports(): Map<string, Stored> {
+export function loadReports(): Map<string, StoredReport> {
   ensureFile();
   try {
     const raw = readFileSync(FILE_PATH, "utf-8");
-    const json = JSON.parse(raw) as Record<string, Stored>;
+    const json = JSON.parse(raw) as Record<string, StoredReport>;
     return new Map(Object.entries(json));
   } catch {
     return new Map();
@@ -52,7 +46,7 @@ import { logger } from "./logger";
 
 const reportLock = new FileLock(FILE_PATH);
 
-export async function persistReportsAsync(map: Map<string, Stored>) {
+export async function persistReportsAsync(map: Map<string, StoredReport>) {
   try {
     await reportLock.withLock(async () => {
       ensureFile();
@@ -65,7 +59,7 @@ export async function persistReportsAsync(map: Map<string, Stored>) {
   }
 }
 
-export function persistReports(map: Map<string, Stored>) {
+export function persistReports(map: Map<string, StoredReport>) {
   try {
     ensureFile();
     const obj = Object.fromEntries(map.entries());
@@ -75,4 +69,3 @@ export function persistReports(map: Map<string, Stored>) {
     logger.error('Failed to persist reports:', error);
   }
 }
-

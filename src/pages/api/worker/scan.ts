@@ -233,7 +233,7 @@ export const POST: APIRoute = async ({ request }) => {
     });
   } catch (error: any) {
     console.error("Worker scan error:", error);
-    const message = "Scan failed"; // Generic message to avoid exposing details
+    const message = error?.message || "Scan failed";
     await admin.from("scans").update({ status: "failed", error: message, finished_at: new Date().toISOString() }).eq("id", scanId);
     return new Response(JSON.stringify({ ok: false, error: message }), {
       status: 200,

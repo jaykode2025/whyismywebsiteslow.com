@@ -55,7 +55,7 @@ export const GET: APIRoute = async (context) => {
     }
 
     if (stored.status !== "done" || !stored.report) {
-      return new Response(JSON.stringify({ status: stored.status, error: stored.error }), {
+      return new Response(JSON.stringify({ status: stored.status, error: stored.error, request: stored.request }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });

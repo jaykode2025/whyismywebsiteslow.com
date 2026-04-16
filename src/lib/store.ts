@@ -1,9 +1,21 @@
-import type { Report, ScanRequest, StoredReport } from "./types";
+import type { Report, ScanRequest, StoredReport, StoredScanRequest } from "./types";
 import { loadReports, persistReports } from "./db";
 import { generateId, hashToken } from "./tokens";
 
 const reports = loadReports();
 let persistenceTimeout: NodeJS.Timeout | null = null;
+
+function toStoredRequest(input: ScanRequest): StoredScanRequest {
+  return {
+    url: input.url,
+    device: input.device,
+    crawl: {
+      enabled: Boolean(input.crawl?.enabled),
+      maxLinks: input.crawl?.maxLinks ?? 1,
+    },
+    visibility: input.visibility === "public" ? "public" : "unlisted",
+  };
+}
 
 function debouncedPersist() {
   if (persistenceTimeout) clearTimeout(persistenceTimeout);
@@ -19,6 +31,7 @@ export async function createReportPlaceholder(input: ScanRequest, writeToken: st
   const id = generateId();
   const stored: StoredReport = {
     status: "queued",
+    request: toStoredRequest(input),
   };
   reports.set(id, stored);
   persistReports(reports);
@@ -26,7 +39,8 @@ export async function createReportPlaceholder(input: ScanRequest, writeToken: st
 }
 
 export async function setReport(id: string, report: Report) {
-  reports.set(id, { status: "done", report });
+  const existing = reports.get(id);
+  reports.set(id, { status: "done", report, request: existing?.request });
   await debouncedPersist();
 }
 
@@ -36,6 +50,7 @@ export async function setReportStatus(id: string, status: StoredReport["status"]
     status,
     report: existing?.report,
     error,
+    request: existing?.request,
   });
   await debouncedPersist();
 }

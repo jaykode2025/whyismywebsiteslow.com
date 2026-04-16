@@ -388,9 +388,10 @@ export const POST: APIRoute = async (context) => {
     const isClientError =
       error?.message?.includes("url") ||
       error?.message?.includes("normalize") ||
+      error?.message?.includes("limit") ||
       error instanceof SyntaxError;
     const status = isClientError ? 400 : 500;
-    const message = isClientError ? "Invalid request" : "Internal error";
+    const message = error?.message || "Internal error";
     return new Response(JSON.stringify({ error: message }), {
       status,
       headers: { "Content-Type": "application/json" },

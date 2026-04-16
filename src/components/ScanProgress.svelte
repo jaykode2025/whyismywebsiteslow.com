@@ -1,13 +1,17 @@
 <script>
+  import { onDestroy } from "svelte";
   import Button from "./ui/Button.svelte";
 
-  let { id } = $props();
+  let { id, csrfToken = "" } = $props();
   let status = $state("queued");
   let error = $state("");
   let timer = $state(null);
   let score = $state(null);
   let host = $state("");
   let locked = $state(null);
+  let retryRequest = $state(null);
+  let retrying = $state(false);
+  let copyState = $state("idle");
   const previewUrl = $derived(id ? `/report/${id}` : "");
 
   async function poll() {
@@ -25,9 +29,57 @@
 
       if (data.status === "failed") {
         error = data.error ?? "Scan failed";
+        retryRequest = data.request ?? null;
       }
     } catch {
       error = "Unable to fetch scan status";
+    }
+  }
+
+  async function retryScan() {
+    if (!retryRequest || retrying) return;
+    retrying = true;
+    error = "";
+
+    try {
+      const res = await fetch("/api/scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+        },
+        body: JSON.stringify(retryRequest),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Retry failed");
+      }
+
+      status = "queued";
+      retryRequest = null;
+      score = null;
+      host = "";
+      locked = null;
+      copyState = "idle";
+      id = data.id;
+      poll();
+      timer = setInterval(poll, 2000);
+    } catch (err) {
+      error = err?.message ?? "Retry failed";
+      status = "failed";
+    } finally {
+      retrying = false;
+    }
+  }
+
+  async function copyReportId() {
+    if (!id) return;
+    try {
+      await navigator.clipboard.writeText(id);
+      copyState = "copied";
+    } catch {
+      copyState = "failed";
     }
   }
 
@@ -42,6 +94,10 @@
     if (status === "done" || status === "failed") {
       if (timer) clearInterval(timer);
     }
+  });
+
+  onDestroy(() => {
+    if (timer) clearInterval(timer);
   });
 
   const progress = $derived(
@@ -92,6 +148,32 @@
   {/if}
 
   {#if error}
-    <p class="text-sm text-rose-300">{error}</p>
+    <div class="space-y-3 rounded-2xl border border-rose-400/20 bg-rose-400/5 p-4">
+      <p class="text-sm text-rose-200">{error}</p>
+      {#if status === "failed"}
+        <div class="flex flex-wrap items-center gap-2">
+          {#if retryRequest}
+            <Button type="button" size="sm" className="rounded-xl" loading={retrying} on:click={retryScan}>
+              Retry scan
+            </Button>
+          {:else}
+            <Button href="/scan" size="sm" className="rounded-xl">
+              Start a new scan
+            </Button>
+          {/if}
+          <Button type="button" size="sm" variant="ghost" className="rounded-xl border-white/10" on:click={copyReportId}>
+            Copy report ID
+          </Button>
+        </div>
+        <p class="text-xs text-slate-400">
+          Report ID: <code class="text-slate-200">{id}</code>
+          {#if copyState === "copied"}
+            <span class="ml-2 text-emerald-300">Copied</span>
+          {:else if copyState === "failed"}
+            <span class="ml-2 text-amber-300">Clipboard unavailable</span>
+          {/if}
+        </p>
+      {/if}
+    </div>
   {/if}
 </div>
