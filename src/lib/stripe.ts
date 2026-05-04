@@ -6,6 +6,6 @@ export function getStripe() {
   if (!key) return null;
   return new Stripe(key, {
     // @ts-ignore - Stripe types can be strict about version strings
-    apiVersion: "2024-06-20",
+    apiVersion: "2026-04-22.dahlia",
   });
 }

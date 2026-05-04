@@ -42,7 +42,7 @@ const variationTokens = deriveVariationTokens({
 });
 const sectionOrder = sectionOrderMap(variationTokens.sectionOrder);
 const showReferences = shouldRenderOptionalSection(variationTokens, "resources");
-const ogImage = siteUrl(`/og/industry/${industry.industry}.svg`);
+const ogImage = siteUrl(`/og/industry/${industry.industry}.png`);
 const industryName = titleCase(humanizeSlug(industry.industry));
 const primaryKeyword = `website speed audit for ${humanizeSlug(industry.industry)}`;
 const pageTitle = buildSeoTitle(

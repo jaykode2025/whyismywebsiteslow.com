@@ -98,8 +98,8 @@ const showSocialProof = shouldRenderOptionalSection(variationTokens, "social-pro
 const showFaq = shouldRenderOptionalSection(variationTokens, "faq");
 const showResources = shouldRenderOptionalSection(variationTokens, "resources");
 const ogImage = entry
-  ? siteUrl(`/og/why-is-my-website-slow/${entry.slug}.svg`)
-  : siteUrl("/og-default.svg");
+  ? siteUrl(`/og/why-is-my-website-slow/${entry.slug}.png`)
+  : siteUrl("/og-default.png");
 const platformName = entry ? titleCase(humanizeSlug(entry.platform)) : "Website";
 const seoTitle = entry
   ? buildSeoTitle(entry.h1, "Causes, fixes and business impact")

@@ -229,7 +229,7 @@
 
   {#if reportId}
     <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
-      <ScanProgress id={reportId} />
+      <ScanProgress id={reportId} {csrfToken} />
       {#if manageToken}
         <div class="mt-3 space-y-1 text-xs text-slate-400">
           <p>Manage token (shown once):</p>

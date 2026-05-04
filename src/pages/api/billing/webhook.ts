@@ -11,6 +11,20 @@ function toIso(ts: number | null | undefined) {
   return new Date(ts * 1000).toISOString();
 }
 
+function getPlanFromPriceId(priceId: string | undefined) {
+  if (!priceId) return "free";
+  if (
+    (env.STRIPE_PRICE_PRO() && priceId === env.STRIPE_PRICE_PRO()) ||
+    (env.STRIPE_PRICE_PRO_YEARLY() && priceId === env.STRIPE_PRICE_PRO_YEARLY())
+  ) {
+    return "pro";
+  }
+  if (env.STRIPE_PRICE_AGENCY() && priceId === env.STRIPE_PRICE_AGENCY()) {
+    return "agency";
+  }
+  return "free";
+}
+
 export const POST: APIRoute = async ({ request }) => {
   const stripe = getStripe();
   const secret = env.STRIPE_WEBHOOK_SECRET();
@@ -81,12 +95,7 @@ export const POST: APIRoute = async ({ request }) => {
     const priceId = sub?.items?.data?.[0]?.price?.id as string | undefined;
 
     if (userId) {
-      const plan =
-        priceId && env.STRIPE_PRICE_PRO() && priceId === env.STRIPE_PRICE_PRO()
-          ? "pro"
-          : priceId && env.STRIPE_PRICE_AGENCY() && priceId === env.STRIPE_PRICE_AGENCY()
-            ? "agency"
-            : "free";
+      const plan = getPlanFromPriceId(priceId);
 
       await admin.from("subscriptions").upsert({
         user_id: userId,

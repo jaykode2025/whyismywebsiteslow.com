@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from "svelte";
   import Button from "./ui/Button.svelte";
 
   let { insights = [] } = $props();
@@ -13,6 +14,58 @@
 
   let activeSeverities = $state(new Set(severities));
   let activeCategories = $state(new Set());
+  let hydratedFromUrl = $state(false);
+
+  function readSelections(searchParams, key, allowedValues) {
+    const raw = searchParams.get(key);
+    if (!raw) return null;
+    const next = new Set(
+      raw
+        .split(",")
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => allowedValues.includes(value))
+    );
+    return next.size > 0 ? next : null;
+  }
+
+  function syncFiltersToUrl() {
+    if (typeof window === "undefined" || !hydratedFromUrl) return;
+
+    const url = new URL(window.location.href);
+    const selectedSeverities = severities.filter((severity) => activeSeverities.has(severity));
+    const selectedCategories = categories.filter((category) => activeCategories.has(category));
+
+    // Only persist narrowed filters to keep the shared URL clean.
+    if (selectedSeverities.length === severities.length) {
+      url.searchParams.delete("severity");
+    } else {
+      url.searchParams.set("severity", selectedSeverities.join(","));
+    }
+
+    if (selectedCategories.length === categories.length) {
+      url.searchParams.delete("category");
+    } else {
+      url.searchParams.set("category", selectedCategories.join(","));
+    }
+
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  onMount(() => {
+    const params = new URLSearchParams(window.location.search);
+    const severitySelection = readSelections(params, "severity", severities);
+    const categorySelection = readSelections(params, "category", categories);
+
+    if (severitySelection) {
+      activeSeverities = severitySelection;
+    }
+
+    if (categorySelection) {
+      activeCategories = categorySelection;
+    }
+
+    hydratedFromUrl = true;
+  });
 
   // Keep activeCategories synced when categories change
   $effect(() => {
@@ -28,6 +81,10 @@
     for (const c of categories) next.add(c);
 
     activeCategories = next;
+  });
+
+  $effect(() => {
+    syncFiltersToUrl();
   });
 
   function toggleSeverity(level) {

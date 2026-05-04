@@ -42,7 +42,7 @@ const variationTokens = deriveVariationTokens({
 });
 const sectionOrder = sectionOrderMap(variationTokens.sectionOrder);
 const showReferences = shouldRenderOptionalSection(variationTokens, "resources");
-const ogImage = siteUrl(`/og/platform/${platform.platform}.svg`);
+const ogImage = siteUrl(`/og/platform/${platform.platform}.png`);
 const platformName = titleCase(humanizeSlug(platform.platform));
 const primaryKeyword = `${platformName} website speed audit`;
 const pageTitle = buildSeoTitle(primaryKeyword, "Issues, fixes and speed targets");

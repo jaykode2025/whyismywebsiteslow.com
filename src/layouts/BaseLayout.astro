@@ -18,7 +18,7 @@ const metaTitle = title;
 const metaDescription = description;
 const siteOrigin = Astro.site?.origin ?? Astro.url.origin;
 const canonicalUrl = canonical ?? siteOrigin + Astro.url.pathname;
-const ogImageUrl = ogImage ?? `${siteOrigin}/og-default.svg`;
+const ogImageUrl = ogImage ?? `${siteOrigin}/og-default.png`;
 ---
 <!doctype html>
 <html lang="en">
@@ -41,6 +41,7 @@ const ogImageUrl = ogImage ?? `${siteOrigin}/og-default.svg`;
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={metaTitle} />
     <meta name="twitter:description" content={metaDescription} />
+    <meta name="twitter:image" content={ogImageUrl} />
     <meta name="theme-color" content="#05070d" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <slot name="head" />

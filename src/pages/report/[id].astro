@@ -44,24 +44,11 @@ const description = report
   : "We are generating your performance report.";
 
 const noindex = !report || report.visibility !== "public";
+const siteOrigin = Astro.site?.origin ?? Astro.url.origin;
+const reportUrl = report ? `${siteOrigin}/report/${report.id}` : "";
 const ogImage = report
-  ? `${Astro.site?.origin ?? Astro.url.origin}/og/report/${report.id}.svg`
-  : `${Astro.site?.origin ?? Astro.url.origin}/og-default.svg`;
-const jsonLd = report
-  ? {
-      "@context": "https://schema.org",
-      "@type": "WebPage",
-      name: `Why is ${report.canonicalHost} slow?`,
-      description,
-      url: `${Astro.site?.origin ?? Astro.url.origin}/report/${report.id}`,
-      isPartOf: {
-        "@type": "SoftwareApplication",
-        name: "whyismywebsiteslow",
-        applicationCategory: "DeveloperApplication",
-        operatingSystem: "Web",
-      },
-    }
-  : null;
+  ? `${siteOrigin}/og/report/${report.id}.png`
+  : `${siteOrigin}/og-default.png`;
 
 // Formatting helpers
 const formatMs = (value?: number) => {
@@ -113,6 +100,85 @@ const topInsights = report
       })
       .slice(0, 3)
   : [];
+const jsonLd = report
+  ? [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "@id": `${reportUrl}#webpage`,
+        name: `Why is ${report.canonicalHost} slow?`,
+        description,
+        url: reportUrl,
+        primaryImageOfPage: ogImage,
+        datePublished: report.createdAt,
+        dateModified: report.createdAt,
+        breadcrumb: { "@id": `${reportUrl}#breadcrumb` },
+        isPartOf: {
+          "@type": "WebSite",
+          name: "whyismywebsiteslow",
+          url: siteOrigin,
+        },
+        about: topInsights.map((insight) => insight.title),
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "@id": `${reportUrl}#breadcrumb`,
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: "Home",
+            item: siteOrigin,
+          },
+          {
+            "@type": "ListItem",
+            position: 2,
+            name: "Report",
+            item: reportUrl,
+          },
+        ],
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "Dataset",
+        "@id": `${reportUrl}#dataset`,
+        name: `${report.canonicalHost} performance scan`,
+        description: `Performance scan for ${report.canonicalHost} on ${report.device} with score ${report.summary.score100}/100.`,
+        url: reportUrl,
+        datePublished: report.createdAt,
+        creator: {
+          "@type": "Organization",
+          name: "whyismywebsiteslow",
+          url: siteOrigin,
+        },
+        variableMeasured: [
+          "Performance score",
+          "Core Web Vitals status",
+          "Largest Contentful Paint",
+          "Time to First Byte",
+          "Total page weight",
+        ],
+      },
+      ...(topInsights.length > 0
+        ? [
+            {
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              "@id": `${reportUrl}#faq`,
+              mainEntity: topInsights.map((insight) => ({
+                "@type": "Question",
+                name: `How do I fix ${insight.title.toLowerCase()} on ${report.canonicalHost}?`,
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: [insight.whatItMeans, ...insight.howToFix].join(" "),
+                },
+              })),
+            },
+          ]
+        : []),
+    ]
+  : null;
 
 const csrfToken = Astro.locals.csrfToken ?? "";
 const isExampleReport = report?.id === "example";
@@ -604,7 +670,7 @@ if (report) {
           <div class="mt-6">
             <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Share</p>
             <div class="mt-3">
-              <ShareActions client:load url={(Astro.site?.origin ?? Astro.url.origin) + `/report/${report.id}`} title={title} />
+              <ShareActions client:load url={reportUrl} title={title} />
             </div>
           </div>
         </Card>
@@ -642,7 +708,7 @@ if (report) {
         <h2 class="text-2xl text-slate-100">Report in progress</h2>
         <p class="mt-2 text-slate-300">We are running a scan and building your report.</p>
         <div class="mt-4">
-          <ScanProgress client:load id={id} />
+          <ScanProgress client:load id={id} csrfToken={csrfToken} />
         </div>
       </Card>
     </section>
