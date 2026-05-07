@@ -1,0 +1,52 @@
+---
+import Button from "../ui/Button.astro";
+
+const {
+  href,
+  children = "Checkout",
+  variant = "primary",
+  class: className = "",
+  disabled = false,
+  "data-track-event": dataTrackEvent,
+  "data-track-source": dataTrackSource,
+  "data-track-offer-context": dataTrackOfferContext,
+  "data-track-cta-variant": dataTrackCtaVariant,
+} = Astro.props as {
+  href?: string;
+  children?: any;
+  variant?: "primary" | "ghost";
+  class?: string;
+  disabled?: boolean;
+  "data-track-event"?: string;
+  "data-track-source"?: string;
+  "data-track-offer-context"?: string;
+  "data-track-cta-variant"?: string;
+};
+
+const isDisabled = disabled || !href;
+---
+
+{isDisabled ? (
+  <Button
+    href="/billing"
+    variant="ghost"
+    class={`w-full rounded-xl border-white/10 opacity-60 pointer-events-none ${className}`}
+  >
+    Checkout unavailable
+  </Button>
+) : (
+  <Button
+    href={href}
+    variant={variant}
+    class={`w-full rounded-xl ${className}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    data-track-event={dataTrackEvent}
+    data-track-source={dataTrackSource}
+    data-track-offer-context={dataTrackOfferContext}
+    data-track-cta-variant={dataTrackCtaVariant}
+  >
+    {children}
+  </Button>
+)}
+

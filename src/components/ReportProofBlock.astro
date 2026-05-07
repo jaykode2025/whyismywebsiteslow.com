@@ -1,0 +1,52 @@
+---
+import Card from "./ui/Card.astro";
+
+const {
+  title = "Performance Proof",
+  subtitle,
+  dataset,
+} = Astro.props as {
+  title?: string;
+  subtitle?: string;
+  dataset: any;
+};
+
+const score = Number(dataset?.overallScore ?? 0);
+const grade = String(dataset?.grade ?? "");
+const rum = dataset?.rum ?? null;
+const lighthouse = dataset?.lighthouse ?? null;
+---
+
+<Card class="border-white/10">
+  <div class="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+    <div>
+      <p class="text-xs uppercase tracking-[0.2em] text-slate-500">{title}</p>
+      {subtitle ? <h2 class="mt-2 text-xl text-slate-100">{subtitle}</h2> : null}
+      <p class="mt-2 text-sm text-slate-300">
+        Overall score: <strong>{score}/100</strong>{grade ? <span> ({grade})</span> : null}
+      </p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 text-sm text-slate-300 md:grid-cols-4">
+      <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-500">LCP</p>
+        <p class="mt-1 text-slate-100">{rum?.lcp_ms ? `${Math.round(rum.lcp_ms)}ms` : "—"}</p>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-500">INP</p>
+        <p class="mt-1 text-slate-100">{rum?.inp_ms ? `${Math.round(rum.inp_ms)}ms` : "—"}</p>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-500">CLS</p>
+        <p class="mt-1 text-slate-100">{typeof rum?.cls === "number" ? rum.cls.toFixed(2) : "—"}</p>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+        <p class="text-xs uppercase tracking-[0.18em] text-slate-500">SEO</p>
+        <p class="mt-1 text-slate-100">
+          {typeof lighthouse?.seo === "number" ? `${Math.round(lighthouse.seo * 100)}/100` : "—"}
+        </p>
+      </div>
+    </div>
+  </div>
+</Card>
+

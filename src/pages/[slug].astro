@@ -1,5 +1,5 @@
 ---
-import datasets from '../data/performance-datasets.json';
+import datasets from "../data/performance-datasets.json";
 import ReportProofBlock from '../components/ReportProofBlock.astro';
 import Layout from '../layouts/BaseLayout.astro'; // your existing layout
 
@@ -17,7 +17,7 @@ const pageTitle = dataset.slug
   .replace(/-/g, ' ')
   .replace(/\b\w/g, l => l.toUpperCase());
 
-const description = `Real performance data for ${pageTitle}. Score \( {dataset.overallScore}/100 ( \){dataset.grade}). Real-user metrics, revenue calculator, and fix recommendations.`;
+const description = `Real performance data for ${pageTitle}. Score ${dataset.overallScore}/100 (${dataset.grade}). Real-user metrics, revenue calculator, and fix recommendations.`;
 ---
 
 <Layout title={pageTitle} description={description}>

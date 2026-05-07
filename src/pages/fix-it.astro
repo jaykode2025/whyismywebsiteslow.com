@@ -17,7 +17,7 @@ const reportId = Astro.url.searchParams.get("reportId") ?? "";
           The scanner tells you where the drag is coming from. This service is for teams that want help executing the highest-impact fixes instead of managing the cleanup themselves.
         </p>
         <p class="mt-3 text-sm font-medium uppercase tracking-[0.18em] text-amber-200/80">
-          Fix-it service pricing starts at $149
+          Custom implementation help available
         </p>
 
         <div class="mt-8 grid gap-4 md:grid-cols-2">
@@ -45,7 +45,7 @@ const reportId = Astro.url.searchParams.get("reportId") ?? "";
       <Card class="border-amber-400/20 bg-amber-400/5">
         <p class="text-xs uppercase tracking-[0.2em] text-amber-200/80">Request help</p>
         <h2 class="mt-3 text-2xl text-slate-100">Tell us what needs fixing</h2>
-        <p class="mt-2 text-sm text-slate-300">We will review the scan context and follow up about scope, priority, and the right next step. Most implementation projects start at $149.</p>
+        <p class="mt-2 text-sm text-slate-300">We will review the scan context and follow up about scope, priority, and the right next step.</p>
 
         {sent ? (
           <div class="mt-4 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">

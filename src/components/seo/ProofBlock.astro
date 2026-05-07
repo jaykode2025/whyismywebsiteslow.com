@@ -15,11 +15,17 @@ const {
   subtitle?: string;
   proofType: VariationProofType;
   visualMode: VariationVisualMode;
-  dataset: ProofDataset;
+  dataset: ProofDataset & {
+    overallScore?: number;
+    grade?: string;
+    confidence?: string;
+    rum?: { lcp_ms?: number };
+  };
   slug: string;
 };
 
 const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
+const enhanced = dataset as any;
 ---
 
 <section class="mb-10 rounded-3xl border border-sky-400/20 bg-gradient-to-br from-sky-500/10 via-indigo-500/10 to-slate-950/30 p-6 md:p-8">
@@ -46,29 +52,29 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
       </div>
 
       <!-- New: Enhanced Scanner Summary -->
-      {#if dataset.overallScore !== undefined}
+      {enhanced.overallScore !== undefined ? (
         <div class="mb-6 rounded-2xl border border-emerald-400/30 bg-emerald-500/5 p-5">
           <div class="flex items-center justify-between">
             <div>
               <p class="text-xs uppercase tracking-widest text-emerald-300">Overall Performance Score</p>
-              <p class="text-4xl font-semibold text-emerald-200">{dataset.overallScore}</p>
+              <p class="text-4xl font-semibold text-emerald-200">{enhanced.overallScore}</p>
             </div>
             <div class="text-right">
               <span class="inline-block rounded-full bg-emerald-500/20 px-4 py-1 text-lg font-medium text-emerald-100">
-                Grade {dataset.grade || 'C'}
+                Grade {enhanced.grade || "C"}
               </span>
-              {#if dataset.confidence}
-                <p class="mt-1 text-xs text-slate-400">Confidence: {dataset.confidence}</p>
-              {/if}
+              {enhanced.confidence ? (
+                <p class="mt-1 text-xs text-slate-400">Confidence: {enhanced.confidence}</p>
+              ) : null}
             </div>
           </div>
-          {#if dataset.rum && dataset.rum.lcp_ms}
+          {enhanced.rum?.lcp_ms ? (
             <p class="mt-3 text-sm text-slate-300">
-              Real-user LCP: <span class="font-medium text-white">{Math.round(dataset.rum.lcp_ms)}ms</span>
+              Real-user LCP: <span class="font-medium text-white">{Math.round(enhanced.rum.lcp_ms)}ms</span>
             </p>
-          {/if}
+          ) : null}
         </div>
-      {/if}
+      ) : null}
 
       <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
         <p class="text-xs uppercase tracking-[0.15em] text-slate-500">Static summary</p>
@@ -183,7 +189,7 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
   ) : null}
 
   <!-- Monetization nudge using enhanced data -->
-  {#if dataset.overallScore && dataset.overallScore < 75}
+  {enhanced.overallScore && enhanced.overallScore < 75 ? (
     <div class="mt-6 rounded-2xl border border-amber-400/30 bg-amber-500/5 p-5 text-center">
       <p class="text-amber-200">Your site is losing money due to speed issues.</p>
       <a href="https://rocket.net/?aff=Jstilley" 
@@ -193,5 +199,5 @@ const calculatorId = `proof-calc-${slug.replace(/[^a-z0-9-]/gi, "-")}`;
       </a>
       <p class="mt-2 text-xs text-slate-400">Trusted by thousands of WordPress &amp; Shopify owners</p>
     </div>
-  {/if}
+  ) : null}
 </section>

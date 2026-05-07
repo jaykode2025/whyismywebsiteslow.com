@@ -1,0 +1,55 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Privacy Policy" description="Privacy Policy for whyismywebsiteslow.com.">
+  <section class="mx-auto max-w-3xl px-4 py-12">
+    <h1 class="text-3xl font-semibold text-slate-100">Privacy Policy</h1>
+    <p class="mt-3 text-sm text-slate-400">Last updated: {new Date().toLocaleDateString()}</p>
+
+    <div class="prose prose-invert mt-8 max-w-none prose-p:text-slate-300 prose-li:text-slate-300 prose-headings:text-slate-100 prose-strong:text-slate-100">
+      <p>
+        This Privacy Policy explains how whyismywebsiteslow.com ("we", "us") collects, uses, and shares information when
+        you use our website and services (the "Service").
+      </p>
+
+      <h2>Information we collect</h2>
+      <ul>
+        <li><strong>Account information</strong>: if you create an account, we collect information you provide.</li>
+        <li><strong>Usage data</strong>: basic analytics and logs (for example, pages viewed, actions taken, and error logs).</li>
+        <li><strong>Website URLs you scan</strong>: the URLs you submit for analysis and related scan/report metadata.</li>
+        <li><strong>Payment information</strong>: payments are processed by our payment provider; we receive limited billing metadata (for example, plan, status, and transaction identifiers) but not full card details.</li>
+      </ul>
+
+      <h2>How we use information</h2>
+      <ul>
+        <li>Provide, maintain, and improve the Service.</li>
+        <li>Generate and display performance reports you request.</li>
+        <li>Prevent abuse, fraud, and security incidents.</li>
+        <li>Communicate about service updates and billing-related notices.</li>
+      </ul>
+
+      <h2>Sharing</h2>
+      <p>
+        We share information with service providers that help us operate the Service (for example, hosting, analytics,
+        and payments). We may also disclose information if required by law or to protect rights, safety, and security.
+      </p>
+
+      <h2>Data retention</h2>
+      <p>
+        We keep information as long as necessary for the purposes described above, including to comply with legal
+        obligations, resolve disputes, and enforce agreements.
+      </p>
+
+      <h2>Your choices</h2>
+      <ul>
+        <li>You can stop using the Service at any time.</li>
+        <li>You can request deletion of your account data where applicable.</li>
+      </ul>
+
+      <h2>Changes</h2>
+      <p>We may update this policy from time to time by posting a new version on this page.</p>
+    </div>
+  </section>
+</BaseLayout>
+

@@ -44,12 +44,12 @@
         
         <h2 class="text-3xl font-bold text-slate-100 mb-4">Don't leave your revenue to chance.</h2>
         <p class="text-slate-400 mb-8">
-          Most sites lose 15-20% of conversions just because of load time. Get our $12/mo monitoring to ensure you stay fast.
+          Most sites lose 15-20% of conversions just because of load time. Upgrade to Pro for AI recommendations and priority features.
         </p>
 
         <div class="flex flex-col gap-3">
           <a href="/billing" class="w-full rounded-xl bg-sky-500 px-6 py-4 font-bold text-white hover:bg-sky-400 transition-all text-center">
-            Start Monitoring — $12/mo
+            Upgrade to Pro — $29/mo
           </a>
           <button class="w-full rounded-xl border border-white/10 bg-white/5 px-6 py-4 font-semibold text-slate-300 hover:bg-white/10 transition-all" on:click={close}>
             Maybe later

@@ -2,6 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Card from "../components/ui/Card.astro";
 import Button from "../components/ui/Button.astro";
+import PaddleCheckoutButton from "../components/billing/PaddleCheckoutButton.astro";
 import { getPlanLimits, getUserPlan, isPro, type PlanInfo } from "../lib/plan";
 
 const user = Astro.locals.user ?? null;
@@ -11,9 +12,12 @@ const planInfo: PlanInfo = user && supabase
   ? await getUserPlan(supabase, user.id)
   : { plan: "free", status: "inactive", currentPeriodEnd: null };
 const limits = getPlanLimits(planInfo.plan);
+
+const proCheckoutUrl = import.meta.env.PUBLIC_PADDLE_PRO_CHECKOUT_URL as string | undefined;
+const enterpriseCheckoutUrl = import.meta.env.PUBLIC_PADDLE_ENTERPRISE_CHECKOUT_URL as string | undefined;
 ---
 
-<BaseLayout title="Pricing and Billing" description="Free scan, $19 report unlock, $12/month monitoring, and $149+ done-for-you fixes.">
+<BaseLayout title="Pricing and Billing" description="Free scan, $29/month Pro with AI recommendations, and $300 Enterprise for white-label + batch scanning.">
   <section class="mx-auto max-w-5xl px-4 py-12">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
@@ -40,7 +44,7 @@ const limits = getPlanLimits(planInfo.plan);
         <p class="mt-3 text-2xl text-slate-100">{isAuthed ? planInfo.plan.toUpperCase() : "Start Free"}</p>
         <p class="mt-1 text-sm text-slate-400">{isAuthed ? `Status: ${planInfo.status}` : "No login required to run your first scan."}</p>
         <p class="mt-4 text-sm text-slate-300">
-          Free is for diagnosis. The $19 unlock is for a one-time full implementation plan. Monitoring is for ongoing regression protection. Done-for-you fixes are for teams that want execution support.
+          Free is for diagnosis. Pro is for ongoing, AI-assisted recommendations and exports. Enterprise is for teams that need white-label reporting, batch scanning, and optional support.
         </p>
         <div class="mt-4 space-y-2 text-xs text-slate-400">
           <p>Projects included: {limits.maxProjects}</p>
@@ -53,29 +57,37 @@ const limits = getPlanLimits(planInfo.plan);
           <p class="text-xs uppercase tracking-[0.12em] text-slate-500">Offer ladder</p>
           <ul class="mt-3 space-y-2 text-sm text-slate-300">
             <li>Free scan: diagnosis and preview</li>
-            <li>$19 detailed report: one-time unlock from the report page</li>
-            <li>$12/month monitoring: recurring scans and regressions</li>
-            <li>$149+ fix-it service: done-for-you implementation help</li>
+            <li>Pro — $29/month: AI recommendations, priority features, exports (PDF and more)</li>
+            <li>Enterprise — $300/month: white-label, batch scans, optional support</li>
           </ul>
         </div>
       </Card>
 
       <div class="grid gap-6 md:grid-cols-2">
         <Card>
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Detailed report</p>
-          <h2 class="mt-2 text-2xl text-slate-100">Full report - $19</h2>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Pro</p>
+          <h2 class="mt-2 text-2xl text-slate-100">Pro - $29/month</h2>
           <p class="mt-3 text-sm text-slate-300">
-            Best if you want a complete one-time fix checklist after running a scan.
+            Best if you want AI recommendations, priority improvements, and exports for sharing internally or with clients.
           </p>
           <ul class="mt-4 space-y-2 text-sm text-slate-300">
-            <li>Full ranked fix list</li>
-            <li>Deeper implementation notes</li>
-            <li>One-time purchase on a per-report basis</li>
+            <li>AI recommendations based on your scans</li>
+            <li>Priority features and faster iteration</li>
+            <li>Exports (PDF and other formats we support)</li>
           </ul>
           <div class="mt-6 space-y-3">
             <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-              Buy this from the report page after you run a free scan.
+              Start with a free scan, then upgrade to Pro when you’re ready.
             </div>
+            <PaddleCheckoutButton
+              href={proCheckoutUrl}
+              data-track-event="billing_checkout_clicked"
+              data-track-source="billing-pro-card"
+              data-track-offer-context="pro"
+              data-track-cta-variant="primary"
+            >
+              Upgrade to Pro — $29/mo
+            </PaddleCheckoutButton>
             <Button href="/scan" variant="ghost" class="w-full rounded-xl border-white/10" data-track-event="homepage_cta_clicked" data-track-source="billing-report-card" data-track-offer-context="free-scan" data-track-cta-variant="secondary">
               Scan your site free
             </Button>
@@ -83,10 +95,10 @@ const limits = getPlanLimits(planInfo.plan);
         </Card>
 
         <Card>
-          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Monitoring</p>
-          <h2 class="mt-2 text-2xl text-slate-100">Monitoring - $12/month</h2>
+          <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Enterprise</p>
+          <h2 class="mt-2 text-2xl text-slate-100">Enterprise - $300/month</h2>
           <p class="mt-3 text-sm text-slate-300">
-            Best if you want ongoing visibility into regressions, scan history, and repeated checks after fixes ship.
+            Best for agencies and teams that need white-label reporting, batch scans, and optional support.
           </p>
 
           {isPro(planInfo) ? (
@@ -95,27 +107,30 @@ const limits = getPlanLimits(planInfo.plan);
             </p>
           ) : isAuthed ? (
             <div class="mt-4 space-y-3">
-              <form method="post" action="/api/billing/checkout">
-                <input type="hidden" name="plan" value="pro" />
-                <input type="hidden" name="offerContext" value="billing-monitoring" />
-                <input type="hidden" name="ctaVariant" value="primary" />
-                <Button type="submit" size="lg" class="w-full rounded-xl">
-                  Start monitoring - $12/month
-                </Button>
-              </form>
+              <PaddleCheckoutButton
+                href={enterpriseCheckoutUrl}
+                variant="ghost"
+                class="border-white/10"
+                data-track-event="billing_checkout_clicked"
+                data-track-source="billing-enterprise-card"
+                data-track-offer-context="enterprise"
+                data-track-cta-variant="primary"
+              >
+                Enterprise checkout — $300/mo
+              </PaddleCheckoutButton>
             </div>
           ) : (
             <div class="mt-4 space-y-3">
               <Button href="/signup?next=%2Fbilling" size="lg" class="w-full rounded-xl">
-                Create account to start monitoring
+                Create account to contact us
               </Button>
-              <p class="text-xs text-slate-400">Checkout requires an account so monitoring can be tied to your projects.</p>
+              <p class="text-xs text-slate-400">Enterprise is set up with your team based on needs (white-label, batch scanning, support).</p>
             </div>
           )}
           <ul class="mt-4 space-y-2 text-sm text-slate-300">
-            <li>Recurring scans and score tracking</li>
-            <li>Regression alerts and project history</li>
-            <li>Simple plan for site owners and small teams</li>
+            <li>White-labeled experience</li>
+            <li>Batch scanning workflows</li>
+            <li>Optional support</li>
           </ul>
         </Card>
       </div>
@@ -123,12 +138,12 @@ const limits = getPlanLimits(planInfo.plan);
 
     <div class="mt-8">
       <Card class="border-amber-400/20 bg-amber-400/5">
-        <p class="text-xs uppercase tracking-[0.2em] text-amber-200/80">Done-for-you option</p>
+        <p class="text-xs uppercase tracking-[0.2em] text-amber-200/80">Need something custom?</p>
         <div class="mt-3 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 class="text-2xl text-slate-100">Need the fixes handled for you? Starts at $149.</h2>
+            <h2 class="text-2xl text-slate-100">Need help implementing fixes?</h2>
             <p class="mt-2 text-sm text-slate-300">
-              Use the scanner to diagnose the problem, then hand off implementation if speed is hurting leads or revenue now.
+              If you want hands-on help, we can scope a custom engagement after you run a scan.
             </p>
           </div>
           <Button href="/fix-it" size="lg" variant="ghost" class="rounded-xl border-white/10" data-track-event="service_cta_clicked" data-track-source="billing-service-card" data-track-offer-context="service" data-track-cta-variant="primary">
