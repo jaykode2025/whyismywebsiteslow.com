@@ -5,6 +5,7 @@ import SiteFooter from "../components/SiteFooter.astro";
 import FunnelTracking from "../components/FunnelTracking.astro";
 import ExitIntent from "../components/ExitIntent.svelte";
 import BackToTop from "../components/ui/BackToTop.svelte";
+import SpeedInsights from "@vercel/speed-insights/astro";
 
 const {
   title = "Why Is My Website Slow?",
@@ -62,5 +63,6 @@ const ogImageUrl = ogImage ?? `${siteOrigin}/og-default.png`;
     </div>
     <ExitIntent client:only="svelte" />
     <BackToTop client:idle />
+    <SpeedInsights />
   </body>
 </html>
