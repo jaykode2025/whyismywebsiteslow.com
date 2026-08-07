@@ -1,1 +1,48 @@
-Nothing should be ignored since the changes only include source/config files (.md, .sql) without any build artifacts, dependencies, or temp files.
+```gitignore
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Editors
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.coverage
+coverage/
+htmlcov/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Test coverage
+.coverage*
+coverage.xml
+htmlcov/
+
+# Local configuration
+.env*
+!.env.example
+
+# OS generated files
+.DS_Store
+Thumbs.db
+```

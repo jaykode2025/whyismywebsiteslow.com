@@ -2,6 +2,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { analyzeSeo } from "./seoAnalyzer";
 
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
 type ChartDatum = {
   label: string;
   score: number;
@@ -103,65 +107,73 @@ type ReportAggregate = {
   cls: number;
 };
 
+// ============================================================================
+// Constants
+// ============================================================================
+
 const REPORTS_FILE = resolve(process.cwd(), ".data/reports.json");
+
 const STOP_TOKENS = new Set([
-  "why",
-  "is",
-  "my",
-  "site",
-  "website",
-  "slow",
-  "due",
-  "for",
-  "with",
-  "and",
-  "the",
-  "your",
-  "this",
-  "that",
+  "why", "is", "my", "site", "website", "slow", "due", "for", "with", "and",
+  "the", "your", "this", "that",
 ]);
 
 const INDUSTRY_TRAFFIC: Record<string, number> = {
-  ecommerce: 65000,
-  saas: 28000,
-  news: 120000,
-  healthcare: 35000,
-  finance: 42000,
-  education: 38000,
-  "real-estate": 31000,
-  travel: 54000,
-  restaurant: 26000,
+  ecommerce: 65000, saas: 28000, news: 120000, healthcare: 35000,
+  finance: 42000, education: 38000, "real-estate": 31000,
+  travel: 54000, restaurant: 26000,
 };
 
 const INDUSTRY_AOV: Record<string, number> = {
-  ecommerce: 92,
-  saas: 149,
-  news: 18,
-  healthcare: 210,
-  finance: 170,
-  education: 120,
-  "real-estate": 380,
-  travel: 260,
-  restaurant: 48,
+  ecommerce: 92, saas: 149, news: 18, healthcare: 210,
+  finance: 170, education: 120, "real-estate": 380,
+  travel: 260, restaurant: 48,
 };
 
 const INDUSTRY_CR: Record<string, number> = {
-  ecommerce: 2.3,
-  saas: 2.1,
-  news: 1.2,
-  healthcare: 2.0,
-  finance: 1.7,
-  education: 1.8,
-  "real-estate": 2.4,
-  travel: 1.6,
-  restaurant: 2.9,
+  ecommerce: 2.3, saas: 2.1, news: 1.2, healthcare: 2.0,
+  finance: 1.7, education: 1.8, "real-estate": 2.4,
+  travel: 1.6, restaurant: 2.9,
 };
+
+// CWV Thresholds (milliseconds unless noted)
+const CWV_THRESHOLDS = {
+  LCP: { good: 2500, needsImprovement: 4000 },
+  INP: { good: 200, needsImprovement: 500 },
+  CLS: { good: 0.1, needsImprovement: 0.25 },
+  TTFB: { good: 800 },
+} as const;
+
+// Scoring weights
+const SCORING_WEIGHTS = {
+  RUM_HIGH_CONFIDENCE: 0.6,
+  RUM_MEDIUM_CONFIDENCE: 0.4,
+  LAB: 0.4,
+} as const;
+
+// Fallback values
+const FALLBACKS = {
+  LCP_MS: 3400,
+  INP_MS: 280,
+  CLS: 0.17,
+  SCORE: 68,
+  CONVERSION_RATE: 1.8,
+  IMPROVEMENT_PCT_MIN: 8,
+  IMPROVEMENT_PCT_MAX: 36,
+} as const;
 
 let cachedReports: ReportSnapshot[] | null = null;
 
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+// ============================================================================
+// Utility Functions
+// ============================================================================
 
-const hashString = (value: string) => {
+/** Clamps a value between min and max */
+const clamp = (value: number, min: number, max: number) => 
+  Math.max(min, Math.min(max, value));
+
+/** Hashes a string using djb2 algorithm */
+const hashString = (value: string): number => {
   let hash = 5381;
   for (let i = 0; i < value.length; i += 1) {
     hash = (hash * 33) ^ value.charCodeAt(i);
@@ -169,21 +181,25 @@ const hashString = (value: string) => {
   return Math.abs(hash >>> 0);
 };
 
-const avg = (values: number[]) =>
+/** Calculates average of numeric array, returns NaN if empty */
+const avg = (values: number[]): number =>
   values.length > 0 ? values.reduce((sum, item) => sum + item, 0) / values.length : Number.NaN;
 
-const firstNumber = (value: string) => {
+/** Extracts first number from a string */
+const firstNumber = (value: string): number => {
   const match = value.match(/-?\d+(\.\d+)?/);
   return match ? Number.parseFloat(match[0]) : Number.NaN;
 };
 
-const parseSecondsToMs = (value: string) => {
+/** Converts time string to milliseconds */
+const parseSecondsToMs = (value: string): number => {
   const parsed = firstNumber(value);
   if (Number.isNaN(parsed)) return Number.NaN;
   return value.includes("ms") ? parsed : parsed * 1000;
 };
 
-const parsePercentRange = (value: string, fallback = 1.8) => {
+/** Extracts average percentage from range string */
+const parsePercentRange = (value: string, fallback = FALLBACKS.CONVERSION_RATE): number => {
   const matches = value.match(/\d+(\.\d+)?/g);
   if (!matches || matches.length === 0) return fallback;
   const values = matches.map((part) => Number.parseFloat(part));
@@ -191,28 +207,40 @@ const parsePercentRange = (value: string, fallback = 1.8) => {
   return Number.isFinite(average) ? average : fallback;
 };
 
-const lcpScore = (lcpMs: number) => {
-  if (lcpMs <= 2500) return 95;
-  if (lcpMs <= 3200) return 80;
+// ============================================================================
+// Scoring Functions
+// ============================================================================
+
+/** Scores LCP based on CWV thresholds */
+const lcpScore = (lcpMs: number): number => {
+  if (lcpMs <= CWV_THRESHOLDS.LCP.good) return 95;
+  if (lcpMs <= CWV_THRESHOLDS.LCP.needsImprovement) return 80;
   if (lcpMs <= 4000) return 60;
   return 40;
 };
 
-const inpScore = (inpMs: number) => {
-  if (inpMs <= 200) return 95;
+/** Scores INP based on CWV thresholds */
+const inpScore = (inpMs: number): number => {
+  if (inpMs <= CWV_THRESHOLDS.INP.good) return 95;
   if (inpMs <= 300) return 78;
-  if (inpMs <= 500) return 55;
+  if (inpMs <= CWV_THRESHOLDS.INP.needsImprovement) return 55;
   return 35;
 };
 
-const clsScore = (cls: number) => {
-  if (cls <= 0.1) return 95;
+/** Scores CLS based on CWV thresholds */
+const clsScore = (cls: number): number => {
+  if (cls <= CWV_THRESHOLDS.CLS.good) return 95;
   if (cls <= 0.2) return 72;
   if (cls <= 0.3) return 52;
   return 35;
 };
 
-const tokenize = (value: string | undefined | null) => {
+// ============================================================================
+// Text Processing Functions
+// ============================================================================
+
+/** Tokenizes text for matching, filtering stop words */
+const tokenize = (value: string | undefined | null): string[] => {
   if (!value) return [];
   return value
     .toLowerCase()
@@ -222,6 +250,7 @@ const tokenize = (value: string | undefined | null) => {
     .filter((token) => token.length > 2 && !STOP_TOKENS.has(token));
 };
 
+/** Extracts searchable text from report */
 const reportText = (report: ReportSnapshot) => {
   const insightText = report.insights
     .map((insight) => `${insight.title ?? ""} ${insight.category ?? ""}`)
@@ -229,6 +258,11 @@ const reportText = (report: ReportSnapshot) => {
   return `${report.url} ${report.canonicalHost} ${insightText}`.toLowerCase();
 };
 
+// ============================================================================
+// Report Data Access Functions
+// ============================================================================
+
+/** Loads and caches report snapshots from JSON file */
 const getReports = (): ReportSnapshot[] => {
   if (cachedReports) return cachedReports;
   if (!existsSync(REPORTS_FILE)) {
@@ -245,6 +279,7 @@ const getReports = (): ReportSnapshot[] => {
       const report = value?.report;
       if (!report) continue;
       if (value?.status && value.status !== "done") continue;
+      
       reports.push({
         url: String(report.url ?? ""),
         canonicalHost: String(report.canonicalHost ?? ""),
@@ -279,6 +314,9 @@ const getReports = (): ReportSnapshot[] => {
   }
 };
 
+// Duplicate code removed - see lines 317-353 (this was accidentally duplicated)
+
+/** Aggregates metrics from multiple reports */
 const aggregateReports = (reports: ReportSnapshot[]): ReportAggregate | null => {
   if (reports.length === 0) return null;
 
