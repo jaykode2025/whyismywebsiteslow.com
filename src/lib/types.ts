@@ -46,6 +46,18 @@ export type RecommendationSummary = {
   nextBestAction: "unlock-report" | "start-monitoring" | "request-service";
 };
 
+export type CodeSnippet = {
+  id: string;
+  title: string;
+  description: string;
+  language: string;
+  code: string;
+  placement: string;
+  impact: "high" | "medium" | "low";
+  effort: "low" | "medium" | "high";
+  docs: Array<{ url: string; label: string }>;
+};
+
 export type ReportBenchmark = {
   cohort: string;
   sampleSize: number;
