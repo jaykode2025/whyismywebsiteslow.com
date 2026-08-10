@@ -1,7 +1,8 @@
 {
   "recommendations": [
     "astro-build.astro-vscode",
-    "frenco.vscode-vercel"
+    "frenco.vscode-vercel",
+    "google.geminicodeassist"
   ],
   "unwantedRecommendations": []
 }

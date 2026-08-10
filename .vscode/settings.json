@@ -27,5 +27,18 @@
   "tailwindCSS.lint.suggestCanonicalClasses": "warning",
   "tailwindCSS.inspectPort": null,
   "tailwindCSS.experimental.configFile": null,
-  "editor.aiStats.enabled": true
+  "editor.aiStats.enabled": true,
+  "astro.content-intellisense": true,
+  "astro.trace.server": "verbose",
+  "astro.updateImportsOnFileMove.enabled": true,
+  "chat.mcp.serverSampling": {
+    "whyismywebsiteslow/.vscode/mcp.json: io.github.github/github-mcp-server": {
+      "allowedModels": [
+        "copilot/auto",
+        "copilotcli/claude-haiku-4.5",
+        "copilotcli/gpt-5-mini",
+        "copilotcli/mai-code-1-flash-picker"
+      ]
+    }
+  }
 }
