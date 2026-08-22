@@ -3,12 +3,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import Button from "../components/ui/Button.astro";
 
 const next = Astro.url.searchParams.get("next") ?? "/billing";
+const error = Astro.url.searchParams.get("error");
 ---
 
 <BaseLayout title="Sign up">
   <section class="mx-auto max-w-md px-4 py-16">
     <h1 class="text-3xl font-semibold text-slate-100">Create account</h1>
     <p class="mt-2 text-sm text-slate-400">Create an account to save projects and track scan history.</p>
+
+    {error ? (
+      <p class="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">
+        {error}
+      </p>
+    ) : null}
 
     <form class="mt-8 space-y-4" method="post" action="/api/auth/signup">
       <input type="hidden" name="next" value={next} />

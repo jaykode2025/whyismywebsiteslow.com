@@ -19,7 +19,7 @@ const linkClass = (href: string) =>
     <a href="/about" class={linkClass("/about")}>About</a>
     <a href="/api" class={linkClass("/api")}>API</a>
     <a href="/report/example" class={linkClass("/report")}>Examples</a>
-    {!user ? <a href="/login" class={linkClass("/login")}>Log in</a> : null}
+    {user ? <a href="/account" class={linkClass("/account")}>Account</a> : <a href="/login" class={linkClass("/login")}>Log in</a>}
   </nav>
   <div class="flex items-center gap-3">
     {user ? (
@@ -38,7 +38,11 @@ const linkClass = (href: string) =>
         <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/about") ? "bg-white/5 text-slate-100" : ""}`} href="/about">About</a>
         <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/api") ? "bg-white/5 text-slate-100" : ""}`} href="/api">API</a>
         <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/report") ? "bg-white/5 text-slate-100" : ""}`} href="/report/example">Examples</a>
-        {!user ? <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/login") ? "bg-white/5 text-slate-100" : ""}`} href="/login">Log in</a> : null}
+        {user ? (
+          <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/account") ? "bg-white/5 text-slate-100" : ""}`} href="/account">Account</a>
+        ) : (
+          <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/login") ? "bg-white/5 text-slate-100" : ""}`} href="/login">Log in</a>
+        )}
       </nav>
     </details>
   </div>

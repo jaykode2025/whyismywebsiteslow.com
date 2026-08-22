@@ -248,3 +248,24 @@ No lint script/config exists in this project (verified: no `.eslintrc*`, no lint
 1. **Stripe live verification**: I could not exercise an actual Stripe Checkout Session round-trip (create → pay in test mode → webhook → entitlement) because no real `STRIPE_SECRET_KEY`/price IDs are configured in this environment. The code paths are verified correct by inspection (webhook signature check, idempotency, price→plan mapping all pre-existed and are sound), but per your own instruction I won't claim the full flow is "tested" until it's actually been run with real Stripe test keys. **Please run one real test-mode checkout** (or share test keys in a safe channel) before treating billing as launch-ready.
 2. **DNS-rebinding closure**: left open, documented, not built - would need a custom fetch dispatcher. Let me know if you want that built now or want to keep it as a documented residual risk.
 3. **Legacy content-collections flag**: `legacy.collectionsBackwardsCompat: true` unblocks the guides today but is explicitly a bridge in Astro 7, not a permanent feature. Fine to leave for now; flag it for a future migration to the loader-based API.
+
+---
+
+## 13. Session 2 — Account Basics
+
+Added the account-management surface that didn't exist at all before (verified: no forgot-password, no settings page, no self-service billing management, no account deletion anywhere in the codebase prior to this).
+
+**New pages:**
+- `/forgot-password` - request a reset link. Always shows the same "check your email" result regardless of whether the address exists (no user-enumeration), and rate-limited.
+- `/reset-password` - lands from the emailed link (`?code=...`), exchanges it for a real session server-side via `supabase.auth.exchangeCodeForSession`, then reuses the normal authenticated password-update endpoint - no separate "recovery" code path to maintain.
+- `/account` - email, plan/status, "Manage billing" (Stripe customer portal, only shown once a Stripe customer exists) or "Upgrade plan" otherwise, change-email form, change-password form, and a delete-account flow requiring the user to type `DELETE` to confirm.
+
+**New API routes:** `api/auth/forgot-password`, `api/account/update-email`, `api/account/update-password` (shared by both `/account` and `/reset-password`), `api/account/delete`, `api/billing/portal`. All CSRF-protected the same way existing state-changing routes are.
+
+**Account deletion** cancels any active Stripe subscription first (best-effort), then deletes the Supabase auth user. DB cleanup relies on existing FK constraints rather than new code: `projects`/`subscriptions` cascade-delete, `scans.user_id` is set `NULL` (report content stays reachable by its share link - consistent with the per-report, not per-user, entitlement model documented in §2).
+
+**Also fixed while in this area:** `/login` and `/signup` were silently swallowing their own `?error=` redirect param - a failed login/signup showed no error message at all. Both now render it. Consolidated three near-duplicate `sanitizeNextPath` implementations (login.ts, signup.ts, and now the new update-password.ts) into one `src/lib/safeRedirect.ts`.
+
+**Verified:** `npx tsc --noEmit` (clean), `npm run build` (clean, same pre-existing warnings only), `npm test` (10/10). Not exercised live for the same reason as Stripe checkout in §12 - no real Supabase/Stripe credentials in this environment. The Stripe portal route (`api/billing/portal`) has the same "verified by inspection, not by a live call" caveat as the checkout flow.
+
+**Not built (out of scope for this pass, per your prioritization):** admin dashboard, re-verifying a current password before allowing a password change (Supabase's `updateUser` doesn't require it for an already-authenticated session - acceptable for MVP, worth revisiting if this becomes a compliance concern), and email notifications for these account events (no "your email was changed" confirmation email beyond Supabase's own).

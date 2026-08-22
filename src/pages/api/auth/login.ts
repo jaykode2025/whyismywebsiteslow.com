@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { sanitizeNextPath } from "../../../lib/safeRedirect";
 
 export const POST: APIRoute = async (context) => {
   const supabase = context.locals.supabase;
@@ -15,10 +16,3 @@ export const POST: APIRoute = async (context) => {
 
   return context.redirect(next);
 };
-
-function sanitizeNextPath(value: string, fallback: string) {
-  const trimmed = value.trim();
-  if (!trimmed.startsWith("/")) return fallback;
-  if (trimmed.startsWith("//") || trimmed.startsWith("/\\")) return fallback;
-  return trimmed;
-}

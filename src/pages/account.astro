@@ -1,0 +1,127 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Card from "../components/ui/Card.astro";
+import Button from "../components/ui/Button.astro";
+import { getPlanLimits, getUserPlan, isPro, type PlanInfo } from "../lib/plan";
+
+const user = Astro.locals.user;
+const supabase = Astro.locals.supabase;
+
+if (!user) {
+  return Astro.redirect(`/login?next=${encodeURIComponent("/account")}`);
+}
+
+const planInfo: PlanInfo = supabase ? await getUserPlan(supabase, user.id) : { plan: "free", status: "inactive", currentPeriodEnd: null };
+const limits = getPlanLimits(planInfo.plan);
+const csrfToken = Astro.locals.csrfToken ?? "";
+
+const error = Astro.url.searchParams.get("error");
+const updated = Astro.url.searchParams.get("updated");
+---
+
+<BaseLayout title="Account settings" description="Manage your account, password, and billing." noindex={true}>
+  <section class="mx-auto max-w-2xl px-4 py-12">
+    <h1 class="text-3xl font-semibold text-slate-100">Account</h1>
+    <p class="mt-2 text-sm text-slate-400">Signed in as {user.email}</p>
+
+    {error ? (
+      <p class="mt-6 rounded-2xl border border-rose-400/20 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">{error}</p>
+    ) : null}
+    {updated === "email" ? (
+      <p class="mt-6 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">
+        Check your new email address for a confirmation link - your email won't change until you click it.
+      </p>
+    ) : null}
+    {updated === "password" ? (
+      <p class="mt-6 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">
+        Password updated.
+      </p>
+    ) : null}
+
+    <div class="mt-8 space-y-6">
+      <Card>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Plan</p>
+        <p class="mt-2 text-2xl text-slate-100">{planInfo.plan.toUpperCase()}</p>
+        <p class="mt-1 text-sm text-slate-400">Status: {planInfo.status}</p>
+        <div class="mt-3 space-y-1 text-xs text-slate-400">
+          <p>Projects included: {limits.maxProjects}</p>
+          <p>Monthly scans included: {limits.monthlyScanLimit}</p>
+        </div>
+        {planInfo.currentPeriodEnd ? (
+          <p class="mt-1 text-xs text-slate-500">Renews: {new Date(planInfo.currentPeriodEnd).toLocaleDateString()}</p>
+        ) : null}
+        <div class="mt-4 flex flex-wrap gap-3">
+          {isPro(planInfo) ? (
+            <form method="post" action="/api/billing/portal">
+              <Button type="submit" variant="ghost" class="rounded-xl border-white/10">
+                Manage billing
+              </Button>
+            </form>
+          ) : (
+            <Button href="/billing" class="rounded-xl">Upgrade plan</Button>
+          )}
+          <Button href="/projects" variant="ghost" class="rounded-xl border-white/10">View projects</Button>
+        </div>
+      </Card>
+
+      <Card>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Email</p>
+        <form class="mt-4 space-y-3" method="post" action="/api/account/update-email">
+          <input type="hidden" name="_csrf" value={csrfToken} />
+          <input
+            class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100"
+            type="email"
+            name="email"
+            required
+            value={user.email}
+            autocomplete="email"
+          />
+          <Button type="submit" class="rounded-xl">Update email</Button>
+        </form>
+      </Card>
+
+      <Card>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Password</p>
+        <form class="mt-4 space-y-3" method="post" action="/api/account/update-password">
+          <input type="hidden" name="_csrf" value={csrfToken} />
+          <input type="hidden" name="redirectTo" value="/account" />
+          <input
+            class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-slate-100"
+            type="password"
+            name="password"
+            required
+            minlength="8"
+            autocomplete="new-password"
+            placeholder="New password"
+          />
+          <Button type="submit" class="rounded-xl">Update password</Button>
+        </form>
+      </Card>
+
+      <Card class="border-rose-400/20">
+        <p class="text-xs uppercase tracking-[0.2em] text-rose-300/80">Danger zone</p>
+        <p class="mt-2 text-sm text-slate-300">
+          Deleting your account removes your projects and cancels any active subscription. Reports you've generated
+          stay reachable by their share link, matching how sharing works everywhere else on this site.
+        </p>
+        <form class="mt-4 flex flex-wrap items-center gap-3" method="post" action="/api/account/delete">
+          <input type="hidden" name="_csrf" value={csrfToken} />
+          <input
+            class="w-40 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100"
+            type="text"
+            name="confirmation"
+            required
+            placeholder='Type "DELETE"'
+          />
+          <Button type="submit" variant="ghost" class="rounded-xl border-rose-400/30 text-rose-200 hover:border-rose-400/60">
+            Delete account
+          </Button>
+        </form>
+      </Card>
+
+      <form method="post" action="/api/auth/logout">
+        <Button type="submit" variant="ghost" class="w-full rounded-xl border-white/10">Log out</Button>
+      </form>
+    </div>
+  </section>
+</BaseLayout>
