@@ -1,0 +1,250 @@
+# Project Audit — WhyIsMyWebsiteSlow.com
+
+**Date:** 2026-08-22
+**Scope:** Full-stack architecture, security, UX, SEO, and business audit, plus a first pass of P0/P1 fixes.
+
+---
+
+## 1. Executive Summary
+
+This is a real, working Astro 7 + Svelte + Supabase + Stripe application, not a prototype. `npm run build`, `npx tsc --noEmit`, and `npm test` all pass cleanly. The core loop — submit a URL, get a scan (CrUX real-user data + Google's hosted PageSpeed API + in-house HTML/SEO checks), see a report, pay to unlock the full report — works end-to-end today.
+
+Three things were quietly broken in ways that cost real money or created real risk, and have been fixed in this pass:
+
+1. **The pricing page's "Upgrade" buttons were almost certainly dead.** They pointed at a Paddle checkout that was never configured (no env vars, no webhook), while a fully-working Stripe subscription endpoint sat unused. **Fixed** — `/billing` now uses Stripe end-to-end.
+2. **The scanner's SSRF protection had real gaps.** A validated public URL that redirected to an internal address (including the cloud metadata IP, `169.254.169.254`) would be followed silently. **Fixed** — redirects are now re-validated hop-by-hop, and the address blocklist covers link-local, `0.0.0.0`, and decimal-IP encodings.
+3. **8 real articles (WordPress/Shopify/Next.js speed content) were written but invisible.** They lived in a misplaced directory and the site's content collection silently returned zero entries at build time. **Fixed** — they're now live at `/guides/`, wired into the internal link graph, with a working embedded scanner.
+
+Everything else in this report is either already fixed (see §10) or documented as a prioritized recommendation, per explicit instruction not to over-build before the first paying customers exist.
+
+---
+
+## 2. Architecture
+
+```
+Frontend (Astro islands + Svelte)
+  src/pages/**            → routes, incl. src/pages/api/** for JSON/webhook endpoints
+  src/components/**        → ui/, seo/, billing removed (Paddle deleted)
+  src/layouts/BaseLayout   → shared shell, meta/OG/canonical, header/footer
+
+Scan pipeline
+  POST /api/scan  →  validate URL (src/lib/validate.ts)
+                  →  rate-limit by ip:host (in-memory, src/lib/slidingRateLimit.ts)
+                  →  Supabase+QStash configured? queue job → POST /api/worker/scan
+                     else run synchronously, store to .data/reports.json (local/dev only)
+  runEnhancedScan (src/lib/scan.enhanced.ts)
+                  →  runEnhancedScanner (src/lib/scanner/enhanced.ts): CrUX + Google PSI API
+                     in parallel, all via the now SSRF-hardened fetchWithRetry
+                  →  runChecks (src/lib/checks.ts): HTML/meta/header checks on the fetched page
+                  →  SEO analysis + image audit + scoring (kscore.ts / scoring.ts)
+  Playwright (src/lib/playwrightScan.ts) is an intentional no-op stub - disabled for
+  serverless stability per .env.example, zero live call sites. No real browser-based
+  measurement happens today; everything goes through Google's hosted PSI API + plain fetch.
+
+Reports
+  /report/[id]            → SSR page, gates full content behind isReportUnlocked()
+                             (per-report entitlement, not per-user - shareable-link model)
+  /report/example         → hardcoded always-unlocked demo, works correctly
+
+Auth            Supabase Auth only (signInWithPassword/signUp/signOut), session via
+                @supabase/ssr cookies, resolved every request in src/middleware.ts.
+                Protected pages redirect server-side (real, not client-side-only).
+
+Billing         Stripe only (Paddle removed this session). Subscriptions:
+                /billing → POST /api/billing/checkout → Stripe Checkout Session →
+                webhook (signature-verified, idempotent via stripe_webhook_events) →
+                subscriptions table → getUserPlan()/isPro() gates access.
+                One-time report unlock: report-checkout.ts → same webhook →
+                report_entitlements table → isReportUnlocked().
+
+Database        Supabase Postgres. RLS enabled and real for profiles/projects/
+                subscriptions. scans/report_entitlements have anon+authenticated
+                SELECT revoked outright - server (service-role) code is the sole
+                gatekeeper for report content, by design.
+
+Background jobs QStash-triggered worker/scan.ts (scan execution), worker/follow-up.ts,
+                worker/weekly-monitor.ts (regression alerts for paid "monitoring" plan).
+                No cron schedules this exist anywhere (no vercel.json). Preserved as-is
+                per explicit instruction - zero paying monitoring subscribers today,
+                not worth building scheduling infrastructure yet.
+
+External APIs   Google CrUX API, Google PageSpeed Insights API (optional key),
+                Stripe, Supabase, Upstash QStash, Resend (alert emails, optional).
+
+Deployment      Vercel, @astrojs/vercel adapter, output: "server".
+```
+
+---
+
+## 3. What Is Working
+
+- Production build, typecheck, and unit tests all pass clean.
+- Free scan → report → Stripe one-time unlock → webhook → entitlement is a real, correctly-wired flow (signature verification + idempotency both present and correct).
+- Auth is fully delegated to Supabase (no custom password handling); protected pages gate server-side.
+- RLS is genuinely configured, not cosmetic, for the tables that use it.
+- `/report/example` demo path works.
+- ~394 programmatic SEO pages (100+ problem pages × platform/industry/location combinations) build successfully with per-page unique title/description/canonical and real JSON-LD (breadcrumb, FAQ, Article).
+- 219 static pages generate correctly at build time.
+
+## 4. What Is Broken (ranked by severity, before this session's fixes)
+
+| # | Issue | Severity | Status |
+|---|---|---|---|
+| 1 | `/billing` upgrade buttons non-functional (Paddle, unconfigured) | **High** (revenue) | **Fixed** |
+| 2 | SSRF: redirects not re-validated; `169.254.0.0/16`/`0.0.0.0` unblocked | **High** (security) | **Fixed** |
+| 3 | `/api/debug` fully unauthenticated, leaks infra/env presence | **High** (security) | **Fixed** |
+| 4 | 8 real articles orphaned - content collection silently empty | **High** (lost SEO work) | **Fixed** |
+| 5 | Two conflicting `robots.txt` sources | **Medium** | **Fixed** |
+| 6 | `ScanProgress.svelte` polls forever, no timeout state | **Medium** (UX) | **Fixed** |
+| 7 | JSON-LD `logo`/`contactPoint` pointed at a 404 / fabricated phone number | **Medium** | **Fixed** |
+| 8 | `weekly-monitor.ts` worker exists but nothing schedules it | Medium, but **zero paying subscribers today** | Documented, not built (§9) |
+| 9 | `.env` with placeholder values committed to git history | Low (verified no real secret) | Documented, deferred (§9) |
+| 10 | 3 pSEO/content systems not integrated with each other | Medium (content debt) | Documented (§7, §9) |
+| 11 | In-memory rate limiting doesn't work across serverless instances | Medium | Documented (§9) |
+| 12 | `npm audit`: 3 high transitive advisories (`@astrojs/vercel`→`path-to-regexp`) | Low-Medium | Documented (§9) |
+
+---
+
+## 5. Security Risks
+
+**CRITICAL:** None found and still open.
+
+**HIGH (now fixed):**
+- SSRF via redirect-following to internal/metadata addresses - `src/lib/retry.ts` now fetches with `redirect: "manual"` and re-validates every hop's hostname before following it (capped at 5 hops).
+- SSRF blocklist gaps (`169.254.169.254` cloud metadata, `0.0.0.0`, decimal-IP encodings like `http://2130706433/`) - `src/lib/validate.ts` rewritten with a single `isBlockedHostname()` used both for submission-time validation and redirect re-validation.
+- `/api/debug` unauthenticated info-disclosure - now 404s unless `INTERNAL_DASHBOARD_KEY` is configured and provided.
+
+**MEDIUM (documented, not changed this session):**
+- No DNS-rebinding protection: the fix above re-validates hostnames, not resolved IPs. A domain that resolves to a public IP at submission time and is re-pointed (short TTL) to an internal IP before the (possibly queued) scan executes would still get through. Closing this fully requires a custom DNS-pinned fetch dispatcher (e.g. an `undici.Agent` with a `lookup` override) - a real but more invasive change, left for a dedicated pass.
+- In-memory rate limiting (`slidingRateLimit.ts`) is per-instance on Vercel's stateless functions - not an effective global limit in production. Only applied to `/api/scan`; auth/leads endpoints have none.
+- CSRF protection is inconsistent across state-changing endpoints (present on `/api/scan` and report-checkout, absent on `report/[id]/delete`, `leads/*`).
+- Non-constant-time comparisons for the QStash worker bearer token and the report manage-token hash (should use `timingSafeEqual` like `csrf.ts` does).
+- `internal/funnel.astro` grants access to *any* logged-in user, not just admins.
+
+**LOW:**
+- `.env` with placeholder-only values sits in git history on `origin/main` (verified: every value matches `.env.example`'s placeholder text or is an obvious stub - no real secret to rotate). Recommended cleanup, not urgent.
+- `npm audit`: 3 high-severity transitive advisories via `@astrojs/vercel` → `@vercel/routing-utils` → `path-to-regexp`. Fix requires bumping `@astrojs/vercel` to v8, a breaking change - needs a deliberate upgrade + retest cycle, not bundled into this pass.
+
+---
+
+## 6. Technical Debt
+
+- **Astro content collections use the legacy `type: "content"` API**, which Astro 7 silently skips at build time unless `legacy.collectionsBackwardsCompat: true` is set (now set, with a comment explaining why). Recommended P2: migrate `src/content.config.ts` to the modern loader-based API (`loader: glob(...)`) and drop the compat flag, since it's a bridge, not a permanent feature.
+- **`docs/ENHANCED-SCANNER.md`** is not documentation - it's a stale, full copy-paste of an old version of `src/lib/scanner/enhanced.ts`'s source code from before it was refactored to use `fetchWithRetry`. Misleading for anyone (human or AI) who reads it expecting prose docs; should be rewritten or deleted.
+- **Confirmed dead code:** `src/lib/scan.ts` (superseded by `scan.enhanced.ts`, says so in its own comment), `src/lib/psi.ts` (superseded by `scanner/enhanced.ts`'s own PSI fetcher), `src/lib/rateLimit.ts` (superseded by `slidingRateLimit.ts`). Left in place this session (not blocking, removing them is a clean but non-urgent follow-up) — recommend deleting in the next pass along with `src/lib/scanner/enhanced.ts`'s duplicate PSI-parsing logic.
+- **Three non-integrated pSEO/content systems**: `src/data/pseo.ts` (the live ~394-page system), a second root-level `[slug].astro` + `performance-datasets.json` system (2 entries, different theming/components), and the now-fixed `/guides/*` (8 hand-written articles). See `SEO_AUDIT.md` for the cannibalization detail.
+- Within `pseo.ts`'s 150 problem-page dataset, roughly half (10 platforms × 8 "issue-N" slugs = 80 pages) are near-identical templated filler (`quickWins`, `statistics`, and sentence structure are copy-paste across every "issue-N" page for a platform, only the noun phrase changes) - a real thin-content risk, detailed in `SEO_AUDIT.md`.
+- Repo hygiene: 3 overlapping AI-agent instruction docs (`agent.md`, `AGENTS.md`, `cursor.md`), several empty editor/agent tool-config directories, doc/config drift (`config/stripe/products-and-prices.sh` references env var names that don't match `src/lib/env.ts`).
+
+---
+
+## 7. UX Problems
+
+- **Fixed this session:** infinite scan-progress polling with no timeout/fallback state (`ScanProgress.svelte`); dead-loop "Checkout unavailable" button on `/billing`; conflicting `robots.txt`.
+- **`RecentScans.svelte`** falls back to fabricated example domains (`lawyersite.com`, `saassite.io`) with no "example data" label if its API call fails - presents fake social proof as real. Cheap fix, not done this session (cosmetic, not on the money path).
+- **Manage token** is shown once in plaintext with no copy-to-clipboard button (inconsistent with `ManageReport`/`ShareActions`, which have one) - easy to lose a token that can delete the report.
+- **Fix pages are cul-de-sacs**: `/fix/lcp`, `/fix/ttfb`, `/fix/render-blocking-css` have no CTA back to `/scan` and no related-links block.
+- Root `[slug].astro` pages (the second pSEO system) and the platform hub pages both cover overlapping topics with different visual treatments - a real "which page am I on" inconsistency for anyone who lands on both.
+
+---
+
+## 8. Product Opportunities (ranked for MVP)
+
+Per `PRODUCT-DOCTRINE.md` (already in the repo and a good source of truth - this audit validates the code against it rather than re-deriving strategy):
+
+1. **Make the free→paid funnel convert before adding anything new.** The single highest-leverage fix this session was making the paid path actually work (Stripe wiring). Nothing else matters if that's broken.
+2. **Recurring monitoring** is real, coded, and completely inert (no scheduler). This is the natural second revenue line once there's a paying base - re-activate `worker/weekly-monitor.ts` with a `vercel.json` cron the day the first monitoring customer signs up, not before.
+3. **Guides/content** (`/guides/`) now function as a real acquisition surface with a working embedded scanner CTA on every article - the flywheel from "SEO content → free scan → paid report" described in the doctrine is now actually closed for these 8 pages instead of theoretical.
+4. **Consolidating the pSEO systems** (see `SEO_AUDIT.md`) would meaningfully reduce thin-content/cannibalization risk before scaling to more programmatic pages - do this before writing hundreds more pages, not after.
+
+---
+
+## 9. Recommended Architecture
+
+```
+CURRENT (this session, after fixes)
+  Astro SSR + Svelte islands → Stripe (sole billing) → Supabase (RLS + service-role
+  gate for report content) → QStash-queued or sync scan → CrUX + Google PSI API +
+  in-house checks → file store (dev) / Supabase (prod)
+
+                              ↓ (next, once there's revenue to justify it)
+
+RECOMMENDED MVP+ (when there are paying monitoring customers)
+  Add: vercel.json cron → worker/weekly-monitor.ts (already written) → Resend alerts
+  Add: Upstash Redis-backed rate limiting (replaces in-memory, works across instances)
+  Add: DNS-pinned fetch dispatcher for full SSRF/rebinding closure
+  Migrate: content.config.ts off the legacy collections flag
+
+                              ↓ (future, once there's real usage data to justify it)
+
+FUTURE SCALABLE
+  Dedicated scan worker (real headless-browser measurement, replacing the
+  Google-PSI-only lab data) behind a proper queue, separate from the web tier
+  Competitor comparison / benchmark intelligence (the "moat" layer in doctrine)
+  Consolidated single pSEO content system with a real content data model
+```
+
+---
+
+## 10. Changes Actually Implemented This Session
+
+**Security / reliability (P0):**
+- `src/lib/validate.ts`: rewrote SSRF blocklist as a single `isBlockedHostname()` - fixed `169.254.0.0/16`, `0.0.0.0`, decimal-IP-encoding gaps; removed the over-broad blanket `172.*` block in favor of the precise `172.16.0.0–172.31.255.255` range.
+- `src/lib/retry.ts`: `fetchWithRetry`/new `fetchSafely` now fetch with `redirect: "manual"` and re-validate each redirect hop's hostname before following (max 5 hops), instead of silently following redirects to internal/metadata addresses.
+- `src/lib/checks.ts`: switched its fallback raw `fetch()` to the same hardened `fetchSafely`.
+- `src/pages/api/debug.ts`: now 404s unless `INTERNAL_DASHBOARD_KEY` is configured, and 401s on a wrong key (header or `?key=`), matching the existing pattern in `internal/funnel.astro`.
+- `src/components/ScanProgress.svelte`: added a 60-attempt (~2 min) polling cap with a friendly "taking longer than expected" state and manual "check again" action, instead of polling forever.
+- Deleted the conflicting static `public/robots.txt` in favor of the correct dynamic `src/pages/robots.txt.ts` (disallows `/api/`, `/r/`; correct sitemap URL).
+- Removed a stray 0-byte `echo` file at repo root.
+
+**Billing (P1):**
+- `src/pages/billing.astro`: replaced both Paddle checkout buttons with real forms posting to the existing (previously unused) `/api/billing/checkout` Stripe endpoint, gated correctly by auth state and current plan; added success/canceled banners.
+- Deleted `src/components/billing/PaddleCheckoutButton.astro` (now unused).
+- `src/pages/refunds.astro`: updated "such as Paddle" → "Stripe" to match reality.
+- `.env.example`: corrected stale price comments ($12/mo → actual $29/mo Pro / $300/mo Enterprise) and documented that Stripe is the sole billing provider.
+- **Verified:** webhook signature verification, idempotency (`stripe_webhook_events`), and price→plan mapping (`getPlanFromPriceId`) were already correct - no changes needed there.
+- **Not verified (see Blockers, §12):** an actual live Stripe Checkout Session round-trip, since no real Stripe test keys are configured in this environment.
+
+**SEO / content (P1):**
+- Installed and wired `@astrojs/mdx` (was completely missing - `.mdx` content collections cannot work without it).
+- Fixed `astro.config.mjs`: added `legacy.collectionsBackwardsCompat: true` (with an explanatory comment) - without it, Astro 7 silently skips the legacy `type: "content"` collection at build time with only a console warning, no error.
+- Fixed `src/content.config.ts`: `pubDate` schema changed to `z.coerce.date()` (frontmatter had quoted date strings, which fail plain `z.date()`).
+- Moved the 8 real articles from a misplaced root `content/` (and doubly-nested `content/content/`) directory into `src/content/pages/`, fixing a filename typo (`-on-moble` → `-on-mobile`) that would have shipped a typo'd URL.
+- Added `platform` frontmatter field to each article and extended the schema, enabling real hub/sibling linking.
+- Removed 24 unreliable hotlinked `via.placeholder.com` images (and their mistakenly-visible `*Alt: ...*` caption lines) from the 8 articles - external dependency risk, zero real content value.
+- Created `src/components/seo/ArticleScanner.astro` - a working embedded free-scan CTA for article content (the articles already referenced `<Scanner client:load />`, but no such component existed and it can't take a client directive as an Astro-wrapper). Fixed and wired into all 8 articles.
+- Created `src/pages/guides/[slug].astro` and `src/pages/guides/index.astro` - the actual render route that never existed for this content collection.
+- Wired real internal links: each guide links to sibling guides on the same platform, the platform's hub page (`/website-speed-audit/platform/{platform}/`), and `/scan`/`/billing`; each platform hub page now links back to its guides (bidirectional hub↔article linking).
+- Added `/guides` to the sitewide footer nav (prevents orphan status).
+- Fixed `src/pages/sitemap.xml.ts`: corrected a **pre-existing bug** (`page.slug`, which doesn't exist on these entries - only `.id` does, and it includes the file extension) that would have produced broken sitemap URLs the moment the collection started returning real entries; added `/billing`, `/fix-it`, `/guides` to static routes; added the second pSEO system's dataset pages (previously absent from every sitemap source).
+- Fixed `src/lib/seo.ts`: JSON-LD `logo` no longer points at a nonexistent `/logo.png` (now `/og-default.png`, which exists); removed a fabricated `+1-800-SPEED-AUDIT` phone number from `organizationSchema()`'s `contactPoint` rather than publish fake contact info in structured data.
+
+**Monitoring / .env history (per explicit instruction):**
+- No cron/scheduling infrastructure built - zero paying monitoring subscribers today, `worker/weekly-monitor.ts` preserved as-is and documented as ready to activate.
+- No git-history rewrite performed - verified placeholder-only, documented as a deferred P2 cleanup.
+
+---
+
+## 11. Build/Test Results After Changes
+
+```
+npx tsc --noEmit   → 0 errors in app code (2 pre-existing errors in scripts/index-urls.mjs,
+                      a .mjs file with TS-only syntax - unrelated to this session's changes,
+                      not part of the Astro build)
+npm run build      → succeeds, 0 errors. 219+8 static pages generate correctly, including
+                      all 8 /guides/* pages with clean URLs (no .mdx in the path) and
+                      correct titles/content/CTA (verified against dist/client output).
+npm test (vitest)  → 10/10 tests pass (scoring.test.ts, validation.test.ts) - unchanged.
+```
+
+No lint script/config exists in this project (verified: no `.eslintrc*`, no lint entry in `package.json`) - nothing to run there.
+
+**Not run in this environment:** `npx astro dev` / `npx astro preview` - Astro 7's new CLI daemon wrapper fails to become ready in this sandbox regardless of what code it's running (reproduced on a clean checkout before any changes were made, so this is a sandbox limitation, not a regression). Verification instead relied on the static build output (`dist/client/**`) plus direct source review. **Recommend a `vercel dev` or preview-deployment smoke test** of `/billing` (Stripe checkout redirect) and a couple of `/guides/*` pages before merging.
+
+---
+
+## 12. Blockers Requiring Your Decision
+
+1. **Stripe live verification**: I could not exercise an actual Stripe Checkout Session round-trip (create → pay in test mode → webhook → entitlement) because no real `STRIPE_SECRET_KEY`/price IDs are configured in this environment. The code paths are verified correct by inspection (webhook signature check, idempotency, price→plan mapping all pre-existed and are sound), but per your own instruction I won't claim the full flow is "tested" until it's actually been run with real Stripe test keys. **Please run one real test-mode checkout** (or share test keys in a safe channel) before treating billing as launch-ready.
+2. **DNS-rebinding closure**: left open, documented, not built - would need a custom fetch dispatcher. Let me know if you want that built now or want to keep it as a documented residual risk.
+3. **Legacy content-collections flag**: `legacy.collectionsBackwardsCompat: true` unblocks the guides today but is explicitly a bridge in Astro 7, not a permanent feature. Fine to leave for now; flag it for a future migration to the loader-based API.

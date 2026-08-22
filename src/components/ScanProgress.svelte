@@ -12,10 +12,18 @@
   let retryRequest = $state(null);
   let retrying = $state(false);
   let copyState = $state("idle");
+  let attempts = $state(0);
+  let timedOut = $state(false);
   const previewUrl = $derived(id ? `/report/${id}` : "");
+
+  // ~2 minutes of 2s polling. If a scan hasn't finished by then, stop polling
+  // silently and tell the user instead of leaving them on the progress bar
+  // forever (e.g. if a worker crashed without ever writing a final status).
+  const MAX_POLL_ATTEMPTS = 60;
 
   async function poll() {
     if (!id) return;
+    attempts += 1;
     try {
       const res = await fetch(`/api/report/${id}`);
       const data = await res.json();
@@ -33,6 +41,11 @@
       }
     } catch {
       error = "Unable to fetch scan status";
+    }
+
+    if (status !== "done" && status !== "failed" && attempts >= MAX_POLL_ATTEMPTS) {
+      timedOut = true;
+      if (timer) clearInterval(timer);
     }
   }
 
@@ -62,6 +75,8 @@
       host = "";
       locked = null;
       copyState = "idle";
+      attempts = 0;
+      timedOut = false;
       id = data.id;
       poll();
       timer = setInterval(poll, 2000);
@@ -71,6 +86,13 @@
     } finally {
       retrying = false;
     }
+  }
+
+  function checkAgain() {
+    timedOut = false;
+    attempts = 0;
+    poll();
+    timer = setInterval(poll, 2000);
   }
 
   async function copyReportId() {
@@ -105,8 +127,15 @@
   );
 </script>
 
-<div class="space-y-3">
-  <div class="h-2 w-full overflow-hidden rounded-full bg-white/10">
+<div class="space-y-3" aria-live="polite" aria-atomic="true">
+  <div
+    class="h-2 w-full overflow-hidden rounded-full bg-white/10"
+    role="progressbar"
+    aria-valuemin="0"
+    aria-valuemax="100"
+    aria-valuenow={progress}
+    aria-label="Scan progress"
+  >
     <div
       class="h-2 rounded-full bg-gradient-to-r from-sky-400 via-emerald-300 to-violet-400 transition-all duration-700"
       style={`width: ${progress}%`}
@@ -120,6 +149,31 @@
     {:else}Scan status: {status}
     {/if}
   </p>
+
+  {#if timedOut && status !== "done" && status !== "failed"}
+    <div class="space-y-3 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4">
+      <p class="text-sm text-amber-200">
+        This is taking longer than usual. Your scan may still finish in the background.
+      </p>
+      <div class="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" className="rounded-xl" on:click={checkAgain}>
+          Check again
+        </Button>
+        <Button type="button" size="sm" variant="ghost" className="rounded-xl border-white/10" on:click={copyReportId}>
+          Copy report ID
+        </Button>
+      </div>
+      <p class="text-xs text-slate-400">
+        Report ID: <code class="text-slate-200">{id}</code>
+        {#if copyState === "copied"}
+          <span class="ml-2 text-emerald-300">Copied</span>
+        {:else if copyState === "failed"}
+          <span class="ml-2 text-amber-300">Clipboard unavailable</span>
+        {/if}
+        — if it doesn't show up soon, contact support with this ID.
+      </p>
+    </div>
+  {/if}
 
   {#if status === "done"}
     <div class="rounded-2xl border border-white/10 bg-white/5 p-4">

@@ -27,6 +27,10 @@ export const env = {
   /** Optional: Google PageSpeed Insights API key for higher rate limits */
   PSI_API_KEY: () => getEnv("PSI_API_KEY"),
 
+  /** Optional: OpenAI API key for AI-powered site features */
+  OPENAI_API_KEY: () => getEnv("OPENAI_API_KEY"),
+  OPENAI_MODEL: () => getEnv("OPENAI_MODEL") || "gpt-4o-mini",
+
   RESEND_API_KEY: () => getEnv("RESEND_API_KEY"),
   ALERT_FROM_EMAIL: () => getEnv("ALERT_FROM_EMAIL"),
   SALES_NOTIFY_EMAIL: () => getEnv("SALES_NOTIFY_EMAIL"),

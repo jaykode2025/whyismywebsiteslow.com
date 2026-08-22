@@ -1,4 +1,5 @@
 import type { Report } from "./types";
+import { fetchSafely } from "./retry";
 
 type RunChecksOptions = {
   html?: string;
@@ -60,9 +61,9 @@ export async function runChecks(url: string, options: RunChecksOptions = {}): Pr
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    const res = options.response ?? (await fetch(url, { 
+    const res = options.response ?? (await fetchSafely(url, {
       headers: { "User-Agent": "WMSSBot/0.1" },
-      signal: controller.signal 
+      signal: controller.signal
     }));
     
     clearTimeout(timeoutId);

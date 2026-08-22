@@ -1,0 +1,14 @@
+---
+// Drop-in scan CTA for guide/article content (see src/content/pages/*.mdx,
+// referenced there as <Scanner client:load />). Reads its own CSRF cookie so
+// it works correctly wherever it's embedded, without the parent page having
+// to thread a csrfToken prop through MDX content.
+import ScanForm from "../ScanForm.svelte";
+
+const csrfToken = Astro.cookies.get("csrf_token")?.value ?? "";
+---
+
+<div class="not-prose my-8 rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6">
+  <p class="mb-3 text-xs uppercase tracking-[0.2em] text-slate-500">Free scan</p>
+  <ScanForm client:load variant="compact" csrfToken={csrfToken} />
+</div>

@@ -2,7 +2,6 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Card from "../components/ui/Card.astro";
 import Button from "../components/ui/Button.astro";
-import PaddleCheckoutButton from "../components/billing/PaddleCheckoutButton.astro";
 import { getPlanLimits, getUserPlan, isPro, type PlanInfo } from "../lib/plan";
 
 const user = Astro.locals.user ?? null;
@@ -13,8 +12,9 @@ const planInfo: PlanInfo = user && supabase
   : { plan: "free", status: "inactive", currentPeriodEnd: null };
 const limits = getPlanLimits(planInfo.plan);
 
-const proCheckoutUrl = import.meta.env.PUBLIC_PADDLE_PRO_CHECKOUT_URL as string | undefined;
-const enterpriseCheckoutUrl = import.meta.env.PUBLIC_PADDLE_ENTERPRISE_CHECKOUT_URL as string | undefined;
+const params = Astro.url.searchParams;
+const checkoutSuccess = params.get("success") === "1";
+const checkoutCanceled = params.get("canceled") === "1";
 ---
 
 <BaseLayout title="Pricing and Billing" description="Free scan, $29/month Pro with AI recommendations, and $300 Enterprise for white-label + batch scanning.">
@@ -37,6 +37,17 @@ const enterpriseCheckoutUrl = import.meta.env.PUBLIC_PADDLE_ENTERPRISE_CHECKOUT_
         </div>
       )}
     </div>
+
+    {checkoutSuccess ? (
+      <div class="mt-6 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">
+        Payment received - your plan will update within a few seconds. Refresh if it doesn't update right away.
+      </div>
+    ) : null}
+    {checkoutCanceled ? (
+      <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+        Checkout canceled. No charge was made.
+      </div>
+    ) : null}
 
     <div class="mt-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
       <Card>
@@ -76,18 +87,33 @@ const enterpriseCheckoutUrl = import.meta.env.PUBLIC_PADDLE_ENTERPRISE_CHECKOUT_
             <li>Exports (PDF and other formats we support)</li>
           </ul>
           <div class="mt-6 space-y-3">
-            <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-              Start with a free scan, then upgrade to Pro when you’re ready.
-            </div>
-            <PaddleCheckoutButton
-              href={proCheckoutUrl}
-              data-track-event="billing_checkout_clicked"
-              data-track-source="billing-pro-card"
-              data-track-offer-context="pro"
-              data-track-cta-variant="primary"
-            >
-              Upgrade to Pro — $29/mo
-            </PaddleCheckoutButton>
+            {isPro(planInfo) ? (
+              <p class="rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">
+                You're already on {planInfo.plan === "agency" ? "the Enterprise" : "the Pro"} plan.
+              </p>
+            ) : isAuthed ? (
+              <form method="post" action="/api/billing/checkout">
+                <input type="hidden" name="plan" value="pro" />
+                <input type="hidden" name="offerContext" value="pro" />
+                <input type="hidden" name="ctaVariant" value="primary" />
+                <Button
+                  type="submit"
+                  class="w-full rounded-xl"
+                  data-track-event="billing_checkout_clicked"
+                  data-track-source="billing-pro-card"
+                  data-track-offer-context="pro"
+                  data-track-cta-variant="primary"
+                >
+                  Upgrade to Pro — $29/mo
+                </Button>
+              </form>
+            ) : (
+              <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+                <Button href="/signup?next=%2Fbilling" class="w-full rounded-xl" data-track-event="billing_checkout_clicked" data-track-source="billing-pro-card" data-track-offer-context="pro" data-track-cta-variant="primary">
+                  Create account to upgrade
+                </Button>
+              </div>
+            )}
             <Button href="/scan" variant="ghost" class="w-full rounded-xl border-white/10" data-track-event="homepage_cta_clicked" data-track-source="billing-report-card" data-track-offer-context="free-scan" data-track-cta-variant="secondary">
               Scan your site free
             </Button>
@@ -106,19 +132,22 @@ const enterpriseCheckoutUrl = import.meta.env.PUBLIC_PADDLE_ENTERPRISE_CHECKOUT_
               You're on {planInfo.plan === "agency" ? "a legacy Agency" : "the Monitoring"} plan.
             </p>
           ) : isAuthed ? (
-            <div class="mt-4 space-y-3">
-              <PaddleCheckoutButton
-                href={enterpriseCheckoutUrl}
+            <form method="post" action="/api/billing/checkout" class="mt-4 space-y-3">
+              <input type="hidden" name="plan" value="agency" />
+              <input type="hidden" name="offerContext" value="enterprise" />
+              <input type="hidden" name="ctaVariant" value="primary" />
+              <Button
+                type="submit"
                 variant="ghost"
-                class="border-white/10"
+                class="w-full rounded-xl border-white/10"
                 data-track-event="billing_checkout_clicked"
                 data-track-source="billing-enterprise-card"
                 data-track-offer-context="enterprise"
                 data-track-cta-variant="primary"
               >
                 Enterprise checkout — $300/mo
-              </PaddleCheckoutButton>
-            </div>
+              </Button>
+            </form>
           ) : (
             <div class="mt-4 space-y-3">
               <Button href="/signup?next=%2Fbilling" size="lg" class="w-full rounded-xl">
