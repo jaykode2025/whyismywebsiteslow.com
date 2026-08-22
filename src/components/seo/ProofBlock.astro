@@ -150,7 +150,7 @@ const enhanced = dataset as any;
       </div>
       <script is:inline define:vars={{ calculatorId }}>
         (() => {
-          const byId = (suffix) => document.getElementById(`\( {calculatorId}- \){suffix}`);
+          const byId = (suffix) => document.getElementById(`${calculatorId}-${suffix}`);
           const visitors = byId("visitors");
           const cr = byId("cr");
           const aov = byId("aov");

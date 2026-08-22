@@ -28,20 +28,13 @@ import type { APIRoute } from 'astro';
 import { env } from '../../lib/env';
 import { runEnhancedScanner } from '../../lib/scanner/server';
 import type { Device } from '../../lib/scanner/enhanced';
+import { normalizeUrl } from '../../lib/validate';
+import { verifyCsrfTokenFromRequest } from '../../lib/csrf';
+import { rateLimit } from '../../lib/slidingRateLimit';
 
 interface ScanRequest {
   url?: unknown;
   device?: unknown;
-}
-
-function isValidUrl(value: unknown): value is string {
-  if (typeof value !== 'string') return false;
-  try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
 }
 
 function isValidDevice(value: unknown): value is Device {
@@ -49,18 +42,43 @@ function isValidDevice(value: unknown): value is Device {
 }
 
 export const POST: APIRoute = async (context) => {
-  try {
-    const body = (await context.request.json().catch(() => ({}))) as ScanRequest;
+  const { request, clientAddress } = context;
 
-    // Validate URL
-    if (!isValidUrl(body.url)) {
+  const csrfValid = await verifyCsrfTokenFromRequest(request);
+  if (!csrfValid) {
+    return new Response(JSON.stringify({ error: 'Invalid CSRF token' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    const body = (await request.json().catch(() => ({}))) as ScanRequest;
+
+    // Validate URL and block SSRF targets (localhost, private ranges, cloud metadata, etc).
+    let normalized: URL;
+    try {
+      normalized = normalizeUrl(typeof body.url === 'string' ? body.url : '');
+    } catch (err: any) {
       return new Response(
-        JSON.stringify({ error: 'Invalid or missing URL. Must be a valid http(s) URL.' }),
+        JSON.stringify({ error: err?.message || 'Invalid or missing URL. Must be a valid http(s) URL.' }),
         {
           status: 400,
           headers: { 'Content-Type': 'application/json' },
         }
       );
+    }
+
+    const bucket = rateLimit(`${clientAddress ?? 'unknown'}:${normalized.hostname}`);
+    if (!bucket.ok) {
+      const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - Date.now()) / 1000));
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': retryAfter.toString(),
+        },
+      });
     }
 
     // Validate device
@@ -82,7 +100,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Run the enhanced scanner
-    const result = await runEnhancedScanner(body.url, device, apiKey);
+    const result = await runEnhancedScanner(normalized.toString(), device, apiKey);
 
     return new Response(JSON.stringify(result), {
       status: 200,

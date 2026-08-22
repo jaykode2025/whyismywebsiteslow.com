@@ -2,7 +2,18 @@ import type { APIRoute } from "astro";
 import { env, hasSupabaseEnv } from "../../lib/env";
 import { listReports } from "../../lib/store";
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ request }) => {
+  // Internal-only: requires a matching X-Internal-Key header so this route
+  // isn't open infrastructure reconnaissance for anyone on the internet.
+  const internalKey = env.INTERNAL_DASHBOARD_KEY();
+  const providedKey = request.headers.get("x-internal-key");
+  if (!internalKey || providedKey !== internalKey) {
+    return new Response(JSON.stringify({ error: "Not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const debug = {
     timestamp: new Date().toISOString(),
     env: {

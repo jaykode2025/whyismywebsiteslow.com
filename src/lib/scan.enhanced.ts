@@ -1,7 +1,8 @@
 import type { EnhancedReport, ScanRequest } from "./types";
 import { crawlSite } from "./crawl";
 import { fetchPsi } from "./psi";
-import { runEnhancedScanner } from "./scanner/enhanced";
+import { runEnhancedScanner } from "./scanner/server";
+import { env } from "./env";
 import { runChecks } from "./checks";
 import { computeScore } from "./scoring";
 import { generateInsights } from "./insights";
@@ -102,7 +103,8 @@ export async function runEnhancedScan(
 
   // Use enhanced scanner (CrUX + PSI + network) for better accuracy
   // Falls back to PSI-only if CrUX data unavailable
-  const enhancedScan = await runEnhancedScanner(primaryUrl, input.device);
+  const psiApiKey = env.PSI_API_KEY() || undefined;
+  const enhancedScan = await runEnhancedScanner(primaryUrl, input.device, psiApiKey);
   const psi = enhancedScan.lab;
   
   // Store enhanced data in psi for backward compatibility
