@@ -1,0 +1,113 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Card from "../../components/ui/Card.astro";
+import Button from "../../components/ui/Button.astro";
+import { requireAdminPage } from "../../lib/adminAuth";
+import { createSupabaseAdminClient } from "../../lib/supabase/admin";
+
+const denied = await requireAdminPage(Astro);
+if (denied) return denied;
+
+const admin = createSupabaseAdminClient();
+const csrfToken = Astro.locals.csrfToken ?? "";
+const id = Astro.url.searchParams.get("id")?.trim() ?? "";
+const justUnlocked = Astro.url.searchParams.get("unlocked") === "1";
+const justRefunded = Astro.url.searchParams.get("refunded") === "1";
+const refundError = Astro.url.searchParams.get("refundError");
+
+type ScanRow = {
+  id: string;
+  url: string;
+  status: string;
+  error: string | null;
+  user_id: string | null;
+  created_at: string;
+};
+type EntitlementRow = { unlocked: boolean; stripe_session_id: string | null };
+
+let scan: ScanRow | null = null;
+let entitlement: EntitlementRow | null = null;
+
+if (admin && id) {
+  const [{ data: scanData }, { data: entitlementData }] = await Promise.all([
+    admin.from("scans").select("id,url,status,error,user_id,created_at").eq("id", id).maybeSingle(),
+    admin.from("report_entitlements").select("unlocked,stripe_session_id").eq("report_id", id).maybeSingle(),
+  ]);
+  scan = scanData as ScanRow | null;
+  entitlement = (entitlementData as EntitlementRow | null) ?? { unlocked: false, stripe_session_id: null };
+}
+---
+
+<BaseLayout title="Admin - Reports" noindex={true}>
+  <section class="mx-auto max-w-3xl px-4 py-12">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <h1 class="text-3xl font-semibold text-slate-100">Reports</h1>
+      <a class="text-sm text-sky-200 hover:underline" href="/admin">Back to dashboard</a>
+    </div>
+
+    <form class="mb-6 flex gap-3" method="get">
+      <input
+        class="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100"
+        type="text"
+        name="id"
+        value={id}
+        placeholder="Report / scan ID"
+      />
+      <Button type="submit" class="rounded-xl">Look up</Button>
+    </form>
+
+    {justUnlocked ? (
+      <p class="mb-4 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">Report unlocked.</p>
+    ) : null}
+    {justRefunded ? (
+      <p class="mb-4 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">Refunded and locked.</p>
+    ) : null}
+    {refundError ? (
+      <p class="mb-4 rounded-2xl border border-amber-400/20 bg-amber-400/5 px-4 py-3 text-sm text-amber-100">
+        Refund issue: {refundError}. The report was locked anyway.
+      </p>
+    ) : null}
+
+    {!admin ? (
+      <Card><p class="text-slate-300">Supabase admin client is unavailable.</p></Card>
+    ) : !id ? (
+      <Card><p class="text-slate-300">Enter a report ID above, or open one from the dashboard's recent scans list.</p></Card>
+    ) : !scan ? (
+      <Card><p class="text-slate-300">No scan found for ID "{id}".</p></Card>
+    ) : (
+      <Card>
+        <dl class="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
+          <dt class="text-slate-500">URL</dt><dd class="text-slate-200">{scan.url}</dd>
+          <dt class="text-slate-500">Status</dt><dd class="text-slate-200">{scan.status}</dd>
+          {scan.error ? (<><dt class="text-slate-500">Error</dt><dd class="text-rose-300">{scan.error}</dd></>) : null}
+          <dt class="text-slate-500">Created</dt><dd class="text-slate-200">{new Date(scan.created_at).toLocaleString()}</dd>
+          <dt class="text-slate-500">Owner</dt><dd class="text-slate-200">{scan.user_id ?? "anonymous"}</dd>
+          <dt class="text-slate-500">Unlocked</dt><dd class="text-slate-200">{entitlement?.unlocked ? "Yes" : "No"}</dd>
+          <dt class="text-slate-500">Stripe session</dt><dd class="text-slate-200">{entitlement?.stripe_session_id ?? "-"}</dd>
+        </dl>
+
+        <div class="mt-6 flex flex-wrap gap-3">
+          <a href={`/report/${scan.id}`} target="_blank" rel="noopener noreferrer">
+            <Button type="button" variant="ghost" class="rounded-xl border-white/10">View report</Button>
+          </a>
+
+          {!entitlement?.unlocked ? (
+            <form method="post" action="/api/admin/unlock-report">
+              <input type="hidden" name="_csrf" value={csrfToken} />
+              <input type="hidden" name="reportId" value={scan.id} />
+              <Button type="submit" class="rounded-xl">Force unlock</Button>
+            </form>
+          ) : (
+            <form method="post" action="/api/admin/refund-report">
+              <input type="hidden" name="_csrf" value={csrfToken} />
+              <input type="hidden" name="reportId" value={scan.id} />
+              <Button type="submit" variant="ghost" class="rounded-xl border-rose-400/30 text-rose-200 hover:border-rose-400/60">
+                Refund &amp; lock
+              </Button>
+            </form>
+          )}
+        </div>
+      </Card>
+    )}
+  </section>
+</BaseLayout>

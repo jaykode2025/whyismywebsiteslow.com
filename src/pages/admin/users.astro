@@ -1,0 +1,114 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Card from "../../components/ui/Card.astro";
+import Button from "../../components/ui/Button.astro";
+import { requireAdminPage } from "../../lib/adminAuth";
+import { createSupabaseAdminClient } from "../../lib/supabase/admin";
+
+const denied = await requireAdminPage(Astro);
+if (denied) return denied;
+
+const admin = createSupabaseAdminClient();
+const csrfToken = Astro.locals.csrfToken ?? "";
+const q = Astro.url.searchParams.get("q")?.trim() ?? "";
+const canceled = Astro.url.searchParams.get("canceled") === "1";
+
+type ProfileRow = { id: string; email: string | null; created_at: string };
+type SubRow = { user_id: string; plan: string; status: string };
+
+let profiles: ProfileRow[] = [];
+let subsByUser = new Map<string, SubRow>();
+
+if (admin) {
+  const query = admin
+    .from("profiles")
+    .select("id,email,created_at")
+    .order("created_at", { ascending: false })
+    .limit(25);
+
+  const { data } = q ? await query.ilike("email", `%${q}%`) : await query;
+  profiles = (data as ProfileRow[]) ?? [];
+
+  if (profiles.length > 0) {
+    const { data: subs } = await admin
+      .from("subscriptions")
+      .select("user_id,plan,status")
+      .in("user_id", profiles.map((p) => p.id));
+    subsByUser = new Map((subs as SubRow[] ?? []).map((s) => [s.user_id, s]));
+  }
+}
+---
+
+<BaseLayout title="Admin - Users" noindex={true}>
+  <section class="mx-auto max-w-4xl px-4 py-12">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <h1 class="text-3xl font-semibold text-slate-100">Users</h1>
+      <a class="text-sm text-sky-200 hover:underline" href="/admin">Back to dashboard</a>
+    </div>
+
+    {canceled ? (
+      <p class="mb-4 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-100">
+        Subscription canceled.
+      </p>
+    ) : null}
+
+    <form class="mb-6 flex gap-3" method="get">
+      <input
+        class="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100"
+        type="text"
+        name="q"
+        value={q}
+        placeholder="Search by email"
+      />
+      <Button type="submit" class="rounded-xl">Search</Button>
+    </form>
+
+    {!admin ? (
+      <Card><p class="text-slate-300">Supabase admin client is unavailable.</p></Card>
+    ) : profiles.length === 0 ? (
+      <Card><p class="text-slate-300">No users found{q ? ` for "${q}"` : ""}.</p></Card>
+    ) : (
+      <Card>
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[640px] text-left text-sm">
+            <thead>
+              <tr class="border-b border-white/10 text-xs uppercase tracking-[0.1em] text-slate-500">
+                <th class="py-2 pr-4">Email</th>
+                <th class="py-2 pr-4">Plan</th>
+                <th class="py-2 pr-4">Status</th>
+                <th class="py-2 pr-4">Joined</th>
+                <th class="py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {profiles.map((profile) => {
+                const sub = subsByUser.get(profile.id);
+                const isActive = sub && ["active", "trialing", "past_due"].includes(sub.status);
+                return (
+                  <tr class="border-b border-white/5">
+                    <td class="py-2 pr-4 text-slate-200">{profile.email ?? profile.id}</td>
+                    <td class="py-2 pr-4 text-slate-300">{sub?.plan ?? "free"}</td>
+                    <td class="py-2 pr-4 text-slate-300">{sub?.status ?? "-"}</td>
+                    <td class="py-2 pr-4 text-slate-400">{new Date(profile.created_at).toLocaleDateString()}</td>
+                    <td class="py-2">
+                      {isActive ? (
+                        <form method="post" action="/api/admin/cancel-subscription">
+                          <input type="hidden" name="_csrf" value={csrfToken} />
+                          <input type="hidden" name="userId" value={profile.id} />
+                          <input type="hidden" name="redirectTo" value="/admin/users" />
+                          <button type="submit" class="text-rose-300 hover:underline">Cancel subscription</button>
+                        </form>
+                      ) : (
+                        <span class="text-slate-600">-</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    )}
+  </section>
+</BaseLayout>

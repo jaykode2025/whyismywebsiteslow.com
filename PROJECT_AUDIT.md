@@ -268,4 +268,31 @@ Added the account-management surface that didn't exist at all before (verified: 
 
 **Verified:** `npx tsc --noEmit` (clean), `npm run build` (clean, same pre-existing warnings only), `npm test` (10/10). Not exercised live for the same reason as Stripe checkout in §12 - no real Supabase/Stripe credentials in this environment. The Stripe portal route (`api/billing/portal`) has the same "verified by inspection, not by a live call" caveat as the checkout flow.
 
-**Not built (out of scope for this pass, per your prioritization):** admin dashboard, re-verifying a current password before allowing a password change (Supabase's `updateUser` doesn't require it for an already-authenticated session - acceptable for MVP, worth revisiting if this becomes a compliance concern), and email notifications for these account events (no "your email was changed" confirmation email beyond Supabase's own).
+**Not built (out of scope for this pass, per your prioritization):** admin dashboard (built next - see §14), re-verifying a current password before allowing a password change (Supabase's `updateUser` doesn't require it for an already-authenticated session - acceptable for MVP, worth revisiting if this becomes a compliance concern), and email notifications for these account events (no "your email was changed" confirmation email beyond Supabase's own).
+
+---
+
+## 14. Session 3 — Admin Dashboard
+
+There was no admin dashboard and no admin *role* at all before this - `/internal/funnel` (funnel metrics) was the only internal page, and it granted access to **any logged-in user**, not just admins. Fixed as part of this pass.
+
+**New migration** (`supabase/migrations/20260822010000_add_profiles_is_admin.sql`): adds `profiles.is_admin boolean default false`, with `UPDATE` on that specific column revoked from `anon`/`authenticated`. This matters: `profiles` already has a `profiles_update_own` policy (`auth.uid() = id`), and RLS controls *row* access, not *columns* - without the revoke, any logged-in user could have run `supabase.from('profiles').update({ is_admin: true })` on their own row and granted themselves admin. The column-level revoke closes that while leaving the rest of the row updatable as before. **Bootstrapping the first admin requires one manual SQL statement** (documented in the migration file) since there's no existing admin to grant the role - this is expected, not a gap.
+
+**Second migration** (`...sync_profile_email_on_update.sql`): found while building this - `profiles.email` was only ever synced at signup (`on_auth_user_created`, `AFTER INSERT`). Last session's new "change email" feature (`/account`) calls `supabase.auth.updateUser({ email })`, which updates `auth.users.email` but never touched `profiles.email` - it would have silently gone stale the moment anyone used that feature, and the new admin user list reads `profiles.email` directly. Added an `AFTER UPDATE OF email` trigger reusing the existing upsert function.
+
+**Access model** (`src/lib/adminAuth.ts`): admin access is granted by *either* the existing shared `INTERNAL_DASHBOARD_KEY` (works immediately, no admin user needed - same pattern already used by `/api/debug`) *or* a logged-in user with `profiles.is_admin = true`. A non-admin logged-in user gets a 404 (not a 403/redirect) to avoid confirming the admin area exists; a logged-out visitor gets redirected to log in.
+
+**New pages:**
+- `/admin` - total users, active subscribers, scans in the last 7 days, failed scans in the last 7 days (highlighted), and a recent-scans table linking into the report lookup below.
+- `/admin/users` - search by email (or browse the most recent 25 signups), shows plan/status per user, "Cancel subscription" action (cancels on Stripe first, then reflects the status locally even if the Stripe call fails because it's already canceled).
+- `/admin/reports` - look up any scan/report by ID, see its status/owner/entitlement state, "Force unlock" it, or "Refund & lock" it (retrieves the Stripe checkout session's payment intent and refunds it, then revokes the entitlement regardless of whether the Stripe refund call itself succeeded, since the admin explicitly asked to revoke access).
+
+**New API routes:** `api/admin/cancel-subscription`, `api/admin/unlock-report`, `api/admin/refund-report` - all gated by `requireAdminApi` + CSRF, following the exact same pattern as every other state-changing route in the app.
+
+**Also fixed:** `/internal/funnel.astro` now uses the same `requireAdminPage` gate instead of "any logged-in user."
+
+**Verified:** `tsc --noEmit`, `npm run build`, `npm test` all pass clean.
+
+**Not verified (same honesty caveat as §12/§13):** the two new migrations haven't been applied to a live database in this environment (no real Supabase credentials here) - run `npx supabase db push` and then manually set your own `is_admin = true` (SQL provided in the migration file) before the admin pages will show real data. The refund flow's actual Stripe API call is verified by inspection, not by a live test-mode refund.
+
+**Explicitly not built, and worth knowing about:** mutating admin actions (cancel subscription, unlock, refund) are gated the same way *viewing* the dashboard is - via the shared key or `is_admin`. That's fine for one founder; the moment more than one person has the key, actions taken via the key aren't attributable to a specific person. If/when there's a real team, worth requiring a logged-in admin user (not the key) specifically for the mutating routes, so there's an audit trail of who did what.
