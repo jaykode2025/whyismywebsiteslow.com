@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { saveServiceLead } from "../../../lib/serviceLeads";
 import { trackEvent, updateScanFactStatus } from "../../../lib/analytics";
 import { sendServiceLeadConfirmation, sendServiceLeadNotification } from "../../../lib/revenueEmails";
+import { verifyCsrfTokenFromRequest } from "../../../lib/csrf";
 
 type Payload = {
   email: string;
@@ -61,6 +62,17 @@ async function readPayload(request: Request): Promise<Payload> {
 export const POST: APIRoute = async (context) => {
   const contentType = context.request.headers.get("content-type") ?? "";
   const wantsJson = contentType.includes("application/json");
+
+  const csrfValid = await verifyCsrfTokenFromRequest(context.request);
+  if (!csrfValid) {
+    return wantsJson
+      ? new Response(JSON.stringify({ error: "Invalid CSRF token" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        })
+      : context.redirect("/fix-it?error=" + encodeURIComponent("Session expired, please try again."));
+  }
+
   const payload = await readPayload(context.request);
 
   if (payload.company) {

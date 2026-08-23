@@ -1,6 +1,5 @@
 import type { EnhancedReport, ScanRequest } from "./types";
 import { crawlSite } from "./crawl";
-import { fetchPsi } from "./psi";
 import { runEnhancedScanner } from "./scanner/enhanced";
 import { runChecks } from "./checks";
 import { computeScore } from "./scoring";

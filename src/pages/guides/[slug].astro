@@ -17,22 +17,17 @@ import {
 
 export const prerender = true;
 
-// Legacy content collection entry ids include the file extension
-// (e.g. "some-guide.mdx") - strip it for clean URLs. Defined inline in both
-// places (rather than shared via an outer const) because Astro compiles
-// getStaticPaths into an isolated module that doesn't close over other
-// frontmatter-scope variables.
 export async function getStaticPaths() {
   const entries = await getCollection("pages");
   return entries.map((entry) => ({
-    params: { slug: entry.id.replace(/\.mdx?$/, "") },
+    params: { slug: entry.id },
     props: { entry },
   }));
 }
 
 const { entry } = Astro.props as { entry: Awaited<ReturnType<typeof getCollection>>[number] };
 const { Content } = await render(entry);
-const slug = entry.id.replace(/\.mdx?$/, "");
+const slug = entry.id;
 
 const allGuides = await getCollection("pages");
 const platform = entry.data.platform
@@ -43,7 +38,7 @@ const platform = entry.data.platform
 const siblingGuides = allGuides
   .filter((g) => g.id !== entry.id && entry.data.platform && g.data.platform === entry.data.platform)
   .slice(0, 3)
-  .map((g) => ({ href: `/guides/${g.id.replace(/\.mdx?$/, "")}/`, label: g.data.title }));
+  .map((g) => ({ href: `/guides/${g.id}/`, label: g.data.title }));
 
 // Hub + sibling problem pages + tool links for this platform (falls back to
 // the general hub/scan links when the article isn't tied to a pseo.ts platform,

@@ -1,7 +1,7 @@
 <script>
   import Button from "./ui/Button.svelte";
 
-  let { id, token = "" } = $props();
+  let { id, token = "", csrfToken = "" } = $props();
   let status = $state("idle");
   let message = $state("");
 
@@ -11,7 +11,10 @@
     try {
       const res = await fetch(`/api/report/${id}/delete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+        },
         body: JSON.stringify({ manageToken: token }),
       });
       const data = await res.json();

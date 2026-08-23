@@ -6,6 +6,7 @@ import Button from "../components/ui/Button.astro";
 const sent = Astro.url.searchParams.get("sent") === "1";
 const error = Astro.url.searchParams.get("error") ?? "";
 const reportId = Astro.url.searchParams.get("reportId") ?? "";
+const csrfToken = Astro.locals.csrfToken ?? "";
 ---
 <BaseLayout title="Fix my slow website">
   <section class="mx-auto max-w-5xl px-4 py-12">
@@ -59,6 +60,7 @@ const reportId = Astro.url.searchParams.get("reportId") ?? "";
         ) : null}
 
         <form method="post" action="/api/leads/service" class="mt-6 space-y-4">
+          <input type="hidden" name="_csrf" value={csrfToken} />
           <input type="hidden" name="source" value="service-page" />
           <input type="hidden" name="offerContext" value="service-page" />
           <input type="hidden" name="ctaVariant" value="primary" />

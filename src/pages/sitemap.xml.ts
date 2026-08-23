@@ -43,7 +43,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
     // Guides (hand-written articles rendered from the "pages" content collection)
     ...pseoPages.map((page) => ({
-      loc: `\( {base}/guides/ \){page.id.replace(/\.mdx?$/, "")}`,
+      loc: `\( {base}/guides/ \){page.id}`,
       lastmod: page.data.pubDate ? new Date(page.data.pubDate).toISOString() : new Date().toISOString(),
       priority: "0.8",
       changefreq: "weekly",

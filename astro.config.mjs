@@ -11,15 +11,6 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   output: "server",
   site: "https://www.whyismywebsiteslow.com",
-  // The "pages" content collection (src/content.config.ts) uses the legacy
-  // `type: "content"` API. Astro 7 silently skips legacy collections during
-  // sync/build unless this flag is set - without it, getCollection("pages")
-  // always returns an empty array with no build error, just a console
-  // warning. TODO (P2): migrate to the modern loader-based Content Layer API
-  // (`loader: glob(...)`) and drop this flag.
-  legacy: {
-    collectionsBackwardsCompat: true,
-  },
   adapter: vercel({
     webAnalytics: {
       enabled: true,

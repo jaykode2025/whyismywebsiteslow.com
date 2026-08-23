@@ -1,236 +1,53 @@
-// src/lib/scanner/enhanced.ts
-import type { APIRoute } from 'astro';
+# Enhanced Scanner
 
-export interface RumData {
-  lcp_ms?: number;
-  inp_ms?: number;
-  cls?: number;
-  fcp_ms?: number;
-  ttfb_ms?: number;
-  status: 'pass' | 'needs-improvement' | 'poor';
-  sampleSize: number;
-  confidence: 'high' | 'medium' | 'low';
-}
+How `src/lib/scanner/enhanced.ts` measures a site, and how it fits into the rest of the scan
+pipeline. (Previously this file was a stale copy-paste of an old version of that source file
+from before it was refactored to use `fetchWithRetry` - this is a rewrite reflecting the actual
+current implementation. See `PROJECT_AUDIT.md` for the full architecture.)
 
-export interface LabData {
-  lighthouse: {
-    performance: number;
-    accessibility: number;
-    bestPractices: number;
-    seo: number;
-  };
-  cwv: {
-    lcp_ms?: number;
-    inp_ms?: number;
-    cls?: number;
-    status: 'pass' | 'needs-improvement' | 'poor';
-  };
-}
+## What it combines
 
-export interface NetworkData {
-  ttfb_ms: number;
-  dns_ms?: number;
-  tls_ms?: number;
-  redirect_count: number;
-  redirect_time_ms: number;
-}
+Three data sources, fetched in parallel:
 
-export interface EnhancedScanResult {
-  rum: RumData;
-  lab: LabData;
-  network: NetworkData;
-  overallScore: number; // 0-100
-  grade: 'A' | 'B' | 'C' | 'D' | 'F';
-  sources: {
-    rumAvailable: boolean;
-    labAvailable: boolean;
-    networkAvailable: boolean;
-  };
-  confidence: 'high' | 'medium' | 'low';
-}
+1. **CrUX (Chrome UX Report)** - real-user field data for the site's origin, pulled from
+   Google's public CrUX API. This is the closest thing to "how does this actually perform for
+   real visitors," and is weighted higher than lab data in the final score.
+2. **PSI / Lighthouse** - lab data from Google's hosted PageSpeed Insights API (category
+   scores plus detailed Core Web Vitals audits). No browser is run locally or in this app's
+   own infrastructure - Playwright (`src/lib/playwrightScan.ts`) is an intentional no-op stub,
+   disabled for serverless stability (see `.env.example`). All "lab" data comes from Google's
+   hosted API, not from a browser this app controls.
+3. **Manual network checks** - a lightweight `fetchWithRetry`-based timing measurement (TTFB,
+   redirect count) run directly against the target URL.
 
-const CRUX_API_URL = 'https://chromeuxreport.googleapis.com/v1/records:queryRecord';
-const PSI_API_URL = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
+All outbound fetches (CrUX, PSI, and the manual network check) go through
+`src/lib/retry.ts`'s `fetchWithRetry`, which as of this session's security pass re-validates
+every redirect hop against the SSRF blocklist (`src/lib/validate.ts`) rather than following
+redirects unconditionally.
 
-async function fetchCrux(origin: string, formFactor: 'PHONE' | 'DESKTOP' = 'PHONE'): Promise<RumData | null> {
-  try {
-    const response = await fetch(`\( {CRUX_API_URL}?key= \){import.meta.env.CRUX_API_KEY || ''}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        origin,
-        formFactor,
-        metrics: [
-          'largest_contentful_paint',
-          'interaction_to_next_paint',
-          'cumulative_layout_shift',
-          'first_contentful_paint',
-          'experimental_time_to_first_byte'
-        ]
-      })
-    });
+## Scoring
 
-    if (!response.ok) return null;
+CrUX and PSI results are blended into a single 0-100 score with CrUX weighted higher when both
+are available (real-user data is trusted more than a single lab run). `confidence` reflects
+CrUX's own sample-size bucket (`high`/`medium`/`low`) when CrUX data is available, falling back
+to `medium`/`low` based on whether lab data alone was available. See
+`calculateOverallScore`/`getGrade` in `src/lib/scanner/enhanced.ts` for the exact weighting.
 
-    const data = await response.json();
-    const record = data.record;
+## Where this fits in the pipeline
 
-    if (!record?.metrics) return null;
+`runEnhancedScanner()` (this file) is called by `runEnhancedScan()` in
+`src/lib/scan.enhanced.ts`, which is the one live scan path used by both `POST /api/scan`
+(synchronous fallback, no Supabase/QStash configured) and `POST /api/worker/scan` (the
+QStash-queued path). `src/lib/scan.ts` (an older, simpler scan implementation) and
+`src/lib/psi.ts` (a standalone PSI client with its own duplicate parsing logic) were both
+confirmed dead code with zero call sites and removed as part of the code-cleanup pass.
 
-    const metrics = record.metrics;
-    const sampleSize = record.metrics.largest_contentful_paint?.histogram?.[0]?.density || 0;
+## Known limitations (documented, not hidden)
 
-    const lcp = metrics.largest_contentful_paint?.percentiles?.p75;
-    const inp = metrics.interaction_to_next_paint?.percentiles?.p75;
-    const cls = metrics.cumulative_layout_shift?.percentiles?.p75;
-    const fcp = metrics.first_contentful_paint?.percentiles?.p75;
-    const ttfb = metrics.experimental_time_to_first_byte?.percentiles?.p75;
-
-    const confidence = sampleSize > 5000 ? 'high' : sampleSize > 1000 ? 'medium' : 'low';
-
-    return {
-      lcp_ms: lcp,
-      inp_ms: inp,
-      cls,
-      fcp_ms: fcp,
-      ttfb_ms: ttfb,
-      status: getCwvStatus(lcp, inp, cls),
-      sampleSize: Math.floor(sampleSize * 10000),
-      confidence
-    };
-  } catch {
-    return null;
-  }
-}
-
-function getCwvStatus(lcp?: number, inp?: number, cls?: number): 'pass' | 'needs-improvement' | 'poor' {
-  if (!lcp || !inp || !cls) return 'needs-improvement';
-  if (lcp <= 2500 && inp <= 200 && cls <= 0.1) return 'pass';
-  if (lcp <= 4000 && inp <= 500 && cls <= 0.25) return 'needs-improvement';
-  return 'poor';
-}
-
-async function fetchPsi(url: string, device: 'mobile' | 'desktop' = 'mobile'): Promise<LabData | null> {
-  try {
-    const strategy = device === 'mobile' ? 'mobile' : 'desktop';
-    const params = new URLSearchParams({
-      url,
-      strategy,
-      category: ['performance', 'accessibility', 'best-practices', 'seo']
-    });
-
-    const response = await fetch(`\( {PSI_API_URL}? \){params}`);
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    const lighthouse = data.lighthouseResult;
-
-    return {
-      lighthouse: {
-        performance: lighthouse.categories.performance.score || 0,
-        accessibility: lighthouse.categories.accessibility.score || 0,
-        bestPractices: lighthouse.categories['best-practices'].score || 0,
-        seo: lighthouse.categories.seo.score || 0
-      },
-      cwv: {
-        lcp_ms: lighthouse.audits['largest-contentful-paint']?.numericValue,
-        inp_ms: lighthouse.audits['interaction-to-next-paint']?.numericValue,
-        cls: lighthouse.audits['cumulative-layout-shift']?.numericValue,
-        status: getCwvStatus(
-          lighthouse.audits['largest-contentful-paint']?.numericValue,
-          lighthouse.audits['interaction-to-next-paint']?.numericValue,
-          lighthouse.audits['cumulative-layout-shift']?.numericValue
-        )
-      }
-    };
-  } catch {
-    return null;
-  }
-}
-
-async function measureNetwork(url: string): Promise<NetworkData> {
-  const start = Date.now();
-  try {
-    const response = await fetch(url, { method: 'HEAD', redirect: 'follow' });
-    const ttfb = Date.now() - start;
-
-    return {
-      ttfb_ms: ttfb,
-      dns_ms: 0,
-      tls_ms: 0,
-      redirect_count: response.redirected ? 1 : 0,
-      redirect_time_ms: 0
-    };
-  } catch {
-    return {
-      ttfb_ms: 9999,
-      redirect_count: 0,
-      redirect_time_ms: 0
-    };
-  }
-}
-
-function calculateOverallScore(rum: RumData | null, lab: LabData | null, network: NetworkData): number {
-  let score = 70;
-
-  if (lab) {
-    score = (score * 0.4) + (lab.lighthouse.performance * 100 * 0.4);
-  }
-
-  if (rum) {
-    const rumScore = 100 - ((rum.lcp_ms || 3000) / 40) - ((rum.inp_ms || 300) / 5) - (rum.cls || 0) * 200;
-    score = (score * 0.6) + (Math.max(0, rumScore) * 0.6);
-  }
-
-  if (network.ttfb_ms > 600) score -= 15;
-  if (network.ttfb_ms > 1000) score -= 20;
-
-  return Math.min(100, Math.max(0, Math.round(score)));
-}
-
-function getGrade(score: number): 'A' | 'B' | 'C' | 'D' | 'F' {
-  if (score >= 90) return 'A';
-  if (score >= 80) return 'B';
-  if (score >= 70) return 'C';
-  if (score >= 60) return 'D';
-  return 'F';
-}
-
-export async function runEnhancedScanner(url: string, device: 'mobile' | 'desktop' = 'mobile'): Promise<EnhancedScanResult> {
-  const origin = new URL(url).origin;
-
-  const [rum, lab, network] = await Promise.all([
-    fetchCrux(origin, device === 'mobile' ? 'PHONE' : 'DESKTOP'),
-    fetchPsi(url, device),
-    measureNetwork(url)
-  ]);
-
-  const overallScore = calculateOverallScore(rum, lab, network);
-  const grade = getGrade(overallScore);
-
-  const rumAvailable = !!rum;
-  const labAvailable = !!lab;
-  const networkAvailable = true;
-
-  const confidence = rum?.confidence || (labAvailable ? 'medium' : 'low');
-
-  return {
-    rum: rum || {
-      lcp_ms: undefined,
-      inp_ms: undefined,
-      cls: undefined,
-      status: 'needs-improvement',
-      sampleSize: 0,
-      confidence: 'low'
-    },
-    lab: lab || {
-      lighthouse: { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 },
-      cwv: { status: 'needs-improvement' }
-    },
-    network,
-    overallScore,
-    grade,
-    sources: { rumAvailable, labAvailable, networkAvailable },
-    confidence
-  };
-}
+- No real browser-based measurement - everything is CrUX + Google's hosted PSI API + a
+  fetch-based timing check. A dedicated headless-browser worker is a documented future option
+  (see `PROJECT_AUDIT.md`'s recommended architecture), not something to reintroduce casually
+  given the serverless-stability reasons Playwright was disabled in the first place.
+- CrUX has no data for low-traffic sites (falls back to lab-only scoring, lower confidence).
+- The manual network check is a coarse single-request timing measurement, not a full
+  waterfall - it's meant to catch obviously slow TTFB, not replace real APM.
