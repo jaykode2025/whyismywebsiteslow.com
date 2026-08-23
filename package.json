@@ -37,5 +37,8 @@
     "@types/dompurify": "^3.0.5",
     "supabase": "^2.76.8",
     "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "path-to-regexp": "^6.3.0"
   }
 }

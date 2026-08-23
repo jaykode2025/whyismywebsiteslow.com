@@ -321,3 +321,22 @@ There was no admin dashboard and no admin *role* at all before this - `/internal
 **Verified:** `tsc --noEmit`, `npm run build`, `npm test` all pass clean - re-run after every deletion/migration, not just once at the end, specifically because the `psi.ts` deletion did break the build on the first attempt (see above).
 
 **Explicitly not done this pass (documented, not silently skipped):** distributed (Redis-backed) rate limiting - requires a new infra decision (an Upstash Redis instance distinct from the existing QStash one) and env vars that don't exist yet, so it's a feature/infra addition, not a cleanup; DNS-rebinding SSRF closure (unchanged from §5); requiring a real admin user rather than the shared key for mutating admin actions (unchanged from §14).
+
+---
+
+## 16. Dependabot Alert Review (112 alerts on `main`)
+
+GitHub reported 112 open Dependabot alerts (2 critical, 42 high, 56 medium, 12 low) on push. Pulled the full list via the GitHub API (`gh api repos/.../dependabot/alerts`) and cross-checked every one's actual `vulnerable_version_range` (proper semver range matching via the `semver` package, not string comparison) against the versions genuinely resolved in this branch's `package-lock.json`.
+
+**Headline finding: 108 of the 112 were already fixed on this branch before this review started** - not because anyone deliberately patched them, but as an incidental side effect of running `npm install` when `@astrojs/mdx` was added in an earlier session (npm naturally re-resolved several transitive dependencies to newer semver-compatible versions in the process, including both packages behind the 2 *critical* alerts: `tar` 7.5.7→7.5.22 and `vitest` 3.2.4→3.2.7). **This is exactly why the alert count looked alarming: Dependabot alerts are computed against `main`, which still has the old, unpatched lockfile - they will not reflect this branch's fixes until it's merged.**
+
+Breakdown of all 112:
+- **108 fixed** - installed version on this branch is outside every alert's vulnerable range.
+- **3 stale (`lodash`, 2 medium + 1 high)** - `lodash` isn't a dependency at all anymore on this branch (`npm ls lodash` returns nothing); these alerts simply no longer apply.
+- **1 real, confirmed, still-present** - `path-to-regexp@6.1.0` (high, GHSA-9wv6-86v2-598j / CVE-2024-45296, ReDoS via backtracking regex), pulled in via `@astrojs/vercel@11.0.5` → `@vercel/routing-utils@5.3.3`. Already on the newest `@astrojs/vercel` (11.0.5) - the "upgrade to v8" fix suggested by the original `npm audit` finding in §5/§6 was based on stale guidance; even the latest major version still pulls this vulnerable transitive copy, so a version bump alone can't fix it.
+
+**Fixed this pass:** added `"overrides": { "path-to-regexp": "^6.3.0" }` to `package.json`, forcing every copy in the tree to the patched version regardless of what `@vercel/routing-utils` itself requests (a same-major-version patch bump, low risk of breaking anything). `npm audit` now reports **0 vulnerabilities**. Verified `tsc --noEmit`, `npm run build`, and `npm test` all still pass with the override in place.
+
+**Practical risk note, for context:** even before this fix, the path-to-regexp ReDoS is only exploitable if attacker-controlled input reaches path-to-regexp as a *route pattern to compile*, not as a request path to match against a pattern - `@vercel/routing-utils` uses it internally to process routing config, not arbitrary end-user input. Real-world exploitability here was low; fixing it was still the right call since it was a one-line, zero-risk change.
+
+**Takeaway for future dependency work:** always check Dependabot/`npm audit` findings against what's actually resolved in the lockfile of the branch being evaluated, not just the advisory's headline severity - a routine `npm install` can silently fix (or introduce) far more than a targeted `npm audit fix` would suggest, and GitHub's alert list reflects whatever branch it's configured to scan (here, `main`), not the branch you're actually working on.
