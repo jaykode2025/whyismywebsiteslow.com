@@ -35,7 +35,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   const urls = [
     // Static pages - high priority
     ...staticRoutes.map((path) => ({
-      loc: `\( {base} \){path}`,
+      loc: `${base}${path}`,
       lastmod: new Date().toISOString(),
       priority: "1.0",
       changefreq: "daily",
@@ -43,7 +43,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
     // Guides (hand-written articles rendered from the "pages" content collection)
     ...pseoPages.map((page) => ({
-      loc: `\( {base}/guides/ \){page.id}`,
+      loc: `${base}/guides/${page.id}`,
       lastmod: page.data.pubDate ? new Date(page.data.pubDate).toISOString() : new Date().toISOString(),
       priority: "0.8",
       changefreq: "weekly",
@@ -51,7 +51,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
     // Proof-of-concept dataset pages (root-level, see src/pages/[slug].astro)
     ...performanceDatasets.map((dataset: { slug: string }) => ({
-      loc: `\( {base}/ \){dataset.slug}`,
+      loc: `${base}/${dataset.slug}`,
       lastmod: new Date().toISOString(),
       priority: "0.6",
       changefreq: "weekly",
@@ -59,7 +59,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
     // Your existing SEO URLs from lib
     ...seoUrls.map((url) => ({
-      loc: `\( {base} \){url.url}`,
+      loc: `${base}${url.url}`,
       lastmod: new Date().toISOString(),
       priority: "0.7",
       changefreq: "weekly",
@@ -67,7 +67,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
 
     // Dynamic public reports
     ...reports.map((report) => ({
-      loc: `\( {base}/report/ \){report.id}`,
+      loc: `${base}/report/${report.id}`,
       lastmod: report.createdAt,
       priority: "0.6",
       changefreq: "daily",
