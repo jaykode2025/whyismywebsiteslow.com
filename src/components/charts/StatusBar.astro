@@ -1,0 +1,92 @@
+---
+/**
+ * Composition of a whole by status (scan outcomes, entitlement states).
+ *
+ * A stacked bar rather than a pie: comparing angles is harder than comparing
+ * lengths along a shared baseline, and this reads at a glance even when one
+ * segment is tiny.
+ *
+ * These are STATUS colours, not series colours - they carry a fixed meaning
+ * (good / info / warning / critical) and are never recycled as "category 5".
+ * Because hue alone must never carry meaning, every segment ships with a shape
+ * marker AND a text label in the legend, and its exact count on hover.
+ */
+type Segment = {
+  label: string;
+  value: number;
+  /** Fixed semantic role - drives colour and marker glyph. */
+  tone: "good" | "info" | "warning" | "critical" | "neutral";
+};
+
+interface Props {
+  title: string;
+  segments: Segment[];
+  class?: string;
+}
+
+const { title, segments = [], class: className = "" } = Astro.props as Props;
+
+// Site status palette. Each clears 3:1 on the --color-ink surface (#05070d):
+// good 10.5:1 · info 9.4:1 · warning 12.1:1 · critical 7.5:1.
+const tones = {
+  good: { color: "#34d399", glyph: "●", text: "text-emerald-300" },
+  info: { color: "#38bdf8", glyph: "◆", text: "text-sky-300" },
+  warning: { color: "#fbbf24", glyph: "▲", text: "text-amber-300" },
+  critical: { color: "#fb7185", glyph: "■", text: "text-rose-300" },
+  neutral: { color: "#64748b", glyph: "○", text: "text-slate-400" },
+} as const;
+
+const total = segments.reduce((sum, s) => sum + s.value, 0);
+const visible = segments.filter((s) => s.value > 0);
+---
+
+<figure class={className}>
+  <figcaption class="mb-2 flex items-baseline justify-between gap-3">
+    <span class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{title}</span>
+    <span class="text-xs tabular-nums text-slate-500">{total.toLocaleString()} total</span>
+  </figcaption>
+
+  {total === 0 ? (
+    <p class="py-6 text-center text-sm text-slate-500">No data yet.</p>
+  ) : (
+    <>
+      {/* gap-[2px] is the surface gap that keeps adjacent fills from reading as
+          one continuous mark. */}
+      <div class="flex h-3 gap-[2px] overflow-hidden rounded-full">
+        {visible.map((s) => {
+          const t = tones[s.tone] ?? tones.neutral;
+          const pct = (s.value / total) * 100;
+          return (
+            <div
+              class="group relative h-full transition-[filter] duration-150 hover:brightness-125"
+              style={`width:${pct}%;min-width:3px;background:${t.color}`}
+              tabindex="0"
+            >
+              <div
+                class="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/10 bg-slate-950/95 px-2.5 py-1.5 text-xs shadow-xl group-hover:block group-focus:block"
+                role="tooltip"
+              >
+                <span class="font-semibold tabular-nums text-slate-100">{s.value.toLocaleString()}</span>
+                <span class="ml-1.5 text-slate-400">{s.label} · {pct.toFixed(0)}%</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend: marker + label + value, so identity never rests on colour. */}
+      <ul class="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+        {segments.map((s) => {
+          const t = tones[s.tone] ?? tones.neutral;
+          return (
+            <li class="flex items-center gap-1.5 text-xs">
+              <span class={t.text} aria-hidden="true">{t.glyph}</span>
+              <span class="text-slate-400">{s.label}</span>
+              <span class="font-semibold tabular-nums text-slate-200">{s.value.toLocaleString()}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  )}
+</figure>

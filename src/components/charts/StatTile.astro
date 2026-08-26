@@ -1,0 +1,113 @@
+---
+/**
+ * A single headline number. Deliberately not a chart - one value has no shape
+ * to show, and a one-bar chart is just a number wearing a costume.
+ *
+ * Optionally carries a sparkline (shape only, no axes - it shows direction, and
+ * the tile's own number carries the magnitude) and a period-over-period delta.
+ * The delta pairs an arrow glyph with its colour so the direction survives for
+ * colourblind readers and in forced-colours mode.
+ */
+interface Props {
+  label: string;
+  value: number | string;
+  /** Percentage change vs the previous equivalent period. */
+  delta?: number | null;
+  /** true when a rising number is bad (failures, churn). */
+  invertDelta?: boolean;
+  sparkline?: number[];
+  accent?: string;
+  hint?: string;
+  class?: string;
+}
+
+const {
+  label,
+  value,
+  delta = null,
+  invertDelta = false,
+  sparkline = [],
+  accent = "#38bdf8",
+  hint,
+  class: className = "",
+} = Astro.props as Props;
+
+const hasDelta = delta !== null && Number.isFinite(delta);
+const rising = hasDelta && (delta as number) > 0;
+const flat = hasDelta && Math.round(delta as number) === 0;
+const positive = invertDelta ? !rising : rising;
+
+const deltaTone = flat
+  ? "text-slate-500"
+  : positive
+    ? "text-emerald-300"
+    : "text-rose-300";
+const deltaGlyph = flat ? "→" : rising ? "↑" : "↓";
+
+// Sparkline geometry: a plain polyline, no axes and no dots.
+const W = 100;
+const H = 28;
+let points = "";
+let areaPoints = "";
+if (sparkline.length > 1) {
+  const min = Math.min(...sparkline);
+  const max = Math.max(...sparkline);
+  const span = max - min || 1;
+  const step = W / (sparkline.length - 1);
+  const coords = sparkline.map((v, i) => {
+    const x = i * step;
+    const y = H - ((v - min) / span) * (H - 4) - 2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  points = coords.join(" ");
+  areaPoints = `0,${H} ${points} ${W},${H}`;
+}
+const gradId = `spark-${label.replace(/[^a-z0-9]/gi, "-").toLowerCase()}`;
+---
+
+<div class={`glass group relative overflow-hidden rounded-2xl p-5 transition-colors duration-200 hover:border-white/20 ${className}`}>
+  <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">{label}</p>
+
+  <div class="mt-2 flex items-end justify-between gap-3">
+    <p class="font-display text-3xl leading-none tabular-nums text-slate-50">
+      {typeof value === "number" ? value.toLocaleString() : value}
+    </p>
+
+    {hasDelta && (
+      <span class={`flex items-center gap-1 text-xs font-semibold tabular-nums ${deltaTone}`}>
+        <span aria-hidden="true">{deltaGlyph}</span>
+        {Math.abs(delta as number).toFixed(0)}%
+      </span>
+    )}
+  </div>
+
+  {hint && <p class="mt-1.5 text-[11px] text-slate-500">{hint}</p>}
+
+  {sparkline.length > 1 && (
+    <svg
+      class="mt-3 w-full"
+      viewBox={`0 0 ${W} ${H}`}
+      height={H}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color={accent} stop-opacity="0.28" />
+          <stop offset="100%" stop-color={accent} stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={areaPoints} fill={`url(#${gradId})`} />
+      <polyline
+        points={points}
+        fill="none"
+        stroke={accent}
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        vector-effect="non-scaling-stroke"
+      />
+    </svg>
+  )}
+</div>
