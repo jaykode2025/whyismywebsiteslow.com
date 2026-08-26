@@ -2,6 +2,7 @@
  * Utility functions for handling timeouts and retries
  */
 import { isBlockedHostname } from "./validate";
+import { assertResolvesToPublicAddress } from "./dnsGuard";
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 5;
@@ -19,6 +20,7 @@ export async function fetchSafely(input: string, options: RequestInit = {}): Pro
   if (isBlockedHostname(currentUrl.hostname)) {
     throw new Error("Blocked internal URL");
   }
+  await assertResolvesToPublicAddress(currentUrl.hostname);
 
   let response = await fetch(currentUrl.toString(), { ...options, redirect: "manual" });
   let hops = 0;
@@ -34,6 +36,7 @@ export async function fetchSafely(input: string, options: RequestInit = {}): Pro
     if (isBlockedHostname(currentUrl.hostname)) {
       throw new Error("Redirect target blocked (internal URL)");
     }
+    await assertResolvesToPublicAddress(currentUrl.hostname);
 
     hops += 1;
     response = await fetch(currentUrl.toString(), { ...options, redirect: "manual" });

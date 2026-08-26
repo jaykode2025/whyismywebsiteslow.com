@@ -23,8 +23,13 @@ export function isBlockedHostname(hostnameRaw: string): boolean {
     return true;
   }
 
-  // IPv6 loopback / unspecified / link-local
-  if (hostname === "::1" || hostname === "::" || hostname.startsWith("fe80:")) {
+  // IPv6 loopback / unspecified / link-local / unique-local (RFC 4193, fc00::/7)
+  if (
+    hostname === "::1" ||
+    hostname === "::" ||
+    hostname.startsWith("fe80:") ||
+    /^f[cd][0-9a-f]{2}:/i.test(hostname)
+  ) {
     return true;
   }
   // IPv4-mapped IPv6 (::ffff:127.0.0.1) - unwrap and re-check

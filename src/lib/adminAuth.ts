@@ -20,6 +20,11 @@ async function hasAdminAccess(context: Pick<APIContext, "url" | "request" | "loc
     context.url.searchParams.get("key") ?? context.request.headers.get("x-internal-dashboard-key");
   if (expectedKey && providedKey === expectedKey) return true;
 
+  return hasRealAdminUser(context);
+}
+
+/** True only for a logged-in user with profiles.is_admin - never the shared key. */
+async function hasRealAdminUser(context: Pick<APIContext, "locals">): Promise<boolean> {
   const user = context.locals.user;
   if (!user) return false;
 
@@ -50,4 +55,28 @@ export async function requireAdminApi(
     status: 404,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+/**
+ * For API routes that *mutate* state (cancel a subscription, unlock/refund a
+ * report): deliberately narrower than requireAdminApi. The shared
+ * INTERNAL_DASHBOARD_KEY is accepted for *viewing* the dashboard (useful
+ * before any admin user exists), but a mutating action taken via the shared
+ * key isn't attributable to a specific person - once real admin users exist,
+ * require one here so every mutation has a real actor behind it.
+ */
+export async function requireAdminMutation(
+  context: Pick<APIContext, "request" | "locals">
+): Promise<Response | null> {
+  if (await hasRealAdminUser(context)) return null;
+  if (context.locals.user) {
+    return new Response(JSON.stringify({ error: "Not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  return new Response(
+    JSON.stringify({ error: "Sign in with an admin account to perform this action" }),
+    { status: 401, headers: { "Content-Type": "application/json" } }
+  );
 }

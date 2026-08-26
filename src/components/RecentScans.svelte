@@ -3,6 +3,7 @@
 
   let scans = $state([]);
   let loading = $state(true);
+  let loadFailed = $state(false);
 
   async function fetchRecent() {
     try {
@@ -14,16 +15,15 @@
 
       const data = await res.json();
       scans = Array.isArray(data) ? data : [];
+      loadFailed = false;
     } catch (e) {
       console.error(e);
-
-      // Safe fallback with example audits
-      scans = [
-        { url: 'lawyersite.com', score: 34, time: '2m ago' },
-        { url: 'saassite.io', score: 98, time: '5m ago' },
-        { url: 'shopifystore.com', score: 72, time: '12m ago' },
-        { url: 'miami-realestate.net', score: 45, time: '18m ago' }
-      ];
+      // Previously fell back to fabricated example domains here, presented
+      // identically to real activity - that's fake social proof. Show an
+      // honest "couldn't load" state instead of inventing scans that never
+      // happened.
+      scans = [];
+      loadFailed = true;
     } finally {
       loading = false;
     }
@@ -59,7 +59,7 @@
     </div>
   {:else if scans.length === 0}
     <div class="text-sm text-slate-500 text-center py-8">
-      No recent audits yet.
+      {loadFailed ? "Couldn't load recent audits." : "No recent audits yet."}
     </div>
   {:else}
     <ul class="space-y-4">

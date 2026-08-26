@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { createReportPlaceholder, setReport, setReportStatus } from "../../lib/store";
 import { rateLimit } from "../../lib/slidingRateLimit";
 import { normalizeUrl, clampLinks } from "../../lib/validate";
+import { assertResolvesToPublicAddress } from "../../lib/dnsGuard";
 import { runEnhancedScan } from "../../lib/scan.enhanced";
 import { env, hasSupabaseEnv } from "../../lib/env";
 import { generateId, generateToken, hashToken } from "../../lib/tokens";
@@ -26,6 +27,11 @@ export const POST: APIRoute = async (context) => {
   try {
     const body = await request.json();
     const normalized = normalizeUrl(body.url);
+    // normalizeUrl only catches IP-literal SSRF attempts and known-internal
+    // hostname suffixes - it never resolves the domain itself, so a domain
+    // that already points at a private address at submission time would
+    // otherwise sail through here undetected. See dnsGuard.ts.
+    await assertResolvesToPublicAddress(normalized.hostname);
     const hostKey = normalized.hostname;
     const ipKey = clientAddress ?? "unknown";
     const bucket = rateLimit(`${ipKey}:${hostKey}`);
@@ -385,10 +391,11 @@ export const POST: APIRoute = async (context) => {
     });
   } catch (error: any) {
     console.error("Scan API error:", error);
+    const lowerMessage = (error?.message || "").toLowerCase();
     const isClientError =
-      error?.message?.includes("url") ||
-      error?.message?.includes("normalize") ||
-      error?.message?.includes("limit") ||
+      lowerMessage.includes("url") ||
+      lowerMessage.includes("normalize") ||
+      lowerMessage.includes("limit") ||
       error instanceof SyntaxError;
     const status = isClientError ? 400 : 500;
     const message = error?.message || "Internal error";

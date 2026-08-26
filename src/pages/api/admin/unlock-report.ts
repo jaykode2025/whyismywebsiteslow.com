@@ -1,11 +1,11 @@
 import type { APIRoute } from "astro";
-import { requireAdminApi } from "../../../lib/adminAuth";
+import { requireAdminMutation } from "../../../lib/adminAuth";
 import { verifyCsrfTokenFromRequest } from "../../../lib/csrf";
 import { unlockReport } from "../../../lib/entitlements";
 import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
 
 export const POST: APIRoute = async (context) => {
-  const denied = await requireAdminApi(context);
+  const denied = await requireAdminMutation(context);
   if (denied) return denied;
 
   const csrfValid = await verifyCsrfTokenFromRequest(context.request);
@@ -20,7 +20,9 @@ export const POST: APIRoute = async (context) => {
   }
 
   const admin = createSupabaseAdminClient();
-  await unlockReport(reportId, "admin-override", { supabase: admin });
+  // requireAdminMutation guarantees a real admin user here (never the shared
+  // key), so stash their id for a minimal audit trail without a schema change.
+  await unlockReport(reportId, `admin-override:${context.locals.user?.id ?? "unknown"}`, { supabase: admin });
 
   return context.redirect(`/admin/reports?id=${encodeURIComponent(reportId)}&unlocked=1`);
 };

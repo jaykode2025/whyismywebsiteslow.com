@@ -15,6 +15,17 @@
   let urlError = $state("");
   let reportId = $state("");
   let manageToken = $state("");
+  let tokenCopyState = $state("idle");
+
+  async function copyManageToken() {
+    try {
+      await navigator.clipboard.writeText(manageToken);
+      tokenCopyState = "copied";
+      setTimeout(() => (tokenCopyState = "idle"), 1500);
+    } catch {
+      tokenCopyState = "failed";
+    }
+  }
 
   function fireEvent(payload) {
     const body = JSON.stringify(payload);
@@ -60,6 +71,7 @@
     status = "submitting";
     reportId = "";
     manageToken = "";
+    tokenCopyState = "idle";
 
     try {
       const validation = validateUrl(url);
@@ -244,9 +256,23 @@
     <div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200" aria-live="polite" aria-atomic="true">
       <ScanProgress id={reportId} {csrfToken} />
       {#if manageToken}
-        <div class="mt-3 space-y-1 text-xs text-slate-400">
+        <div class="mt-3 space-y-2 text-xs text-slate-400">
           <p>Manage token (shown once):</p>
-          <code class="break-all text-slate-200">{manageToken}</code>
+          <div class="flex items-center gap-2">
+            <code class="flex-1 break-all text-slate-200">{manageToken}</code>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="shrink-0 border-white/10 text-xs uppercase tracking-[0.18em] text-slate-200 hover:border-sky-400/60 hover:text-sky-100"
+              on:click={copyManageToken}
+            >
+              {tokenCopyState === "copied" ? "Copied" : "Copy"}
+            </Button>
+          </div>
+          {#if tokenCopyState === "failed"}
+            <p class="text-amber-300">Clipboard unavailable - copy it manually.</p>
+          {/if}
           <a class="block text-sky-200" href={`/r/${reportId}/manage?token=${manageToken}`}>Manage this report</a>
         </div>
       {/if}

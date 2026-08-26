@@ -1,12 +1,12 @@
 import type { APIRoute } from "astro";
-import { requireAdminApi } from "../../../lib/adminAuth";
+import { requireAdminMutation } from "../../../lib/adminAuth";
 import { verifyCsrfTokenFromRequest } from "../../../lib/csrf";
 import { lockReport } from "../../../lib/entitlements";
 import { getStripe } from "../../../lib/stripe";
 import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
 
 export const POST: APIRoute = async (context) => {
-  const denied = await requireAdminApi(context);
+  const denied = await requireAdminMutation(context);
   if (denied) return denied;
 
   const csrfValid = await verifyCsrfTokenFromRequest(context.request);
