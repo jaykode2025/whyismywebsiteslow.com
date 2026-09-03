@@ -67,7 +67,7 @@ export const POST: APIRoute = async (context) => {
     const device: Device = isValidDevice(body.device) ? body.device : 'mobile';
 
     // Get API key from environment (never exposed to client)
-    const apiKey = env.PSI_API_KEY?.() || env.GOOGLE_API_KEY?.();
+    const apiKey = env.PSI_API_KEY();
     if (!apiKey) {
       console.error('PSI API key not configured');
       return new Response(

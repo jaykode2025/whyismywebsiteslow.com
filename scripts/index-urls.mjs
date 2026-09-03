@@ -30,7 +30,7 @@ async function submitUrl(indexing, url) {
     });
     console.log(`✅ Indexed: ${url}`);
     return true;
-  } catch (error: any) {
+  } catch (error) {
     console.error(`❌ Failed ${url}:`, error.message);
     return false;
   }
@@ -56,7 +56,7 @@ async function main() {
   ];
 
   // Auto-pull ALL PSEO pages from your content collection
-  let pseoUrls: string[] = [];
+  let pseoUrls = [];
   try {
     // Note: This requires running with Astro context or a build step.
     // For simplicity on mobile, we'll use a manual list for now and expand later.
