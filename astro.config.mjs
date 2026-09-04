@@ -4,6 +4,7 @@ import { defineConfig } from 'astro/config';
 import svelte from '@astrojs/svelte';
 import sitemap from '@astrojs/sitemap';
 import vercel from '@astrojs/vercel';
+import mdx from '@astrojs/mdx';
 import tailwindcss from '@tailwindcss/vite';
 
 // https://astro.build/config
@@ -15,7 +16,7 @@ export default defineConfig({
       enabled: true,
     },
   }),
-  integrations: [svelte(), sitemap()],
+  integrations: [svelte(), mdx(), sitemap()],
 
   vite: {
     plugins: [tailwindcss()]

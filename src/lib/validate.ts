@@ -1,3 +1,83 @@
+/**
+ * Returns true if a hostname/IP points at an internal, private, loopback,
+ * link-local (including the 169.254.169.254 cloud metadata address), or
+ * otherwise non-public address. Used both to validate user-submitted URLs
+ * and to re-validate each hop of a redirect chain before following it.
+ */
+export function isBlockedHostname(hostnameRaw: string): boolean {
+  const hostname = hostnameRaw.toLowerCase().replace(/^\[|\]$/g, "");
+
+  if (
+    hostname === "localhost" ||
+    hostname === "0.0.0.0" ||
+    hostname.startsWith("127.") ||
+    hostname.startsWith("192.168.") ||
+    hostname.startsWith("10.") ||
+    hostname.startsWith("169.254.") || // link-local, incl. cloud metadata 169.254.169.254
+    hostname === "internal" ||
+    hostname.endsWith(".internal") ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".svc.cluster.local") ||
+    hostname.endsWith(".docker.internal")
+  ) {
+    return true;
+  }
+
+  // IPv6 loopback / unspecified / link-local / unique-local (RFC 4193, fc00::/7)
+  if (
+    hostname === "::1" ||
+    hostname === "::" ||
+    hostname.startsWith("fe80:") ||
+    /^f[cd][0-9a-f]{2}:/i.test(hostname)
+  ) {
+    return true;
+  }
+  // IPv4-mapped IPv6 (::ffff:127.0.0.1) - unwrap and re-check
+  if (hostname.startsWith("::ffff:")) {
+    return isBlockedHostname(hostname.slice("::ffff:".length));
+  }
+
+  // Dotted-quad IPv4 (validate each octet properly, unlike a plain regex)
+  const ipSegments = hostname.split(".");
+  if (ipSegments.length === 4 && ipSegments.every((seg) => /^\d{1,3}$/.test(seg))) {
+    const nums = ipSegments.map(Number);
+    if (nums.every((n) => n <= 255)) {
+      const [a, b] = nums;
+      if (
+        a === 127 ||
+        a === 10 ||
+        a === 0 ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && b === 168) ||
+        (a === 169 && b === 254)
+      ) {
+        return true;
+      }
+    }
+  }
+
+  // Single decimal-integer IP form, e.g. http://2130706433/ === 127.0.0.1
+  if (/^\d+$/.test(hostname)) {
+    const num = Number(hostname);
+    if (Number.isSafeInteger(num) && num >= 0 && num <= 4294967295) {
+      const a = (num >>> 24) & 255;
+      const b = (num >>> 16) & 255;
+      if (
+        a === 127 ||
+        a === 10 ||
+        a === 0 ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && b === 168) ||
+        (a === 169 && b === 254)
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 export function normalizeUrl(input: string) {
   const trimmed = input.trim();
   if (!trimmed) throw new Error("URL required");
@@ -11,39 +91,10 @@ export function normalizeUrl(input: string) {
   }
 
   if (!url.protocol.startsWith("http")) throw new Error("Only http/https supported");
-  
-  // Prevent SSRF attacks by blocking internal addresses
-  const hostname = url.hostname.toLowerCase();
-  if (
-    hostname === "localhost" ||
-    hostname.startsWith("127.") ||
-    hostname.startsWith("192.168.") ||
-    hostname.startsWith("10.") ||
-    hostname.startsWith("172.") ||
-    // Check for IP address format (IPv4)
-    /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) ||
-    // Block common internal hostnames
-    hostname === "internal" ||
-    hostname.endsWith(".internal") ||
-    hostname.endsWith(".local") ||
-    hostname.endsWith(".svc.cluster.local") ||
-    hostname.endsWith(".docker.internal")
-  ) {
-    throw new Error("Internal URLs not allowed");
-  }
 
-  // Validate IP address segments to prevent private IP ranges
-  const ipSegments = hostname.split('.');
-  if (ipSegments.length === 4 && ipSegments.every(seg => /^\d+$/.test(seg))) {
-    const [a, b, c, d] = ipSegments.map(Number);
-    if (
-      a === 127 || // localhost
-      a === 10 || // 10.x.x.x
-      (a === 172 && b >= 16 && b <= 31) || // 172.16.x.x - 172.31.x.x
-      (a === 192 && b === 168) // 192.168.x.x
-    ) {
-      throw new Error("Internal URLs not allowed");
-    }
+  // Prevent SSRF attacks by blocking internal/private/link-local addresses
+  if (isBlockedHostname(url.hostname)) {
+    throw new Error("Internal URLs not allowed");
   }
 
   url.hash = "";

@@ -66,6 +66,25 @@ export async function isReportUnlocked(reportId: string, locals: App.Locals) {
   return map.get(reportId)?.unlocked ?? false;
 }
 
+/** Admin override: revoke a report's unlock (e.g. after a refund). */
+export async function lockReport(reportId: string, options: { supabase?: SupabaseClient | null } = {}) {
+  if (!reportId) return false;
+  if (options.supabase) {
+    const { error } = await options.supabase
+      .from("report_entitlements")
+      .update({ unlocked: false })
+      .eq("report_id", reportId);
+    return !error;
+  }
+  const map = loadLocal();
+  const existing = map.get(reportId);
+  if (existing) {
+    map.set(reportId, { ...existing, unlocked: false });
+    persistLocal(map);
+  }
+  return true;
+}
+
 export async function unlockReport(
   reportId: string,
   stripeSessionId: string | null,

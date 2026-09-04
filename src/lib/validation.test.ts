@@ -23,6 +23,11 @@ describe("normalizeUrl", () => {
     expect(() => normalizeUrl("http://192.168.1.10")).toThrow("Internal URLs not allowed");
     expect(() => normalizeUrl("http://172.16.0.8")).toThrow("Internal URLs not allowed");
   });
+
+  it("blocks IPv6 unique-local addresses (RFC 4193, fc00::/7)", () => {
+    expect(() => normalizeUrl("http://[fd00::1]")).toThrow("Internal URLs not allowed");
+    expect(() => normalizeUrl("http://[fc00::1]")).toThrow("Internal URLs not allowed");
+  });
 });
 
 describe("getHost", () => {

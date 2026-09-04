@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Card from "../../components/ui/Card.astro";
+import ArticleScanner from "../../components/seo/ArticleScanner.astro";
 
 const title = "How to fix LCP";
 const description = "Speed up your Largest Contentful Paint and improve perceived load time.";
@@ -18,6 +19,13 @@ const description = "Speed up your Largest Contentful Paint and improve perceive
         <li>Inline critical CSS and defer the rest.</li>
         <li>Reduce third-party scripts before first paint.</li>
       </ol>
+
+      <ArticleScanner />
+
+      <p class="mt-6 text-sm text-slate-400">
+        Also slow? <a class="text-sky-300 hover:text-sky-200" href="/fix/ttfb">Fix TTFB</a> ·
+        <a class="text-sky-300 hover:text-sky-200" href="/fix/render-blocking-css">Fix render-blocking CSS</a>
+      </p>
     </Card>
   </section>
 </BaseLayout>

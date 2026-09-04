@@ -12,14 +12,14 @@ const linkClass = (href: string) =>
   <a href="/" class="flex items-center gap-3 text-slate-100">
     <Logo />
   </a>
-  <nav class="hidden items-center gap-6 text-sm text-slate-300 md:flex">
+  <nav class="hidden items-center gap-6 text-sm text-slate-300 md:flex" aria-label="Main">
     <a href="/scan" class={linkClass("/scan")}>Scan</a>
     {user ? <a href="/projects" class={linkClass("/projects")}>Projects</a> : null}
     <a href="/billing" class={linkClass("/billing")}>{user ? "Billing" : "Pricing"}</a>
     <a href="/about" class={linkClass("/about")}>About</a>
     <a href="/api" class={linkClass("/api")}>API</a>
     <a href="/report/example" class={linkClass("/report")}>Examples</a>
-    {!user ? <a href="/login" class={linkClass("/login")}>Log in</a> : null}
+    {user ? <a href="/account" class={linkClass("/account")}>Account</a> : <a href="/login" class={linkClass("/login")}>Log in</a>}
   </nav>
   <div class="flex items-center gap-3">
     {user ? (
@@ -28,18 +28,22 @@ const linkClass = (href: string) =>
       <Button href="/scan" variant={isHome ? "primary" : "ghost"} data-track-event="homepage_cta_clicked" data-track-source="site-header" data-track-offer-context="free-scan" data-track-cta-variant="primary">Scan your site free</Button>
     )}
     <details class="relative md:hidden">
-      <summary class="cursor-pointer rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.18em] text-slate-300">
+      <summary class="cursor-pointer rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.18em] text-slate-300" aria-label="Open navigation menu">
         Menu
       </summary>
-      <div class="absolute right-0 mt-2 w-48 rounded-2xl border border-white/10 bg-[#0b1120] p-3 text-sm text-slate-200 shadow-2xl">
+      <nav class="absolute right-0 mt-2 w-48 rounded-2xl border border-white/10 bg-[#0b1120] p-3 text-sm text-slate-200 shadow-2xl" aria-label="Mobile">
         <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/scan") ? "bg-white/5 text-slate-100" : ""}`} href="/scan">Scan</a>
         {user ? <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/projects") ? "bg-white/5 text-slate-100" : ""}`} href="/projects">Projects</a> : null}
         <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/billing") ? "bg-white/5 text-slate-100" : ""}`} href="/billing">{user ? "Billing" : "Pricing"}</a>
         <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/about") ? "bg-white/5 text-slate-100" : ""}`} href="/about">About</a>
         <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/api") ? "bg-white/5 text-slate-100" : ""}`} href="/api">API</a>
         <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/report") ? "bg-white/5 text-slate-100" : ""}`} href="/report/example">Examples</a>
-        {!user ? <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/login") ? "bg-white/5 text-slate-100" : ""}`} href="/login">Log in</a> : null}
-      </div>
+        {user ? (
+          <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/account") ? "bg-white/5 text-slate-100" : ""}`} href="/account">Account</a>
+        ) : (
+          <a class={`block rounded-lg px-3 py-2 transition hover:bg-white/5 ${isActive("/login") ? "bg-white/5 text-slate-100" : ""}`} href="/login">Log in</a>
+        )}
+      </nav>
     </details>
   </div>
 </header>

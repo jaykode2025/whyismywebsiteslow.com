@@ -2,16 +2,10 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Card from "../../components/ui/Card.astro";
 import { createSupabaseAdminClient } from "../../lib/supabase/admin";
-import { env } from "../../lib/env";
+import { requireAdminPage } from "../../lib/adminAuth";
 
-const accessKey = Astro.url.searchParams.get("key") ?? "";
-const expectedKey = env.INTERNAL_DASHBOARD_KEY() ?? "";
-const hasSharedKeyAccess = Boolean(expectedKey) && accessKey === expectedKey;
-const hasUserAccess = Boolean(Astro.locals.user);
-
-if (!hasSharedKeyAccess && !hasUserAccess) {
-  return Astro.redirect(`/login?next=${encodeURIComponent("/internal/funnel")}`);
-}
+const denied = await requireAdminPage(Astro);
+if (denied) return denied;
 
 const admin = createSupabaseAdminClient();
 

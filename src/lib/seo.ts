@@ -44,7 +44,7 @@ export const articleSchema = (title: string, description: string, author: string
     name: "Why Is My Website Slow",
     logo: {
       "@type": "ImageObject",
-      url: siteUrl("/logo.png")  // Placeholder - you'd need to add your logo
+      url: siteUrl("/og-default.png")
     }
   },
   datePublished: datePublished,
@@ -57,14 +57,9 @@ export const organizationSchema = () => ({
   "@type": "Organization",
   name: "Why Is My Website Slow",
   url: siteUrl("/"),
-  logo: siteUrl("/logo.png"),  // Placeholder
-  contactPoint: {
-    "@type": "ContactPoint",
-    telephone: "+1-800-SPEED-AUDIT",  // Placeholder
-    contactType: "customer service",
-    areaServed: "US",
-    availableLanguage: "en"
-  }
+  logo: siteUrl("/og-default.png"),
+  // No public support phone line exists - omit contactPoint rather than
+  // publish a fabricated one in structured data.
 });
 
 // Generate keyword-rich title with proper length

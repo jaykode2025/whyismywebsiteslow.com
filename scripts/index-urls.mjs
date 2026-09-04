@@ -90,7 +90,7 @@ async function main() {
     await new Promise(r => setTimeout(r, 350)); // gentle rate limit
   }
 
-  console.log(`\n🎉 Finished! Successfully submitted \( {success}/ \){urlsToSubmit.length} URLs to Google.`);
+  console.log(`\n🎉 Finished! Successfully submitted ${success}/${urlsToSubmit.length} URLs to Google.`);
   console.log('Check Google Search Console > Indexing API report for results.');
 }
 

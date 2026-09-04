@@ -1,19 +1,22 @@
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 
-// NOTE: the previous custom `loader` here called `entry.render()` on what the
-// Content Layer API actually hands the loader (a store/context object, not a
-// single entry) — that's what threw "Cannot read properties of undefined
-// (reading 'render')" and failed every build. Astro's built-in `glob` loader
-// does the file discovery + id generation correctly; nothing here currently
-// consumes the rendered MDX body (only `id`/`slug` and `data.pubDate`, via
-// sitemap.xml.ts), so there's no render step to reproduce.
 const pagesCollection = defineCollection({
-  loader: glob({ pattern: '*.{md,mdx}', base: './content/content/pages' }),
+  // Modern Content Layer API loader (replaces the legacy `type: "content"`
+  // form, which Astro 7 only supports behind `legacy.collectionsBackwardsCompat`
+  // - see astro.config.mjs history). Entry `.id` is the extension-stripped,
+  // slugified filename (e.g. "some-guide", not "some-guide.mdx"), unlike the
+  // legacy API's `.id`, which kept the extension.
+  loader: glob({ pattern: '**/*.mdx', base: './src/content/pages' }),
   schema: z.object({
     title: z.string(),
     description: z.string(),
-    pubDate: z.date().optional(),
+    pubDate: z.coerce.date().optional(),
+    // Optional: ties an article to a src/data/pseo.ts platform slug (e.g.
+    // "wordpress", "shopify", "nextjs") so it can link to/from that
+    // platform's hub page and sibling problem pages. Leave unset for
+    // platform-agnostic articles.
+    platform: z.string().optional(),
   }),
 });
 

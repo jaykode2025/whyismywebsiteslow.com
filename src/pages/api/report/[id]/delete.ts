@@ -3,12 +3,22 @@ import { deleteReport, getReport } from "../../../../lib/store";
 import { hasSupabaseEnv } from "../../../../lib/env";
 import { createSupabaseAdminClient } from "../../../../lib/supabase/admin";
 import { hashToken } from "../../../../lib/tokens";
+import { verifyCsrfTokenFromRequest } from "../../../../lib/csrf";
+import { timingSafeStringEqual } from "../../../../lib/timingSafe";
 
 interface DeleteRequestBody {
   manageToken?: string;
 }
 
 export const POST: APIRoute = async (context) => {
+  const csrfValid = await verifyCsrfTokenFromRequest(context.request);
+  if (!csrfValid) {
+    return new Response(JSON.stringify({ error: "Invalid CSRF token" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const id = context.params.id ?? "";
   const body = await context.request.json().catch(() => ({}));
   const { manageToken: token } = body as DeleteRequestBody;
@@ -86,7 +96,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   const tokenHash = hashToken(token);
-  if (stored.report.manage.writeTokenHash !== tokenHash) {
+  if (!timingSafeStringEqual(stored.report.manage.writeTokenHash, tokenHash)) {
     return new Response(JSON.stringify({ error: "Invalid manage token" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

@@ -82,13 +82,40 @@
     background-size: 26px 26px;
   }
 
+  /* Surface panel. bg-white/10 over the near-black ink read as a flat grey
+     slab; dropping to /[0.055] lets the top inset highlight actually describe
+     an edge, so cards read as lit rather than painted. */
   .glass {
-    @apply border border-white/10 bg-white/10 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.9),inset_0_1px_0_0_rgba(255,255,255,0.05)];
-    backdrop-filter: blur(24px);
+    @apply border border-white/10 bg-white/[0.055] shadow-[0_24px_60px_-40px_rgba(2,6,23,0.95),inset_0_1px_0_0_rgba(255,255,255,0.06)];
+    backdrop-filter: blur(20px);
+  }
+
+  /* Interactive surfaces opt into this rather than every card paying for a
+     transition it never runs. */
+  .glass-interactive {
+    @apply transition-[border-color,background-color,transform] duration-200;
+  }
+  .glass-interactive:hover {
+    @apply border-white/20 bg-white/[0.08];
   }
 
   .glow {
     box-shadow: 0 0 80px rgba(94, 234, 212, 0.15), 0 0 140px rgba(56, 189, 248, 0.12);
+  }
+
+  /* Numerals in tables, stats and charts must not reflow as values change. */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Keyboard focus was relying on the UA default, which is close to invisible on
+   a near-black surface. One visible ring for every focusable thing. */
+@layer base {
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-sky);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 

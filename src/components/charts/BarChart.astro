@@ -1,0 +1,114 @@
+---
+/**
+ * Single-series time bars (daily counts, distributions).
+ *
+ * One series, so there is deliberately no legend - the title names the series.
+ * Bars carry magnitude, which is why they stay anchored to a zero baseline and
+ * are never truncated: a bar chart that does not start at zero misreports the
+ * ratio between its own marks.
+ *
+ * Hover is part of the chart, not an enhancement - every bar exposes its exact
+ * value on hover/focus via a CSS-only tooltip (no JS, so nothing to hydrate and
+ * nothing for a CSP to block). Only the peak bar is directly labelled; putting a
+ * number on every bar is noise at this density.
+ *
+ * The plot area carries mt-4 to reserve headroom: the peak bar is always 100%
+ * tall and its direct label sits just above it, which would otherwise collide
+ * with the title.
+ */
+type Point = { label: string; value: number; sublabel?: string };
+
+interface Props {
+  title: string;
+  data: Point[];
+  accent?: string;
+  height?: number;
+  /** Rendered after the value in tooltips, e.g. "scans". */
+  unit?: string;
+  class?: string;
+}
+
+const {
+  title,
+  data = [],
+  accent = "#38bdf8",
+  height = 140,
+  unit = "",
+  class: className = "",
+} = Astro.props as Props;
+
+const max = Math.max(1, ...data.map((d) => d.value));
+const total = data.reduce((sum, d) => sum + d.value, 0);
+// Index of the peak, so exactly one bar gets a direct label.
+const peakIndex = data.reduce((best, d, i) => (d.value > data[best].value ? i : best), 0);
+// Quartile gridlines. Recessive on purpose - they orient, they don't compete.
+const gridlines = [0.25, 0.5, 0.75, 1];
+---
+
+<figure class={`viz ${className}`}>
+  <figcaption class="mb-1 flex items-baseline justify-between gap-3">
+    <span class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">{title}</span>
+    {total > 0 && (
+      <span class="text-xs tabular-nums text-slate-500">{total.toLocaleString()} total</span>
+    )}
+  </figcaption>
+
+  {data.length === 0 ? (
+    <p class="py-8 text-center text-sm text-slate-500">No data yet.</p>
+  ) : (
+    <div class="relative mt-4" style={`height:${height}px`}>
+      {/* Gridlines sit behind the bars and never overlap a mark's fill. */}
+      <div class="pointer-events-none absolute inset-0" aria-hidden="true">
+        {gridlines.map((g) => (
+          <div class="absolute inset-x-0 border-t border-white/[0.06]" style={`bottom:${g * 100}%`}></div>
+        ))}
+      </div>
+
+      <div class="relative flex h-full items-end gap-[2px]">
+        {data.map((d, i) => {
+          const pct = (d.value / max) * 100;
+          return (
+            <div class="group relative flex h-full flex-1 flex-col justify-end" tabindex="0">
+              {/* Full-height hit target - bigger than the mark, so short bars
+                  are still easy to hover. */}
+              <span class="absolute inset-0 z-10"></span>
+
+              <span
+                class="w-full rounded-t-[4px] transition-[filter,opacity] duration-150 group-hover:brightness-125 group-focus:brightness-125"
+                style={`height:${Math.max(pct, d.value > 0 ? 2 : 0)}%;background:${accent};opacity:${d.value === 0 ? 0.18 : 0.85}`}
+              ></span>
+
+              {/* Tooltip. */}
+              <div
+                class="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/10 bg-slate-950/95 px-2.5 py-1.5 text-xs shadow-xl group-hover:block group-focus:block"
+                role="tooltip"
+              >
+                <span class="font-semibold tabular-nums text-slate-100">
+                  {d.value.toLocaleString()}{unit ? ` ${unit}` : ""}
+                </span>
+                <span class="ml-1.5 text-slate-400">{d.sublabel ?? d.label}</span>
+              </div>
+
+              {/* Only the peak is directly labelled. */}
+              {i === peakIndex && d.value > 0 && (
+                <span
+                  class="pointer-events-none absolute left-1/2 -translate-x-1/2 text-[10px] font-semibold tabular-nums text-slate-300"
+                  style={`bottom:calc(${Math.max(pct, 2)}% + 4px)`}
+                >
+                  {d.value}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  )}
+
+  {data.length > 0 && (
+    <div class="mt-2 flex justify-between text-[10px] uppercase tracking-[0.1em] text-slate-600">
+      <span>{data[0]?.label}</span>
+      <span>{data[data.length - 1]?.label}</span>
+    </div>
+  )}
+</figure>

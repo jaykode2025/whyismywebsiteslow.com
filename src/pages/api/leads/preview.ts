@@ -6,6 +6,7 @@ import { loadStoredReport } from "../../../lib/reports";
 import { sendPreviewUnlockedEmail } from "../../../lib/revenueEmails";
 import { enqueueQStashJob } from "../../../lib/qstash";
 import { env } from "../../../lib/env";
+import { isSameOriginRequest } from "../../../lib/sameOrigin";
 
 type Payload = {
   email: string;
@@ -77,6 +78,16 @@ async function readPayload(request: Request): Promise<Payload> {
 export const POST: APIRoute = async (context) => {
   const contentType = context.request.headers.get("content-type") ?? "";
   const wantsJson = contentType.includes("application/json");
+
+  if (!isSameOriginRequest(context.request)) {
+    return wantsJson
+      ? new Response(JSON.stringify({ error: "Invalid request origin" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        })
+      : context.redirect("/scan");
+  }
+
   const payload = await readPayload(context.request);
   const reportId = payload.reportId?.trim();
   const email = normalizeEmail(payload.email ?? "");

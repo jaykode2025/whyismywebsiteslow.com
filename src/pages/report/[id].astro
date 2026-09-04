@@ -677,10 +677,9 @@ if (report) {
       </section>
     </>
   ) : report ? (
-    <!-- LOCKED / PREVIEW STATE -->
-    <section class="mt-10">
+    <section class="mt-10" aria-labelledby="report-preview-heading">
       <Card>
-        <h2 class="text-2xl text-slate-100">Get the preview by email</h2>
+        <h2 id="report-preview-heading" class="text-2xl text-slate-100">Get the preview by email</h2>
         <p class="mt-2 text-slate-300">
           Enter your email to unlock this report preview, then decide if you want the full paid unlock.
         </p>
@@ -702,10 +701,9 @@ if (report) {
       </Card>
     </section>
   ) : (
-    <!-- LOADING STATE -->
-    <section class="mt-10">
+    <section class="mt-10" aria-labelledby="report-loading-heading">
       <Card>
-        <h2 class="text-2xl text-slate-100">Report in progress</h2>
+        <h2 id="report-loading-heading" class="text-2xl text-slate-100">Report in progress</h2>
         <p class="mt-2 text-slate-300">We are running a scan and building your report.</p>
         <div class="mt-4">
           <ScanProgress client:load id={id} csrfToken={csrfToken} />

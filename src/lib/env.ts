@@ -24,8 +24,15 @@ export const env = {
   QSTASH_TOKEN: () => getEnv("QSTASH_TOKEN"),
   APP_BASE_URL: () => getEnv("APP_BASE_URL"),
 
+  /** Vercel Cron's bearer secret - see src/pages/api/cron/weekly-monitor.ts */
+  CRON_SECRET: () => getEnv("CRON_SECRET"),
+
   /** Optional: Google PageSpeed Insights API key for higher rate limits */
   PSI_API_KEY: () => getEnv("PSI_API_KEY"),
+
+  /** Optional: OpenAI API key for AI-powered site features */
+  OPENAI_API_KEY: () => getEnv("OPENAI_API_KEY"),
+  OPENAI_MODEL: () => getEnv("OPENAI_MODEL") || "gpt-4o-mini",
 
   RESEND_API_KEY: () => getEnv("RESEND_API_KEY"),
   ALERT_FROM_EMAIL: () => getEnv("ALERT_FROM_EMAIL"),

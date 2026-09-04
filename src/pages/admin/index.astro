@@ -1,0 +1,259 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Card from "../../components/ui/Card.astro";
+import StatTile from "../../components/charts/StatTile.astro";
+import BarChart from "../../components/charts/BarChart.astro";
+import StatusBar from "../../components/charts/StatusBar.astro";
+import { requireAdminPage } from "../../lib/adminAuth";
+import { createSupabaseAdminClient } from "../../lib/supabase/admin";
+
+const denied = await requireAdminPage(Astro);
+if (denied) return denied;
+
+const admin = createSupabaseAdminClient();
+
+const DAY = 24 * 60 * 60 * 1000;
+const now = Date.now();
+const last7Iso = new Date(now - 7 * DAY).toISOString();
+// 28 days covers the 14-day chart plus the previous 14 used for the deltas.
+const last28Iso = new Date(now - 28 * DAY).toISOString();
+
+type ScanRow = {
+  id: string;
+  url: string;
+  status: string;
+  error: string | null;
+  created_at: string;
+};
+
+type TrendRow = { created_at: string; status: string; score: number | null };
+
+let recentScans: ScanRow[] = [];
+let trendRows: TrendRow[] = [];
+let activeSubscribers = 0;
+let totalUsers = 0;
+
+if (admin) {
+  const [{ data: scansData }, { data: trendData }, { count: subsCount }, { count: usersCount }] =
+    await Promise.all([
+      admin
+        .from("scans")
+        .select("id,url,status,error,created_at")
+        .order("created_at", { ascending: false })
+        .limit(20),
+      admin
+        .from("scans")
+        .select("created_at,status,score:summary_json->score100")
+        .gte("created_at", last28Iso)
+        .order("created_at", { ascending: true })
+        .limit(5000),
+      admin
+        .from("subscriptions")
+        .select("user_id", { count: "exact", head: true })
+        .in("status", ["active", "trialing", "past_due"]),
+      admin.from("profiles").select("id", { count: "exact", head: true }),
+    ]);
+
+  recentScans = (scansData as ScanRow[]) ?? [];
+  trendRows = (trendData as TrendRow[]) ?? [];
+  activeSubscribers = subsCount ?? 0;
+  totalUsers = usersCount ?? 0;
+}
+
+/* ---- Derived series, all computed from the single 28-day pull ---- */
+
+const startOfDay = (ms: number) => {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
+const todayStart = startOfDay(now);
+
+// 14 daily buckets, oldest first.
+const dailyBuckets = Array.from({ length: 14 }, (_, i) => {
+  const dayStart = todayStart - (13 - i) * DAY;
+  return { dayStart, dayEnd: dayStart + DAY, total: 0, failed: 0 };
+});
+
+let scansLast7 = 0;
+let scansPrev7 = 0;
+let failedLast7 = 0;
+let failedPrev7 = 0;
+const statusCounts: Record<string, number> = {};
+const scoreBuckets = [0, 0, 0, 0, 0]; // 0-19, 20-39, 40-59, 60-79, 80-100
+
+for (const row of trendRows) {
+  const ts = new Date(row.created_at).getTime();
+  if (!Number.isFinite(ts)) continue;
+  const age = now - ts;
+  const failed = row.status === "failed";
+
+  if (age <= 7 * DAY) {
+    scansLast7 += 1;
+    if (failed) failedLast7 += 1;
+  } else if (age <= 14 * DAY) {
+    scansPrev7 += 1;
+    if (failed) failedPrev7 += 1;
+  }
+
+  if (age <= 14 * DAY) {
+    statusCounts[row.status] = (statusCounts[row.status] ?? 0) + 1;
+    const bucket = dailyBuckets.find((b) => ts >= b.dayStart && ts < b.dayEnd);
+    if (bucket) {
+      bucket.total += 1;
+      if (failed) bucket.failed += 1;
+    }
+    const score = typeof row.score === "number" ? row.score : Number(row.score);
+    if (Number.isFinite(score)) {
+      const idx = Math.min(4, Math.max(0, Math.floor(score / 20)));
+      scoreBuckets[idx] += 1;
+    }
+  }
+}
+
+// Percentage change vs the previous equivalent window. Null when there is no
+// prior baseline - showing "+100%" against zero would be noise, not signal.
+const pctChange = (current: number, previous: number) =>
+  previous > 0 ? ((current - previous) / previous) * 100 : null;
+
+const dayLabel = (ms: number) =>
+  new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+const scansSeries = dailyBuckets.map((b) => ({
+  label: dayLabel(b.dayStart),
+  sublabel: dayLabel(b.dayStart),
+  value: b.total,
+}));
+
+const scoreSeries = [
+  { label: "0-19", value: scoreBuckets[0] },
+  { label: "20-39", value: scoreBuckets[1] },
+  { label: "40-59", value: scoreBuckets[2] },
+  { label: "60-79", value: scoreBuckets[3] },
+  { label: "80-100", value: scoreBuckets[4] },
+];
+
+const statusSegments = [
+  { label: "Done", value: statusCounts.done ?? 0, tone: "good" as const },
+  { label: "Running", value: statusCounts.running ?? 0, tone: "info" as const },
+  { label: "Queued", value: statusCounts.queued ?? 0, tone: "warning" as const },
+  { label: "Failed", value: statusCounts.failed ?? 0, tone: "critical" as const },
+];
+
+const failureRate = scansLast7 > 0 ? (failedLast7 / scansLast7) * 100 : 0;
+
+const statusColor: Record<string, string> = {
+  done: "text-emerald-300",
+  failed: "text-rose-300",
+  queued: "text-amber-300",
+  running: "text-sky-300",
+};
+const statusDot: Record<string, string> = {
+  done: "bg-emerald-400",
+  failed: "bg-rose-400",
+  queued: "bg-amber-400",
+  running: "bg-sky-400",
+};
+---
+
+<BaseLayout title="Admin" noindex={true}>
+  <section class="mx-auto max-w-6xl px-4 py-12">
+    <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Dashboard</p>
+        <h1 class="mt-1 font-display text-3xl text-slate-50">Admin</h1>
+      </div>
+      <nav class="flex flex-wrap gap-2 text-sm">
+        <a
+          class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300 transition hover:border-sky-400/40 hover:text-sky-100"
+          href="/admin/users">Users</a>
+        <a
+          class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300 transition hover:border-sky-400/40 hover:text-sky-100"
+          href="/admin/reports">Reports</a>
+        <a
+          class="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300 transition hover:border-sky-400/40 hover:text-sky-100"
+          href="/internal/funnel">Funnel</a>
+      </nav>
+    </div>
+
+    {!admin ? (
+      <Card><p class="text-slate-300">Supabase admin client is unavailable. Set `SUPABASE_SERVICE_ROLE_KEY`.</p></Card>
+    ) : (
+      <>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatTile label="Total users" value={totalUsers} accent="#38bdf8" />
+          <StatTile label="Active subscribers" value={activeSubscribers} accent="#34d399" />
+          <StatTile
+            label="Scans, last 7 days"
+            value={scansLast7}
+            delta={pctChange(scansLast7, scansPrev7)}
+            sparkline={dailyBuckets.map((b) => b.total)}
+            accent="#38bdf8"
+            hint="vs previous 7 days"
+          />
+          <StatTile
+            label="Failed, last 7 days"
+            value={failedLast7}
+            delta={pctChange(failedLast7, failedPrev7)}
+            invertDelta={true}
+            sparkline={dailyBuckets.map((b) => b.failed)}
+            accent="#fb7185"
+            hint={`${failureRate.toFixed(1)}% of all scans`}
+            class={failedLast7 > 0 ? "border-rose-400/25" : ""}
+          />
+        </div>
+
+        <div class="mt-4 grid gap-4 lg:grid-cols-3">
+          <Card class="lg:col-span-2">
+            <BarChart title="Scans per day — last 14 days" data={scansSeries} unit="scans" accent="#38bdf8" />
+          </Card>
+
+          <Card class="flex flex-col justify-between gap-6">
+            <StatusBar title="Scan outcomes — 14 days" segments={statusSegments} />
+            <BarChart
+              title="Score distribution"
+              data={scoreSeries}
+              unit="scans"
+              accent="#a78bfa"
+              height={90}
+            />
+          </Card>
+        </div>
+
+        <Card class="mt-4">
+          <p class="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Recent scans</p>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[640px] text-left text-sm">
+              <thead>
+                <tr class="border-b border-white/10 text-xs uppercase tracking-[0.1em] text-slate-500">
+                  <th class="py-2 pr-4 font-medium">URL</th>
+                  <th class="py-2 pr-4 font-medium">Status</th>
+                  <th class="py-2 pr-4 font-medium">When</th>
+                  <th class="py-2 font-medium">Report</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentScans.map((scan) => (
+                  <tr class="border-b border-white/5 transition-colors hover:bg-white/[0.03]">
+                    <td class="max-w-[280px] truncate py-2.5 pr-4 text-slate-300" title={scan.url}>{scan.url}</td>
+                    <td class={`py-2.5 pr-4 ${statusColor[scan.status] ?? "text-slate-300"}`}>
+                      <span class="inline-flex items-center gap-1.5">
+                        <span class={`h-1.5 w-1.5 rounded-full ${statusDot[scan.status] ?? "bg-slate-500"}`} aria-hidden="true"></span>
+                        {scan.status}
+                      </span>
+                      {scan.error ? <span class="ml-2 text-xs text-slate-500" title={scan.error}>({scan.error.slice(0, 40)})</span> : null}
+                    </td>
+                    <td class="py-2.5 pr-4 tabular-nums text-slate-400">{new Date(scan.created_at).toLocaleString()}</td>
+                    <td class="py-2.5">
+                      <a class="text-sky-300 transition hover:text-sky-200 hover:underline" href={`/admin/reports?id=${scan.id}`}>Open</a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </>
+    )}
+  </section>
+</BaseLayout>

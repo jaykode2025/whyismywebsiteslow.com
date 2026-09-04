@@ -5,6 +5,7 @@ import ManageReport from "../../../components/ManageReport.svelte";
 
 const { id } = Astro.params;
 const token = Astro.url.searchParams.get("token") ?? "";
+const csrfToken = Astro.locals.csrfToken ?? "";
 ---
 <BaseLayout title="Manage report" description="Delete or regenerate a report." noindex={true}>
   <section class="pt-10">
@@ -12,7 +13,7 @@ const token = Astro.url.searchParams.get("token") ?? "";
       <h1 class="text-3xl text-slate-100">Manage report</h1>
       <p class="mt-2 text-slate-300">Report ID: {id}</p>
       <div class="mt-6">
-        <ManageReport client:load id={id} token={token} />
+        <ManageReport client:load id={id} token={token} csrfToken={csrfToken} />
       </div>
     </Card>
   </section>

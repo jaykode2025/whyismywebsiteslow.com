@@ -1,0 +1,112 @@
+---
+import { getCollection, render } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import RelatedLinks from "../../components/seo/RelatedLinks.astro";
+import { relatedForPlatform } from "../../lib/related";
+import { PLATFORMS } from "../../data/pseo";
+import {
+  siteUrl,
+  breadcrumb,
+  articleSchema,
+  organizationSchema,
+  buildSeoTitle,
+  buildSeoDescription,
+  jsonLd,
+  titleCase,
+} from "../../lib/seo";
+
+export const prerender = true;
+
+export async function getStaticPaths() {
+  const entries = await getCollection("pages");
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props as { entry: Awaited<ReturnType<typeof getCollection>>[number] };
+const { Content } = await render(entry);
+const slug = entry.id;
+
+const allGuides = await getCollection("pages");
+const platform = entry.data.platform
+  ? PLATFORMS.find((p) => p.platform === entry.data.platform)
+  : undefined;
+
+// Sibling guides on the same platform (guide-to-guide links)
+const siblingGuides = allGuides
+  .filter((g) => g.id !== entry.id && entry.data.platform && g.data.platform === entry.data.platform)
+  .slice(0, 3)
+  .map((g) => ({ href: `/guides/${g.id}/`, label: g.data.title }));
+
+// Hub + sibling problem pages + tool links for this platform (falls back to
+// the general hub/scan links when the article isn't tied to a pseo.ts platform,
+// e.g. Squarespace, which isn't one of the templated platforms).
+const platformLinks = platform ? relatedForPlatform(platform.platform, 4) : [];
+const fallbackLinks = platform
+  ? []
+  : [
+      { href: "/why-is-my-website-slow/", label: "Why is my website slow? (all problems)" },
+      { href: "/scan", label: "Run a free speed scan" },
+      { href: "/billing", label: "Start monitoring your site" },
+    ];
+
+const seen = new Set<string>();
+const relatedLinks = [...siblingGuides, ...platformLinks, ...fallbackLinks].filter((link) => {
+  if (seen.has(link.href)) return false;
+  seen.add(link.href);
+  return true;
+});
+
+const pageTitle = buildSeoTitle(entry.data.title);
+const description = buildSeoDescription(entry.data.description);
+const canonical = siteUrl(`/guides/${slug}/`);
+const publishedIso = entry.data.pubDate ? new Date(entry.data.pubDate).toISOString() : new Date().toISOString();
+
+const crumbs = [
+  { name: "Home", item: "/" },
+  { name: "Guides", item: "/guides/" },
+  ...(platform ? [{ name: titleCase(platform.platform), item: `/website-speed-audit/platform/${platform.platform}/` }] : []),
+  { name: entry.data.title },
+];
+---
+
+<BaseLayout title={pageTitle} description={description} canonical={canonical}>
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={jsonLd(breadcrumb(crumbs))} />
+    <script
+      type="application/ld+json"
+      set:html={jsonLd(
+        articleSchema(entry.data.title, entry.data.description, "Why Is My Website Slow", publishedIso, publishedIso)
+      )}
+    />
+    <script type="application/ld+json" set:html={jsonLd(organizationSchema())} />
+  </Fragment>
+
+  <article class="mx-auto max-w-3xl px-4 py-12">
+    <nav class="mb-6 text-xs text-slate-500" aria-label="Breadcrumb">
+      <a href="/" class="hover:text-slate-300">Home</a>
+      <span class="mx-2">/</span>
+      <a href="/guides/" class="hover:text-slate-300">Guides</a>
+      {platform ? (
+        <>
+          <span class="mx-2">/</span>
+          <a href={`/website-speed-audit/platform/${platform.platform}/`} class="hover:text-slate-300">
+            {titleCase(platform.platform)}
+          </a>
+        </>
+      ) : null}
+    </nav>
+
+    <div class="prose prose-invert max-w-none prose-p:text-slate-300 prose-li:text-slate-300 prose-headings:text-slate-100 prose-strong:text-slate-100 prose-a:text-sky-300">
+      <Content />
+    </div>
+
+    <RelatedLinks
+      items={relatedLinks}
+      heading="Keep going"
+      intro="More on this topic, plus tools to see exactly what's slowing your site down."
+    />
+  </article>
+</BaseLayout>

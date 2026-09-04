@@ -1,6 +1,49 @@
 /**
  * Utility functions for handling timeouts and retries
  */
+import { isBlockedHostname } from "./validate";
+import { assertResolvesToPublicAddress } from "./dnsGuard";
+
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECTS = 5;
+
+/**
+ * Fetches a URL while re-validating every redirect hop against the SSRF
+ * blocklist. Plain `fetch()` follows redirects transparently, which means a
+ * validated public URL could 302 to an internal address (e.g. the cloud
+ * metadata IP) and have that response silently returned to the caller. This
+ * fetches with `redirect: "manual"` and only follows a hop after confirming
+ * its hostname isn't internal/private.
+ */
+export async function fetchSafely(input: string, options: RequestInit = {}): Promise<Response> {
+  let currentUrl = new URL(input);
+  if (isBlockedHostname(currentUrl.hostname)) {
+    throw new Error("Blocked internal URL");
+  }
+  await assertResolvesToPublicAddress(currentUrl.hostname);
+
+  let response = await fetch(currentUrl.toString(), { ...options, redirect: "manual" });
+  let hops = 0;
+
+  while (REDIRECT_STATUSES.has(response.status) && hops < MAX_REDIRECTS) {
+    const location = response.headers.get("location");
+    if (!location) break;
+
+    currentUrl = new URL(location, currentUrl);
+    if (currentUrl.protocol !== "http:" && currentUrl.protocol !== "https:") {
+      throw new Error("Blocked redirect protocol");
+    }
+    if (isBlockedHostname(currentUrl.hostname)) {
+      throw new Error("Redirect target blocked (internal URL)");
+    }
+    await assertResolvesToPublicAddress(currentUrl.hostname);
+
+    hops += 1;
+    response = await fetch(currentUrl.toString(), { ...options, redirect: "manual" });
+  }
+
+  return response;
+}
 
 export interface RetryOptions {
   maxRetries?: number;
@@ -78,7 +121,7 @@ export async function fetchWithRetry(
   options: RequestInit = {},
   retryOptions: RetryOptions = {}
 ): Promise<Response> {
-  return withRetryAndTimeout(() => fetch(url, options), {
+  return withRetryAndTimeout(() => fetchSafely(url, options), {
     ...retryOptions,
     timeout: retryOptions.timeout || 15000 // Default 15s timeout for fetch
   });

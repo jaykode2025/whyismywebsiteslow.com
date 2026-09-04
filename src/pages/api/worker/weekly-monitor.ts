@@ -5,6 +5,7 @@ import { getPlanLimits, isPaidStatus, type Plan } from "../../../lib/plan";
 import { enqueueQStashJob } from "../../../lib/qstash";
 import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
 import { generateId } from "../../../lib/tokens";
+import { timingSafeStringEqual } from "../../../lib/timingSafe";
 
 type SubscriptionRow = {
   user_id: string;
@@ -83,8 +84,8 @@ function hostFromUrl(rawUrl: string) {
 
 export const POST: APIRoute = async ({ request }) => {
   const expected = env.QSTASH_TOKEN();
-  const auth = request.headers.get("authorization");
-  if (!expected || auth !== `Bearer ${expected}`) {
+  const auth = request.headers.get("authorization") ?? "";
+  if (!expected || !timingSafeStringEqual(auth, `Bearer ${expected}`)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

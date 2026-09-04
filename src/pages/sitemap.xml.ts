@@ -3,12 +3,16 @@ import type { APIRoute } from "astro";
 import { getCollection } from "astro:content";
 import { listPublicReports } from "../lib/reports";
 import { getSitemapUrls } from "../lib/sitemap";
+import performanceDatasets from "../data/performance-datasets.json";
 
 const staticRoutes = [
   "/",
   "/scan",
   "/about",
   "/api",
+  "/billing",
+  "/fix-it",
+  "/guides",
   "/fix/ttfb",
   "/fix/lcp",
   "/fix/render-blocking-css",
@@ -37,11 +41,19 @@ export const GET: APIRoute = async ({ request, locals }) => {
       changefreq: "daily",
     })),
 
-    // PSEO pages (the new long-tail pages we're adding today)
+    // Guides (hand-written articles rendered from the "pages" content collection)
     ...pseoPages.map((page) => ({
-      loc: `${base}/${page.id}`,
+      loc: `${base}/guides/${page.id}`,
       lastmod: page.data.pubDate ? new Date(page.data.pubDate).toISOString() : new Date().toISOString(),
       priority: "0.8",
+      changefreq: "weekly",
+    })),
+
+    // Proof-of-concept dataset pages (root-level, see src/pages/[slug].astro)
+    ...performanceDatasets.map((dataset: { slug: string }) => ({
+      loc: `${base}/${dataset.slug}`,
+      lastmod: new Date().toISOString(),
+      priority: "0.6",
       changefreq: "weekly",
     })),
 

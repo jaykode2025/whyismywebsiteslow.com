@@ -5,6 +5,7 @@ import { isPaidStatus, type Plan } from "../../../lib/plan";
 import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
 import { runEnhancedScan } from "../../../lib/scan.enhanced";
 import { recordScanFact, trackEvent } from "../../../lib/analytics";
+import { timingSafeStringEqual } from "../../../lib/timingSafe";
 
 interface WorkerRequestBody {
   scanId?: string;
@@ -97,8 +98,8 @@ async function maybeSendRegressionAlert(params: {
 
 export const POST: APIRoute = async ({ request }) => {
   const expected = env.QSTASH_TOKEN();
-  const auth = request.headers.get("authorization");
-  if (!expected || auth !== `Bearer ${expected}`) {
+  const auth = request.headers.get("authorization") ?? "";
+  if (!expected || !timingSafeStringEqual(auth, `Bearer ${expected}`)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

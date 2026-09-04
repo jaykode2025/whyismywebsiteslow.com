@@ -1,4 +1,5 @@
 ---
+import { getCollection } from "astro:content";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { PLATFORMS, PROBLEMS } from "../../../data/pseo";
 import {
@@ -30,7 +31,9 @@ if (!platform) {
 }
 
 const relatedProblems = PROBLEMS.filter((problem) => problem.platform === platform.platform).slice(0, 6);
-const relatedLinks = relatedForPlatform(platform.platform, 5);
+const platformGuides = (await getCollection("pages")).filter((g) => g.data.platform === platform.platform);
+const guideLinks = platformGuides.map((g) => ({ href: `/guides/${g.id}/`, label: g.data.title }));
+const relatedLinks = [...guideLinks, ...relatedForPlatform(platform.platform, 5)];
 const proofDataset = buildPlatformProofDataset(
   platform,
   relatedProblems.map((problem) => problem.issueTitle)
