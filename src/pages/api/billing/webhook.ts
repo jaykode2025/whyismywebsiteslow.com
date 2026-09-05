@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
 import { unlockReport } from "../../../lib/entitlements";
 import { trackEvent, updateScanFactStatus } from "../../../lib/analytics";
 import { sendReportPurchasedEmail } from "../../../lib/revenueEmails";
+import { recordAffiliateConversion } from "../../../lib/affiliates";
 
 function toIso(ts: number | null | undefined) {
   if (!ts) return null;
@@ -161,6 +162,11 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as any;
+
+    if (session?.payment_status === "paid") {
+      await recordAffiliateConversion(session, admin);
+    }
+
     if (session?.mode === "payment" && session?.payment_status === "paid") {
       const reportId = session?.metadata?.report_id as string | undefined;
       if (reportId) {

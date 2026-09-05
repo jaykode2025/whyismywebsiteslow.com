@@ -5,6 +5,8 @@ import { loadStoredReport } from "../../../lib/reports";
 import { isReportUnlocked } from "../../../lib/entitlements";
 import { verifyCsrfTokenFromRequest } from "../../../lib/csrf";
 import { trackEvent } from "../../../lib/analytics";
+import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
+import { readAffiliateRefCookie, resolveActiveAffiliateCode } from "../../../lib/affiliates";
 
 async function readReportId(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
@@ -100,6 +102,7 @@ export const POST: APIRoute = async (context) => {
       report_id: reportId,
       offer_context: offerContext || "report",
       cta_variant: ctaVariant || "primary",
+      ...(affiliateCode ? { affiliate_code: affiliateCode } : {}),
     },
     client_reference_id: reportId,
   });
