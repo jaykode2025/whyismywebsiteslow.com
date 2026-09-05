@@ -92,9 +92,9 @@
     </div>
   </div>
   <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
-    <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Lighthouse</p>
+    <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Lab Score</p>
     <div class="mt-3 h-52">
-      <canvas bind:this={lighthouseCanvas} aria-label="Lighthouse score chart"></canvas>
+      <canvas bind:this={lighthouseCanvas} aria-label="Lab performance score chart"></canvas>
     </div>
   </div>
   <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">

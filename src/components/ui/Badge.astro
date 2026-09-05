@@ -3,13 +3,13 @@ type Tone = "neutral" | "success" | "warning" | "danger" | "info";
 
 const { tone = "neutral" } = Astro.props as { tone?: Tone };
 const tones: Record<Tone, string> = {
-  neutral: "bg-white/10 text-slate-200",
-  success: "bg-emerald-400/15 text-emerald-200",
-  warning: "bg-amber-400/20 text-amber-200",
-  danger: "bg-rose-400/20 text-rose-200",
-  info: "bg-sky-400/20 text-sky-200",
+  neutral: "border-white/15 bg-white/10 text-slate-200",
+  success: "border-emerald-400/30 bg-emerald-400/15 text-emerald-200",
+  warning: "border-amber-400/30 bg-amber-400/20 text-amber-200",
+  danger: "border-rose-400/30 bg-rose-400/20 text-rose-200",
+  info: "border-sky-400/30 bg-sky-400/20 text-sky-200",
 };
 ---
-<span class={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${tones[tone] ?? tones.neutral}`}>
+<span class={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${tones[tone] ?? tones.neutral}`}>
   <slot />
 </span>
