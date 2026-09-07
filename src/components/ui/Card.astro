@@ -1,6 +1,15 @@
 ---
-const { class: className = "", id } = Astro.props;
+// Pass `interactive` for cards that act as links/buttons or otherwise
+// benefit from a hover lift; plain content cards stay static by default.
+const { class: className = "", id, interactive = false } = Astro.props as {
+  class?: string;
+  id?: string;
+  interactive?: boolean;
+};
+const hover = interactive
+  ? "glass-interactive hover:-translate-y-0.5"
+  : "";
 ---
-<div id={id} class={`glass rounded-2xl p-6 ${className}`}>
+<div id={id} class={`glass rounded-2xl p-6 ${hover} ${className}`}>
   <slot />
 </div>

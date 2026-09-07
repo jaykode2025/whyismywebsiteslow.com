@@ -14,7 +14,7 @@ const description = "Free website speed scan with business-impact language, prio
       <div class="space-y-6 stagger">
         <Badge tone="info">Trusted by 10,000+ website owners</Badge>
         <h1 class="text-4xl leading-tight text-slate-100 sm:text-5xl">
-          Your website may be losing income. <span class="text-sky-400">Find out why.</span>
+          Your website may be losing income. <span class="text-sky-400 [text-shadow:0_0_28px_rgba(56,189,248,0.45)]">Find out why.</span>
         </h1>
         <p class="text-lg text-slate-300">
           Slow pages reduce trust, conversions, and lead volume. Paste your URL below to get a free report that shows what is slow, what it may be costing, and what to fix first.
@@ -24,7 +24,7 @@ const description = "Free website speed scan with business-impact language, prio
         </p>
         <ScanForm client:load csrfToken={Astro.locals.csrfToken ?? ""} />
         <div class="flex flex-wrap gap-4 text-sm text-slate-400">
-          <span>⚡ Powered by Google PageSpeed</span>
+          <span>⚡ Lab-grade performance engine</span>
           <span>🎯 Prioritized by impact</span>
           <span>📊 Shareable reports</span>
         </div>
@@ -111,10 +111,10 @@ const description = "Free website speed scan with business-impact language, prio
   <section class="mt-20 animate-fade-up">
     <div class="grid gap-6 md:grid-cols-3 stagger">
       <Card>
-        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Backed by Google</p>
-        <h3 class="mt-4 text-xl text-slate-100">Powered by PageSpeed Insights</h3>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Real browser data</p>
+        <h3 class="mt-4 text-xl text-slate-100">Built on the same signals that affect rankings</h3>
         <p class="mt-3 text-sm text-slate-300">
-          We use Google's official API — the same data that affects your search rankings. 
+          We measure the same Core Web Vitals search engines use to judge your site.
           Every report is accurate, defensible, and actionable.
         </p>
       </Card>
