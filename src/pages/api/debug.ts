@@ -1,12 +1,10 @@
 import type { APIRoute } from "astro";
 import { env, hasSupabaseEnv } from "../../lib/env";
-import { listReports } from "../../lib/store";
+import { listReports } from "../../lib/reports";
 
-export const GET: APIRoute = async ({ request }) => {
+export const GET: APIRoute = async ({ request, locals }) => {
   const expectedKey = env.INTERNAL_DASHBOARD_KEY();
   if (!expectedKey) {
-    // No key configured means this internal endpoint isn't set up for safe
-    // use in this environment - fail closed rather than exposing it.
     return new Response(JSON.stringify({ error: "Not found" }), {
       status: 404,
       headers: { "Content-Type": "application/json" },
@@ -25,24 +23,21 @@ export const GET: APIRoute = async ({ request }) => {
   const debug = {
     timestamp: new Date().toISOString(),
     env: {
-      hasSupabase: hasSupabaseEnv(),
-      hasQstash: Boolean(env.QSTASH_TOKEN()),
-      hasStripe: Boolean(env.STRIPE_SECRET_KEY()),
-      hasOpenAI: Boolean(env.OPENAI_API_KEY()),
-      appBaseUrl: env.APP_BASE_URL() || "not set",
-      hasChromiumExecutablePath: Boolean(env.CHROME_EXECUTABLE_PATH()),
+      supabaseConfigured: hasSupabaseEnv(),
+      qstashConfigured: Boolean(env.QSTASH_TOKEN()),
     },
-    reports: {
-      total: listReports().size,
-      statuses: Array.from(listReports().values()).reduce((acc, report) => {
-        acc[report.status] = (acc[report.status] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>)
+    cache: {
+      // Include cache stats if available
+      reportsInMemory: 0, // Will be populated if you add cache stats
     },
-    memory: process.memoryUsage()
   };
 
   return new Response(JSON.stringify(debug, null, 2), {
-    headers: { "Content-Type": "application/json" }
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      // Add cache headers for static debug output
+      "Cache-Control": "private, no-cache",
+    },
   });
 };

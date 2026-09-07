@@ -11,10 +11,11 @@ import { getPlanLimits, getUserPlan } from "../../lib/plan";
 import { verifyCsrfTokenFromRequest } from "../../lib/csrf";
 import { recordScanFact, trackEvent } from "../../lib/analytics";
 import { createSupabaseAdminClient } from "../../lib/supabase/admin";
+import { getCacheKey, getCache, setCache } from "../../lib/cache";
 
 export const POST: APIRoute = async (context) => {
   const { request, clientAddress, locals } = context;
-  
+
   // Verify CSRF token for non-GET requests
   const csrfValid = await verifyCsrfTokenFromRequest(request);
   if (!csrfValid) {
@@ -23,7 +24,7 @@ export const POST: APIRoute = async (context) => {
       headers: { "Content-Type": "application/json" },
     });
   }
-  
+
   try {
     const body = await request.json();
     const normalized = normalizeUrl(body.url);
@@ -53,7 +54,8 @@ export const POST: APIRoute = async (context) => {
     const maxLinks = clampLinks(body?.crawl?.maxLinks ?? 0);
     const crawlEnabled = Boolean(body?.crawl?.enabled && maxLinks > 1);
     const visibility = body.visibility === "public" ? "public" : "unlisted";
-    const targetKeyword = typeof body?.targetKeyword === "string" ? body.targetKeyword.trim() : undefined;
+    const targetKeyword =
+      typeof body?.targetKeyword === "string" ? body.targetKeyword.trim() : undefined;
     const includeSeoAnalysis = body?.includeSeoAnalysis !== false;
     const includeImageAudit = body?.includeImageAudit !== false;
 
@@ -65,20 +67,37 @@ export const POST: APIRoute = async (context) => {
       let planLimits = getPlanLimits("free");
 
       if (locals.user) {
-        userPlanInfo = await getUserPlan(locals.supabase, locals.user.id);
+        // Cache plan info for 5 minutes to avoid duplicate queries
+        const planCacheKey = getCacheKey("user_plan", locals.user.id);
+        userPlanInfo = getCache(planCacheKey);
+        
+        if (!userPlanInfo) {
+          userPlanInfo = await getUserPlan(locals.supabase, locals.user.id);
+          setCache(planCacheKey, userPlanInfo, 300); // 5 minutes
+        }
         planLimits = getPlanLimits(userPlanInfo.plan);
 
         const startOfMonth = new Date();
         startOfMonth.setUTCDate(1);
         startOfMonth.setUTCHours(0, 0, 0, 0);
-        const { count: scanCount, error: scanCountError } = await locals.supabase
-          .from("scans")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", locals.user.id)
-          .gte("created_at", startOfMonth.toISOString());
+        
+        // Cache scan count for 1 minute
+        const scanCountCacheKey = getCacheKey("scan_count", locals.user.id, startOfMonth.toISOString());
+        let scanCount = getCache<number>(scanCountCacheKey);
+        
+        if (scanCount === null) {
+          const { count: fetchedCount, error: scanCountError } = await locals.supabase
+            .from("scans")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", locals.user.id)
+            .gte("created_at", startOfMonth.toISOString());
 
-        if (scanCountError) throw new Error(scanCountError.message);
-        if ((scanCount ?? 0) >= planLimits.monthlyScanLimit) {
+          if (scanCountError) throw new Error(scanCountError.message);
+          scanCount = fetchedCount ?? 0;
+          setCache(scanCountCacheKey, scanCount, 60); // 1 minute
+        }
+
+        if (scanCount >= planLimits.monthlyScanLimit) {
           return new Response(
             JSON.stringify({
               error: `Monthly scan limit reached (${planLimits.monthlyScanLimit}). Upgrade for higher limits.`,
@@ -111,12 +130,20 @@ export const POST: APIRoute = async (context) => {
       if (locals.user && !projectId) {
         const planInfo = userPlanInfo ?? (await getUserPlan(locals.supabase, locals.user.id));
 
-        const { count: projectCount } = await locals.supabase
-          .from("projects")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", locals.user.id);
+        // Cache project count for 1 minute
+        const projectCountCacheKey = getCacheKey("project_count", locals.user.id);
+        let projectCount = getCache<number>(projectCountCacheKey);
+        
+        if (projectCount === null) {
+          const { count: fetchedCount } = await locals.supabase
+            .from("projects")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", locals.user.id);
+          projectCount = fetchedCount ?? 0;
+          setCache(projectCountCacheKey, projectCount, 60); // 1 minute
+        }
 
-        if ((projectCount ?? 0) >= planLimits.maxProjects) {
+        if (projectCount >= planLimits.maxProjects) {
           return new Response(
             JSON.stringify({
               error: `Project limit reached (${planLimits.maxProjects}). Upgrade for more projects.`,
@@ -134,13 +161,20 @@ export const POST: APIRoute = async (context) => {
         try {
           const { data: created, error: createErr } = await locals.supabase
             .from("projects")
-            .upsert({ user_id: locals.user.id, url: normalized.toString(), name: normalized.hostname }, { onConflict: 'user_id,url' })
+            .upsert(
+              {
+                user_id: locals.user.id,
+                url: normalized.toString(),
+                name: normalized.hostname,
+              },
+              { onConflict: "user_id,url" }
+            )
             .select("id")
             .single();
           if (createErr) throw new Error(createErr.message);
           projectId = created.id;
         } catch (err: any) {
-          if (err.message?.includes('duplicate key')) {
+          if (err.message?.includes("duplicate key")) {
             const { data: existing } = await locals.supabase
               .from("projects")
               .select("id")
@@ -178,40 +212,46 @@ export const POST: APIRoute = async (context) => {
         body: { scanId: id, targetKeyword, includeSeoAnalysis, includeImageAudit },
       });
 
-      await trackEvent({
-        eventType: "scan_submitted",
-        scanId: id,
-        projectId,
-        userId: locals.user?.id ?? null,
-        source: "scan-form",
-        referrer: request.headers.get("referer"),
-        userAgent: request.headers.get("user-agent"),
-        path: new URL(request.url).pathname,
-        metadata: {
-          url: normalized.toString(),
-          device,
-          visibility,
-          crawlEnabled,
-          maxLinks: Math.max(1, maxLinks),
+      await trackEvent(
+        {
+          eventType: "scan_submitted",
+          scanId: id,
+          projectId,
+          userId: locals.user?.id ?? null,
+          source: "scan-form",
+          referrer: request.headers.get("referer"),
+          userAgent: request.headers.get("user-agent"),
+          path: new URL(request.url).pathname,
+          metadata: {
+            url: normalized.toString(),
+            device,
+            visibility,
+            crawlEnabled,
+            maxLinks: Math.max(1, maxLinks),
+          },
         },
-      });
-      await trackEvent({
-        eventType: "scan_started",
-        scanId: id,
-        projectId,
-        userId: locals.user?.id ?? null,
-        source: "scan-form",
-        referrer: request.headers.get("referer"),
-        userAgent: request.headers.get("user-agent"),
-        path: new URL(request.url).pathname,
-        metadata: {
-          url: normalized.toString(),
-          device,
-          visibility,
-          crawlEnabled,
-          maxLinks: Math.max(1, maxLinks),
+        locals.supabase
+      );
+      await trackEvent(
+        {
+          eventType: "scan_started",
+          scanId: id,
+          projectId,
+          userId: locals.user?.id ?? null,
+          source: "scan-form",
+          referrer: request.headers.get("referer"),
+          userAgent: request.headers.get("user-agent"),
+          path: new URL(request.url).pathname,
+          metadata: {
+            url: normalized.toString(),
+            device,
+            visibility,
+            crawlEnabled,
+            maxLinks: Math.max(1, maxLinks),
+          },
         },
-      });
+        locals.supabase
+      );
 
       return new Response(JSON.stringify({ id, manageToken }), {
         status: 200,
@@ -309,59 +349,77 @@ export const POST: APIRoute = async (context) => {
         await setReport(id, report);
       }
 
-      const { data: subscription } = locals.user && admin
-        ? await admin.from("subscriptions").select("status").eq("user_id", locals.user.id).maybeSingle()
-        : { data: null };
-      await recordScanFact(report, {
-        unlockStatus: "locked",
-        subscriptionStatus: subscription?.status ?? "free",
-        serviceLeadStatus: "none",
-      }, admin ?? undefined);
-      await trackEvent({
-        eventType: "scan_submitted",
-        scanId: id,
-        source: "scan-form",
-        referrer: request.headers.get("referer"),
-        userAgent: request.headers.get("user-agent"),
-        path: new URL(request.url).pathname,
-        metadata: {
-          url: normalized.toString(),
-          device,
-          visibility,
-          crawlEnabled,
-          maxLinks: Math.max(1, maxLinks),
-          localMode: true,
+      const { data: subscription } =
+        locals.user && admin
+          ? await admin
+              .from("subscriptions")
+              .select("status")
+              .eq("user_id", locals.user.id)
+              .maybeSingle()
+          : { data: null };
+      await recordScanFact(
+        report,
+        {
+          unlockStatus: "locked",
+          subscriptionStatus: subscription?.status ?? "free",
+          serviceLeadStatus: "none",
         },
-      }, admin ?? undefined);
-      await trackEvent({
-        eventType: "scan_started",
-        scanId: id,
-        source: "scan-form",
-        referrer: request.headers.get("referer"),
-        userAgent: request.headers.get("user-agent"),
-        path: new URL(request.url).pathname,
-        metadata: {
-          url: normalized.toString(),
-          device,
-          visibility,
-          crawlEnabled,
-          maxLinks: Math.max(1, maxLinks),
-          localMode: true,
+        admin ?? undefined
+      );
+      await trackEvent(
+        {
+          eventType: "scan_submitted",
+          scanId: id,
+          source: "scan-form",
+          referrer: request.headers.get("referer"),
+          userAgent: request.headers.get("user-agent"),
+          path: new URL(request.url).pathname,
+          metadata: {
+            url: normalized.toString(),
+            device,
+            visibility,
+            crawlEnabled,
+            maxLinks: Math.max(1, maxLinks),
+            localMode: true,
+          },
         },
-      }, admin ?? undefined);
-      await trackEvent({
-        eventType: "scan_completed",
-        scanId: id,
-        reportId: id,
-        userId: locals.user?.id ?? null,
-        source: "sync-scan",
-        path: new URL(request.url).pathname,
-        metadata: {
-          score100: report.summary.score100,
-          cwvStatus: report.psi.cwv.status,
-          localMode: true,
+        admin ?? undefined
+      );
+      await trackEvent(
+        {
+          eventType: "scan_started",
+          scanId: id,
+          source: "scan-form",
+          referrer: request.headers.get("referer"),
+          userAgent: request.headers.get("user-agent"),
+          path: new URL(request.url).pathname,
+          metadata: {
+            url: normalized.toString(),
+            device,
+            visibility,
+            crawlEnabled,
+            maxLinks: Math.max(1, maxLinks),
+            localMode: true,
+          },
         },
-      }, admin ?? undefined);
+        admin ?? undefined
+      );
+      await trackEvent(
+        {
+          eventType: "scan_completed",
+          scanId: id,
+          reportId: id,
+          userId: locals.user?.id ?? null,
+          source: "sync-scan",
+          path: new URL(request.url).pathname,
+          metadata: {
+            score100: report.summary.score100,
+            cwvStatus: report.psi.cwv.status,
+            localMode: true,
+          },
+        },
+        admin ?? undefined
+      );
     } catch (error: any) {
       if (savedToSupabase && admin) {
         await admin

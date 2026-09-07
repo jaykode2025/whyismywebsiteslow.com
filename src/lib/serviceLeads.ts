@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createSupabaseAdminClient } from "./supabase/admin";
+import { logger } from "./logger";
 
 export type ServiceLead = {
   email: string;
@@ -15,6 +16,7 @@ export type ServiceLead = {
   referer?: string | null;
 };
 
+// File fallback only (local dev); production uses Supabase
 const DATA_DIR = join(process.cwd(), ".data");
 const FILE_PATH = join(DATA_DIR, "service-leads.json");
 
@@ -50,28 +52,36 @@ function persistLeads(leads: ServiceLead[]) {
 export async function saveServiceLead(lead: ServiceLead) {
   const admin = createSupabaseAdminClient();
   if (admin) {
-    const { error } = await admin.from("service_leads").insert({
-      email: lead.email,
-      website_url: lead.websiteUrl ?? null,
-      report_id: lead.reportId ?? null,
-      notes: lead.notes ?? null,
-      source: lead.source,
-      offer_context: lead.offerContext ?? null,
-      cta_variant: lead.ctaVariant ?? null,
-      created_at: lead.createdAt,
-      user_agent: lead.userAgent ?? null,
-      referer: lead.referer ?? null,
-    });
-    if (!error) return { ok: true, stored: "supabase" as const };
-    console.error("Failed to persist service lead in Supabase:", error.message);
+    try {
+      const { error } = await admin.from("service_leads").insert({
+        email: lead.email,
+        website_url: lead.websiteUrl ?? null,
+        report_id: lead.reportId ?? null,
+        notes: lead.notes ?? null,
+        source: lead.source,
+        offer_context: lead.offerContext ?? null,
+        cta_variant: lead.ctaVariant ?? null,
+        created_at: lead.createdAt,
+        user_agent: lead.userAgent ?? null,
+        referer: lead.referer ?? null,
+      });
+      if (!error) {
+        return { ok: true, stored: "supabase" as const };
+      }
+      logger.error("Failed to persist service lead in Supabase:", error.message);
+    } catch (err) {
+      logger.error("Exception persisting service lead to Supabase:", err);
+    }
   }
 
+  // Fallback: file storage
   try {
     const existing = loadLeads();
     existing.push(lead);
     persistLeads(existing);
     return { ok: true, stored: "file" as const };
-  } catch {
+  } catch (err) {
+    logger.error("Failed to persist service lead to file:", err);
     return { ok: false, stored: "none" as const };
   }
 }

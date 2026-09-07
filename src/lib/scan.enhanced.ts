@@ -68,26 +68,34 @@ export async function runEnhancedScan(
   const crawlEnabled = input.crawl?.enabled ?? false;
   const maxLinks = crawlEnabled ? Math.max(1, Math.min(5, input.crawl?.maxLinks ?? 1)) : 1;
 
-  const { scannedUrls, failures } = crawlEnabled
-    ? await crawlSite(normalizedUrl, maxLinks)
-    : { scannedUrls: [normalizedUrl.toString()], failures: [] };
+  // Run crawl and fetch HTML in parallel when crawl is enabled
+  const crawlPromise = crawlEnabled
+    ? crawlSite(normalizedUrl, maxLinks)
+    : Promise.resolve({ scannedUrls: [normalizedUrl.toString()], failures: [] });
 
-  const primaryUrl = scannedUrls[0];
+  const primaryUrl = crawlEnabled
+    ? await crawlPromise.then((result) => result.scannedUrls[0])
+    : normalizedUrl.toString();
+
   const includeSeoAnalysis = options.includeSeoAnalysis ?? input.includeSeoAnalysis ?? true;
   const includeImageAudit = options.includeImageAudit ?? input.includeImageAudit ?? true;
 
   let html: string | null = null;
   let response: Response | null = null;
-  
-  // Use fetch with retry and timeout for HTML content (serverless safe)
+
+  // Fetch HTML with retry and timeout
   try {
-    response = await fetchWithRetry(primaryUrl, {
-      headers: { "User-Agent": "WMSSBot/0.1" },
-    }, {
-      maxRetries: 2,
-      timeout: 15000, // 15 seconds per attempt
-      baseDelay: 1000 // 1 second initial delay
-    });
+    response = await fetchWithRetry(
+      primaryUrl,
+      {
+        headers: { "User-Agent": "WMSSBot/0.1" },
+      },
+      {
+        maxRetries: 2,
+        timeout: 15000, // 15 seconds per attempt
+        baseDelay: 1000, // 1 second initial delay
+      }
+    );
     if (response.ok) {
       html = await response.text();
       // Sanitize HTML to prevent XSS
@@ -99,11 +107,16 @@ export async function runEnhancedScan(
     response = null;
   }
 
-  // Use enhanced scanner (CrUX + PSI + network) for better accuracy
-  // Falls back to PSI-only if CrUX data unavailable
-  const enhancedScan = await runEnhancedScanner(primaryUrl, input.device);
+  // Run all independent scans in parallel for better performance
+  // CrUX + PSI + network checks can all happen simultaneously
+  const [enhancedScan, checks, crawlResult] = await Promise.all([
+    runEnhancedScanner(primaryUrl, input.device),
+    runChecks(primaryUrl, html !== null && response ? { html, response } : undefined),
+    crawlPromise,
+  ]);
+
   const psi = enhancedScan.lab;
-  
+
   // Store enhanced data in psi for backward compatibility
   // Add real-user metrics and overall score to psi object
   (psi as any).source = enhancedScan.sources.rumAvailable ? "live" : "partial";
@@ -113,14 +126,18 @@ export async function runEnhancedScan(
   psi.overallScore = enhancedScan.overallScore;
   psi.grade = enhancedScan.grade;
   psi.sources = enhancedScan.sources;
-  
-  const checks = await runChecks(primaryUrl, html !== null && response ? { html, response } : undefined);
+
   const insights = generateInsights(psi, checks);
   const { score, grade } = computeScore(psi);
 
-  const seoAnalysis =
-    includeSeoAnalysis && html !== null ? analyzeSeo(html, options.targetKeyword ?? input.targetKeyword) : undefined;
-  const imageAudit = includeImageAudit && html !== null ? await auditImages(html, primaryUrl) : undefined;
+  // Run SEO and image audits in parallel if needed
+  const [seoAnalysis, imageAudit] = await Promise.all([
+    includeSeoAnalysis && html !== null
+      ? analyzeSeo(html, options.targetKeyword ?? input.targetKeyword)
+      : Promise.resolve(undefined),
+    includeImageAudit && html !== null ? auditImages(html, primaryUrl) : Promise.resolve(undefined),
+  ]);
+
   const kscore = computeKScore(psi, checks, seoAnalysis);
   const detectedStack = detectStack({ html, headers: response?.headers ?? null });
 
@@ -155,8 +172,8 @@ export async function runEnhancedScan(
     crawl: {
       enabled: crawlEnabled,
       maxLinks,
-      scannedUrls,
-      failures,
+      scannedUrls: crawlResult.scannedUrls,
+      failures: crawlResult.failures,
     },
     psi,
     checks,
