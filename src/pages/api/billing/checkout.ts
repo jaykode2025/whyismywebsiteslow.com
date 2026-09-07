@@ -4,6 +4,7 @@ import { env } from "../../../lib/env";
 import { getStripe } from "../../../lib/stripe";
 import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
 import { trackEvent } from "../../../lib/analytics";
+import { readAffiliateRefCookie, resolveActiveAffiliateCode } from "../../../lib/affiliates";
 
 async function readBody(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
@@ -69,6 +70,11 @@ export const POST: APIRoute = async (context) => {
 
   const baseUrl = env.APP_BASE_URL() ?? new URL(context.request.url).origin;
 
+  const affiliateCode = await resolveActiveAffiliateCode(
+    readAffiliateRefCookie(context.cookies),
+    admin
+  );
+
   // Get existing customer id if present
   const { data: subRow } = await required.supabase
     .from("subscriptions")
@@ -95,6 +101,7 @@ export const POST: APIRoute = async (context) => {
     success_url: `${baseUrl}/billing?success=1`,
     cancel_url: `${baseUrl}/billing?canceled=1`,
     client_reference_id: required.user.id,
+    metadata: affiliateCode ? { affiliate_code: affiliateCode } : undefined,
     subscription_data: {
       metadata: {
         user_id: required.user.id,

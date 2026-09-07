@@ -2,6 +2,7 @@ import { defineMiddleware } from "astro/middleware";
 import { createSupabaseServerClient } from "./lib/supabase/server";
 import { hasSupabaseEnv } from "./lib/env";
 import { ensureCsrfToken } from "./lib/csrf";
+import { captureAffiliateRef } from "./lib/affiliates";
 
 const CANONICAL_HOST = "www.whyismywebsiteslow.com";
 const REDIRECT_HOSTS = new Set([
@@ -32,6 +33,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (redirect) return redirect;
 
   context.locals.csrfToken = ensureCsrfToken(context.cookies, context.request);
+  captureAffiliateRef(url, context.cookies);
 
   if (!hasSupabaseEnv() || isStaticSeo) return next();
 
