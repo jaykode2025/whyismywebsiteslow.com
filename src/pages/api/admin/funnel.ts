@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { createSupabaseAdminClient } from "../../lib/supabase/admin";
-import { getCacheKey, getCache, setCache } from "../../lib/cache";
-import { logger } from "../../lib/logger";
+import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
+import { getCacheKey, getCache, setCache } from "../../../lib/cache";
+import { logger } from "../../../lib/logger";
 
 const ADMIN_CACHE_TTL = 300; // Cache admin data for 5 minutes
 

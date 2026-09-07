@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { createSupabaseAdminClient } from "../../lib/supabase/admin";
-import { getCacheKey, getCache, setCache } from "../../lib/cache";
-import { logger } from "../../lib/logger";
+import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
+import { getCacheKey, getCache, setCache } from "../../../lib/cache";
+import { logger } from "../../../lib/logger";
 
 const CACHE_TTL = 60; // Cache for 1 minute
 
@@ -78,7 +78,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
       score: number;
       time: string;
     };
-    const scansData: RecentScan[] = (data ?? [])
+    const scansData: RecentScan[] = (scans ?? [])
       .slice(0, 4)
       .map((row: any) => ({
         url: maskHostname(row.url),
