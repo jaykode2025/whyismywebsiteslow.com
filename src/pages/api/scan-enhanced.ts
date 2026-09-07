@@ -26,7 +26,7 @@
 
 import type { APIRoute } from 'astro';
 import { env } from '../../lib/env';
-import { runEnhancedScanner } from '../../lib/scanner/server';
+import { runEnhancedScanner } from '../../lib/scanner/enhanced';
 import type { Device } from '../../lib/scanner/enhanced';
 
 interface ScanRequest {
@@ -81,8 +81,9 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    // Run the enhanced scanner
-    const result = await runEnhancedScanner(body.url, device, apiKey);
+    // Run the enhanced scanner (fetchPSI/fetchCrUX read PSI_API_KEY from env directly;
+    // the apiKey check above is just a fast-fail so we don't run a scan doomed to be data-poor)
+    const result = await runEnhancedScanner(body.url, device);
 
     return new Response(JSON.stringify(result), {
       status: 200,

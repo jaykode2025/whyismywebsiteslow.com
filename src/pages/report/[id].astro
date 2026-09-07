@@ -670,7 +670,12 @@ if (report) {
           <div class="mt-6">
             <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Share</p>
             <div class="mt-3">
-              <ShareActions client:load url={reportUrl} title={title} />
+              <ShareActions
+                client:load
+                url={reportUrl}
+                title={title}
+                badgeUrl={report.visibility === "public" ? `${siteOrigin}/badge/${report.id}.svg` : ""}
+              />
             </div>
           </div>
         </Card>

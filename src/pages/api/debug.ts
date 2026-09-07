@@ -1,6 +1,5 @@
 import type { APIRoute } from "astro";
 import { env, hasSupabaseEnv } from "../../lib/env";
-import { listReports } from "../../lib/reports";
 
 export const GET: APIRoute = async ({ request, locals }) => {
   const expectedKey = env.INTERNAL_DASHBOARD_KEY();
