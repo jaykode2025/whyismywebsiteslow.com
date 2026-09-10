@@ -36,7 +36,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@types/dompurify": "^3.0.5",
     "supabase": "^2.76.8",
-    "vitest": "^3.2.4"
+    "vitest": "^5.0.0"
   },
   "overrides": {
     "path-to-regexp": "^6.3.0"
