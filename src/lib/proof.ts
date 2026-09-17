@@ -38,6 +38,11 @@ export type ProofDataset = {
     upliftPct: number;
   };
   keyMetrics: KeyMetric[];
+  /**
+   * Headline performance score the page is arguing about (the case study's
+   * "before" score). ProofBlock.enhanced gates its upgrade CTA on this.
+   */
+  overallScore: number;
 };
 
 type ProblemEntry = {
@@ -524,6 +529,7 @@ const buildCommonDataset = ({
       upliftPct: resolvedImprovement,
     },
     keyMetrics: enrichedMetrics,
+    overallScore: beforeScore,
   };
 };
 

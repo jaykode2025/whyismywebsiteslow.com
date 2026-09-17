@@ -88,7 +88,15 @@ export async function runPlaywrightScan(url: string, device: Device): Promise<Pl
     await page.goto(url, { waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
     
     // Extract Core Web Vitals using JavaScript
-    const metrics = await page.evaluate(() => {
+    type PageMetrics = {
+      ttfb?: number;
+      fcp?: number;
+      lcp?: number;
+      cls?: number;
+      domContentLoaded?: number;
+      loadComplete?: number;
+    };
+    const metrics: PageMetrics = await page.evaluate(() => {
       const navTiming = performance.getEntriesByType("navigation")[0] as any;
       const paintEntries = performance.getEntriesByType("paint");
       const largestPaint = performance.getEntriesByType("largest-contentful-paint").pop() as any;
@@ -113,7 +121,7 @@ export async function runPlaywrightScan(url: string, device: Device): Promise<Pl
         domContentLoaded: navTiming?.domContentLoadedEventEnd - navTiming?.fetchStart,
         loadComplete: navTiming?.loadEventEnd - navTiming?.fetchStart,
       };
-    }).catch(() => ({}));
+    }).catch((): PageMetrics => ({}));
 
     // Get resource breakdown
     const resources = await page.evaluate(() => {
@@ -133,9 +141,12 @@ export async function runPlaywrightScan(url: string, device: Device): Promise<Pl
         resourceMetrics.js += size;
       } else if (resource.initiatorType === "link" && resource.name.includes(".css")) {
         resourceMetrics.css += size;
-      } else if (resource.initiatorType === "img" || resource.name.includes(/.jpg|.png|.webp/i)) {
+      } else if (
+        resource.initiatorType === "img" ||
+        /\.(jpe?g|png|webp|gif|svg|avif)(\?|$)/i.test(resource.name)
+      ) {
         resourceMetrics.image += size;
-      } else if (resource.name.includes(/.woff|.woff2|.ttf/i)) {
+      } else if (/\.(woff2?|ttf|otf|eot)(\?|$)/i.test(resource.name)) {
         resourceMetrics.font += size;
       } else if (resource.initiatorType === "xmlhttprequest" || resource.initiatorType === "fetch") {
         resourceMetrics.other += size;
@@ -152,7 +163,10 @@ export async function runPlaywrightScan(url: string, device: Device): Promise<Pl
         ttfb_ms: metrics.ttfb ? Math.round(metrics.ttfb) : undefined,
         fcp_ms: metrics.fcp ? Math.round(metrics.fcp) : undefined,
         lcp_ms: metrics.lcp ? Math.round(metrics.lcp) : undefined,
-        cls: metrics.cls ? Math.round(metrics.cls * 100) / 100 : undefined,
+        cls:
+          typeof metrics.cls === "number" && Number.isFinite(metrics.cls)
+            ? Math.round(metrics.cls * 100) / 100
+            : undefined,
       },
       bytes: resourceMetrics,
       requests,

@@ -19,8 +19,12 @@ response-*.txt
 
 
 # environment variables
+# Ignore every .env variant (notably .env.local, which `vercel env pull`
+# writes by default and which contains production secrets), but keep the
+# committed placeholder template.
 .env
-.env.production
+.env.*
+!.env.example
 .data/
 
 # macOS-specific files

@@ -79,6 +79,10 @@ export function rateLimit(key: string) {
   } else { // New second, add new entry
     bucket.history.push({ timestamp: now, count: 1 });
   }
+
+  // Keep history bounded between the 5-minute sweeps: anything older than the
+  // sliding window is already irrelevant to the count above.
+  bucket.history = bucket.history.filter(entry => entry.timestamp > windowStart);
   
   const remaining = LIMIT - (recentRequests + 1);
   return { 

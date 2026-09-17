@@ -89,7 +89,7 @@ export type Report = {
     failures: { url: string; reason: string }[];
   };
   psi: {
-    source: "live" | "mock";
+    source: "live" | "mock" | "partial";
     message?: string;
     lighthouse: {
       performance: number;
@@ -139,6 +139,7 @@ export type Report = {
       rumAvailable: boolean;
       labAvailable: boolean;
       networkAvailable: boolean;
+      message?: string;
     };
   };
   checks: {

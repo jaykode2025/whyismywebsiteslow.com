@@ -1,4 +1,5 @@
 import type { EnhancedReport, ScanRequest } from "./types";
+import type { PsiResult } from "./psi";
 import { crawlSite } from "./crawl";
 import { runEnhancedScanner } from "./scanner/enhanced";
 import { runChecks } from "./checks";
@@ -76,38 +77,41 @@ export async function runEnhancedScan(
   const includeSeoAnalysis = options.includeSeoAnalysis ?? input.includeSeoAnalysis ?? true;
   const includeImageAudit = options.includeImageAudit ?? input.includeImageAudit ?? true;
 
-  let html: string | null = null;
-  let response: Response | null = null;
-  
-  // Use fetch with retry and timeout for HTML content (serverless safe)
-  try {
-    response = await fetchWithRetry(primaryUrl, {
-      headers: { "User-Agent": "WMSSBot/0.1" },
-    }, {
-      maxRetries: 2,
-      timeout: 15000, // 15 seconds per attempt
-      baseDelay: 1000 // 1 second initial delay
-    });
-    if (response.ok) {
-      html = await response.text();
-      // Sanitize HTML to prevent XSS
-      html = sanitizeHtml(html);
+  // The HTML fetch and the enhanced scanner (CrUX + PSI + network) hit
+  // different endpoints and don't depend on each other - run them concurrently
+  // instead of paying both round-trips back to back.
+  const fetchHtml = async (): Promise<{ html: string | null; response: Response | null }> => {
+    try {
+      const response = await fetchWithRetry(primaryUrl, {
+        headers: { "User-Agent": "WMSSBot/0.1" },
+      }, {
+        maxRetries: 2,
+        timeout: 15000, // 15 seconds per attempt
+        baseDelay: 1000 // 1 second initial delay
+      });
+      if (response.ok) {
+        // Sanitize HTML to prevent XSS
+        return { html: sanitizeHtml(await response.text()), response };
+      }
+      return { html: null, response };
+    } catch (e) {
+      console.error(`Failed to fetch HTML for ${primaryUrl}:`, e);
+      return { html: null, response: null };
     }
-  } catch (e) {
-    console.error(`Failed to fetch HTML for ${primaryUrl}:`, e);
-    html = null;
-    response = null;
-  }
+  };
 
   // Use enhanced scanner (CrUX + PSI + network) for better accuracy
   // Falls back to PSI-only if CrUX data unavailable
-  const enhancedScan = await runEnhancedScanner(primaryUrl, input.device);
-  const psi = enhancedScan.lab;
-  
-  // Store enhanced data in psi for backward compatibility
-  // Add real-user metrics and overall score to psi object
-  (psi as any).source = enhancedScan.sources.rumAvailable ? "live" : "partial";
-  (psi as any).message = enhancedScan.sources.message;
+  const [{ html, response }, enhancedScan] = await Promise.all([
+    fetchHtml(),
+    runEnhancedScanner(primaryUrl, input.device),
+  ]);
+  // `lab` is the raw Lighthouse block; the report contract (PsiResult) adds the
+  // real-user, network and blended-score fields attached just below.
+  const psi = enhancedScan.lab as PsiResult;
+
+  psi.source = enhancedScan.sources.rumAvailable ? "live" : "partial";
+  psi.message = enhancedScan.sources.message;
   psi.rum = enhancedScan.rum;
   psi.network = enhancedScan.network;
   psi.overallScore = enhancedScan.overallScore;

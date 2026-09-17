@@ -50,9 +50,11 @@ const themes = {
     accent: "#fef3c7",     // amber-100
   },
   report: {
-    good: { primary: "#34d399", secondary: "#2dd4bf", bgStart: "#022c22" },
-    medium: { primary: "#fbbf24", secondary: "#fb923c", bgStart: "#451a03" },
-    bad: { primary: "#fb7185", secondary: "#f43f5e", bgStart: "#4c0519" },
+    // bgEnd + accent are required by renderSvg's gradient defs; without them the
+    // report card renders stop-color="undefined" and loses its background.
+    good: { primary: "#34d399", secondary: "#2dd4bf", bgStart: "#022c22", bgEnd: "#0f172a", accent: "#d1fae5" },
+    medium: { primary: "#fbbf24", secondary: "#fb923c", bgStart: "#451a03", bgEnd: "#0f172a", accent: "#fef3c7" },
+    bad: { primary: "#fb7185", secondary: "#f43f5e", bgStart: "#4c0519", bgEnd: "#0f172a", accent: "#ffe4e6" },
   },
 };
 

@@ -41,7 +41,9 @@ export async function createReportPlaceholder(input: ScanRequest, writeToken: st
 export async function setReport(id: string, report: Report) {
   const existing = reports.get(id);
   reports.set(id, { status: "done", report, request: existing?.request });
-  await debouncedPersist();
+  // Persist the finished report synchronously - a debounced write can be lost
+  // if the process is frozen/torn down before the timer fires.
+  persistReports(reports);
 }
 
 export async function setReportStatus(id: string, status: StoredReport["status"], error?: string) {

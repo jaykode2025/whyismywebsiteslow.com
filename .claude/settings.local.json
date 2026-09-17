@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -E 's/`[^`]+`/`X`/g')",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Add CLAUDE.md: comprehensive guide for future Claude Code instances *)",
+      "Bash(git push *)"
+    ]
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true
+  }
+}

@@ -21,6 +21,38 @@ export type { Device };
 import { env } from "../env";
 import { fetchWithRetry } from "../retry";
 
+/**
+ * CrUX and PSI responses are stable for many minutes, and every scan hits both
+ * exactly once. A small in-process TTL cache collapses repeat scans of the same
+ * origin - and duplicate concurrent submissions - down to a single upstream
+ * call. This matters most when PSI_API_KEY is unset and Google's free tier caps
+ * us at a handful of requests per minute.
+ */
+function makeTtlCache<T>(ttlMs: number) {
+  const store = new Map<string, { value: T; expires: number } | Promise<T>>();
+  return function resolve(key: string, produce: () => Promise<T>): Promise<T> {
+    const hit = store.get(key);
+    if (hit instanceof Promise) return hit;
+    if (hit && hit.expires > Date.now()) return Promise.resolve(hit.value);
+
+    const pending = produce().then(
+      (value) => {
+        store.set(key, { value, expires: Date.now() + ttlMs });
+        return value;
+      },
+      (err) => {
+        store.delete(key);
+        throw err;
+      }
+    );
+    store.set(key, pending);
+    return pending;
+  };
+}
+
+const cruxCache = makeTtlCache<EnhancedScannerResult["rum"] | null>(30 * 60_000);
+const psiCache = makeTtlCache<EnhancedScannerResult["lab"] | null>(15 * 60_000);
+
 export type EnhancedScannerResult = {
   // Real-user metrics from CrUX (highest priority)
   rum: {
@@ -353,8 +385,8 @@ export async function runEnhancedScanner(
 ): Promise<EnhancedScannerResult> {
   // Run all scans in parallel for speed
   const [rum, lab, network] = await Promise.all([
-    fetchCrUX(url, device),
-    fetchPSI(url, device),
+    cruxCache(`${getOrigin(url) ?? url}:${device}`, () => fetchCrUX(url, device)),
+    psiCache(`${url}:${device}`, () => fetchPSI(url, device)),
     fetchNetworkMetrics(url),
   ]);
 

@@ -74,7 +74,9 @@ const titleCase = (value: string) =>
     .join(" ");
 
 // Enhanced scanner data (real-user metrics from CrUX)
-const hasRumData = report?.psi?.rum && report.psi.rum.confidence !== "low";
+const rum =
+  report?.psi?.rum && report.psi.rum.confidence !== "low" ? report.psi.rum : null;
+const hasRumData = rum !== null;
 const rumConfidence = report?.psi?.rum?.confidence;
 const rumSampleSize = report?.psi?.rum?.sampleSize ?? 0;
 const overallGrade = report?.psi?.grade ?? report?.summary?.grade;
@@ -299,9 +301,9 @@ if (report) {
                 <Badge tone={report.psi.cwv.status === "pass" ? "success" : "danger"}>
                   {report.psi.cwv.status === "pass" ? "✓ Core Web Vitals Passing" : "✗ Core Web Vitals Failing"}
                 </Badge>
-                {hasRumData && report.psi.rum.status === "pass" ? (
+                {rum && rum.status === "pass" ? (
                   <Badge tone="success">✓ Real-user metrics healthy</Badge>
-                ) : hasRumData && report.psi.rum.status === "fail" ? (
+                ) : rum && rum.status === "fail" ? (
                   <Badge tone="danger">⚠ Real users experiencing issues</Badge>
                 ) : null}
               </div>
@@ -344,7 +346,7 @@ if (report) {
       </section>
 
       <!-- PROOF BLOCK: Real-User vs Lab Comparison -->
-      {hasRumData ? (
+      {rum ? (
         <section class="mt-10">
           <div class="flex items-end justify-between gap-4">
             <div>
@@ -370,8 +372,8 @@ if (report) {
                     <p class="text-xs text-slate-500">When main content appears</p>
                   </div>
                   <div class="text-right">
-                    <p class="text-xl font-bold text-slate-100">{formatMs(report.psi.rum.lcp_ms)}</p>
-                    {report.psi.rum.lcp_ms <= 2500 ? (
+                    <p class="text-xl font-bold text-slate-100">{formatMs(rum.lcp_ms)}</p>
+                    {rum.lcp_ms <= 2500 ? (
                       <p class="text-[11px] text-emerald-300">✓ Good</p>
                     ) : (
                       <p class="text-[11px] text-rose-300">⚠ Slow</p>
@@ -385,8 +387,8 @@ if (report) {
                     <p class="text-xs text-slate-500">Responsiveness to clicks</p>
                   </div>
                   <div class="text-right">
-                    <p class="text-xl font-bold text-slate-100">{formatMs(report.psi.rum.inp_ms)}</p>
-                    {report.psi.rum.inp_ms <= 200 ? (
+                    <p class="text-xl font-bold text-slate-100">{formatMs(rum.inp_ms)}</p>
+                    {rum.inp_ms <= 200 ? (
                       <p class="text-[11px] text-emerald-300">✓ Good</p>
                     ) : (
                       <p class="text-[11px] text-rose-300">⚠ Slow</p>
@@ -400,8 +402,8 @@ if (report) {
                     <p class="text-xs text-slate-500">Visual stability</p>
                   </div>
                   <div class="text-right">
-                    <p class="text-xl font-bold text-slate-100">{report.psi.rum.cls.toFixed(2)}</p>
-                    {report.psi.rum.cls <= 0.1 ? (
+                    <p class="text-xl font-bold text-slate-100">{rum.cls.toFixed(2)}</p>
+                    {rum.cls <= 0.1 ? (
                       <p class="text-[11px] text-emerald-300">✓ Good</p>
                     ) : (
                       <p class="text-[11px] text-rose-300">⚠ Unstable</p>

@@ -7,7 +7,7 @@ import { runEnhancedScan } from "../../lib/scan.enhanced";
 import { env, hasSupabaseEnv } from "../../lib/env";
 import { generateId, generateToken, hashToken } from "../../lib/tokens";
 import { enqueueQStashJob } from "../../lib/qstash";
-import { getPlanLimits, getUserPlan } from "../../lib/plan";
+import { getEffectivePlan, getPlanLimits, getUserPlan } from "../../lib/plan";
 import { verifyCsrfTokenFromRequest } from "../../lib/csrf";
 import { recordScanFact, trackEvent } from "../../lib/analytics";
 import { createSupabaseAdminClient } from "../../lib/supabase/admin";
@@ -63,27 +63,44 @@ export const POST: APIRoute = async (context) => {
       const manageTokenHash = manageToken ? hashToken(manageToken) : null;
       let userPlanInfo: Awaited<ReturnType<typeof getUserPlan>> | null = null;
       let planLimits = getPlanLimits("free");
+      let projectId: string | null = null;
 
       if (locals.user) {
-        userPlanInfo = await getUserPlan(locals.supabase, locals.user.id);
-        planLimits = getPlanLimits(userPlanInfo.plan);
-
         const startOfMonth = new Date();
         startOfMonth.setUTCDate(1);
         startOfMonth.setUTCHours(0, 0, 0, 0);
-        const { count: scanCount, error: scanCountError } = await locals.supabase
-          .from("scans")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", locals.user.id)
-          .gte("created_at", startOfMonth.toISOString());
 
-        if (scanCountError) throw new Error(scanCountError.message);
-        if ((scanCount ?? 0) >= planLimits.monthlyScanLimit) {
+        // Plan lookup, monthly scan count and the existing-project lookup are
+        // independent reads - issue them together instead of paying three
+        // sequential Supabase round-trips on every scan submission.
+        const [planResult, scanCountResult, existingProjectResult] = await Promise.all([
+          getUserPlan(locals.supabase, locals.user.id),
+          locals.supabase
+            .from("scans")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", locals.user.id)
+            .gte("created_at", startOfMonth.toISOString()),
+          // Create/find a project for this URL (simple MVP: 1 project per exact url string)
+          locals.supabase
+            .from("projects")
+            .select("id")
+            .eq("user_id", locals.user.id)
+            .eq("url", normalized.toString())
+            .maybeSingle(),
+        ]);
+
+        userPlanInfo = planResult;
+        // Limits follow the *effective* plan: a lapsed/canceled subscription
+        // falls back to free-tier limits even though the row still names a paid plan.
+        planLimits = getPlanLimits(getEffectivePlan(userPlanInfo));
+
+        if (scanCountResult.error) throw new Error(scanCountResult.error.message);
+        if ((scanCountResult.count ?? 0) >= planLimits.monthlyScanLimit) {
           return new Response(
             JSON.stringify({
               error: `Monthly scan limit reached (${planLimits.monthlyScanLimit}). Upgrade for higher limits.`,
               code: "monthly_scan_limit",
-              plan: userPlanInfo.plan,
+              plan: getEffectivePlan(userPlanInfo),
               limit: planLimits.monthlyScanLimit,
             }),
             {
@@ -92,25 +109,13 @@ export const POST: APIRoute = async (context) => {
             }
           );
         }
-      }
 
-      let projectId: string | null = null;
-      if (locals.user) {
-        // Create/find a project for this URL (simple MVP: 1 project per exact url string)
-        const { data: existing, error: projectError } = await locals.supabase
-          .from("projects")
-          .select("id")
-          .eq("user_id", locals.user.id)
-          .eq("url", normalized.toString())
-          .maybeSingle();
-        if (projectError) throw new Error(projectError.message);
-        if (existing?.id) projectId = existing.id;
+        if (existingProjectResult.error) throw new Error(existingProjectResult.error.message);
+        if (existingProjectResult.data?.id) projectId = existingProjectResult.data.id;
       }
 
       // Project limits by plan.
-      if (locals.user && !projectId) {
-        const planInfo = userPlanInfo ?? (await getUserPlan(locals.supabase, locals.user.id));
-
+      if (locals.user && !projectId && userPlanInfo) {
         const { count: projectCount } = await locals.supabase
           .from("projects")
           .select("id", { count: "exact", head: true })
@@ -121,7 +126,7 @@ export const POST: APIRoute = async (context) => {
             JSON.stringify({
               error: `Project limit reached (${planLimits.maxProjects}). Upgrade for more projects.`,
               code: "project_limit_reached",
-              plan: planInfo.plan,
+              plan: userPlanInfo.plan,
               limit: planLimits.maxProjects,
             }),
             {

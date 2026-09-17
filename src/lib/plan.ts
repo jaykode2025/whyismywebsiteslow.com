@@ -29,8 +29,19 @@ export async function getUserPlan(supabase: SupabaseClient, userId: string): Pro
   };
 }
 
+/**
+ * A stored row keeps `plan` at whatever price the customer last bought, even
+ * after the subscription ends - Stripe's `customer.subscription.deleted` only
+ * moves `status` to "canceled". Entitlements must therefore be derived from
+ * plan AND status, never from plan alone.
+ */
+export function getEffectivePlan(info: PlanInfo): Plan {
+  return isPaidStatus(info.status) ? info.plan : "free";
+}
+
 export function isPro(plan: PlanInfo) {
-  return plan.plan === "pro" || plan.plan === "agency";
+  const effective = getEffectivePlan(plan);
+  return effective === "pro" || effective === "agency";
 }
 
 export function getPlanLimits(plan: Plan): PlanLimits {
