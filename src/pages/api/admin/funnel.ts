@@ -1,12 +1,13 @@
 import type { APIRoute } from "astro";
-import { createSupabaseAdminClient } from "../../lib/supabase/admin";
-import { getCacheKey, getCache, setCache } from "../../lib/cache";
-import { logger } from "../../lib/logger";
+import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
+import { getCacheKey, getCache, setCache } from "../../../lib/cache";
+import { logger } from "../../../lib/logger";
+import { requireAdminApi } from "../../../lib/adminAuth";
 
 const ADMIN_CACHE_TTL = 300; // Cache admin data for 5 minutes
 
 export const GET: APIRoute = async (context) => {
-  const denied = await requireAdminPage(context.locals, context);
+  const denied = await requireAdminApi(context);
   if (denied) return denied;
 
   const admin = createSupabaseAdminClient();
@@ -49,7 +50,7 @@ export const GET: APIRoute = async (context) => {
         .from("events")
         .select("id", { count: "exact", head: true })
         .eq("event_type", eventType)
-        .gte("timestamp", sinceIso);
+        .gte("created_at", sinceIso);
       return count ?? 0;
     }
 
@@ -91,8 +92,3 @@ export const GET: APIRoute = async (context) => {
   }
 };
 
-async function requireAdminPage(locals: any, context: any) {
-  // Check if user is authenticated and is admin
-  // This is a placeholder - implement your actual admin check
-  return null;
-}
