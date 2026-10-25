@@ -1,12 +1,13 @@
 import type { APIRoute } from "astro";
-import { createSupabaseAdminClient } from "../../lib/supabase/admin";
-import { getCacheKey, getCache, setCache } from "../../lib/cache";
-import { logger } from "../../lib/logger";
+import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
+import { getCacheKey, getCache, setCache } from "../../../lib/cache";
+import { logger } from "../../../lib/logger";
+import { requireAdminApi } from "../../../lib/adminAuth";
 
 const ADMIN_CACHE_TTL = 300; // Cache admin data for 5 minutes
 
 export const GET: APIRoute = async (context) => {
-  const denied = await requireAdminPage(context.locals, context);
+  const denied = await requireAdminApi(context);
   if (denied) return denied;
 
   const admin = createSupabaseAdminClient();
@@ -49,26 +50,36 @@ export const GET: APIRoute = async (context) => {
         .from("events")
         .select("id", { count: "exact", head: true })
         .eq("event_type", eventType)
-        .gte("timestamp", sinceIso);
+        .gte("created_at", sinceIso);
       return count ?? 0;
     }
 
-    // Fetch all event counts in parallel
+    async function countWithFallback(primary: string, fallback: string | undefined, sinceIso: string) {
+      const primaryCount = await countEvents(primary, sinceIso);
+      if (primaryCount > 0 || !fallback) return primaryCount;
+      return countEvents(fallback, sinceIso);
+    }
+
+    // These names match events emitted by the scan, report, lead, and Stripe flows.
     const eventTypes = [
-      { label: "Visitors", eventType: "page_view" },
-      { label: "Scan Initiated", eventType: "scan_submitted" },
-      { label: "Scan Completed", eventType: "scan_completed" },
-      { label: "Lead Captured", eventType: "lead_captured" },
-      { label: "Upgrade Viewed", eventType: "upgrade_viewed" },
-      { label: "Purchase Attempted", eventType: "purchase_attempted" },
+      { label: "Scans started", eventType: "scan_started", fallbackEventType: "scan_submitted" },
+      { label: "Scans completed", eventType: "scan_completed" },
+      { label: "Report views", eventType: "report_viewed" },
+      { label: "Example report views", eventType: "example_report_viewed" },
+      { label: "Unlock CTA clicks", eventType: "unlock_cta_clicked" },
+      { label: "Checkouts started", eventType: "checkout_started", fallbackEventType: "report_checkout_started" },
+      { label: "Purchases completed", eventType: "purchase_completed", fallbackEventType: "report_purchased" },
+      { label: "Subscriptions started", eventType: "subscription_started", fallbackEventType: "subscription_activated" },
+      { label: "Service leads submitted", eventType: "service_lead_submitted" },
     ];
 
     const rows: Row[] = await Promise.all(
-      eventTypes.map(async ({ label, eventType }) => ({
+      eventTypes.map(async ({ label, eventType, fallbackEventType }) => ({
         label,
         eventType,
-        last7: await countEvents(eventType, last7Iso),
-        last30: await countEvents(eventType, last30Iso),
+        fallbackEventType,
+        last7: await countWithFallback(eventType, fallbackEventType, last7Iso),
+        last30: await countWithFallback(eventType, fallbackEventType, last30Iso),
       }))
     );
 
@@ -91,8 +102,3 @@ export const GET: APIRoute = async (context) => {
   }
 };
 
-async function requireAdminPage(locals: any, context: any) {
-  // Check if user is authenticated and is admin
-  // This is a placeholder - implement your actual admin check
-  return null;
-}

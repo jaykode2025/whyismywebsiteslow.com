@@ -1,7 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Card from "../components/ui/Card.astro";
-import Badge from "../components/ui/Badge.astro";
 import Button from "../components/ui/Button.astro";
 import ScanForm from "../components/ScanForm.svelte";
 
@@ -12,7 +11,6 @@ const description = "Free website speed scan with business-impact language, prio
   <section class="pt-10 animate-fade-up">
     <div class="grid items-center gap-10 md:grid-cols-[1.1fr_0.9fr]">
       <div class="space-y-6 stagger">
-        <Badge tone="info">Trusted by 10,000+ website owners</Badge>
         <h1 class="text-4xl leading-tight text-slate-100 sm:text-5xl">
           Your website may be losing income. <span class="text-sky-400 [text-shadow:0_0_28px_rgba(56,189,248,0.45)]">Find out why.</span>
         </h1>
@@ -93,17 +91,6 @@ const description = "Free website speed scan with business-impact language, prio
             <Button href="/report/example" data-track-event="homepage_cta_clicked" data-track-source="homepage-free-card" data-track-offer-context="example-report" data-track-cta-variant="secondary">See example report</Button>
           </div>
         </Card>
-        <Card class="border-amber-400/20 bg-amber-400/5">
-          <p class="text-xs uppercase tracking-[0.2em] text-amber-200/80">Need implementation help?</p>
-          <h3 class="mt-3 text-xl text-slate-100">Use the scanner first. Then let us fix the bottlenecks.</h3>
-          <p class="mt-3 text-sm text-slate-300">
-            The report explains what is wrong. The fix-it service is for teams that want someone to handle caching, scripts, images, and platform cleanup directly.
-          </p>
-          <div class="mt-5 flex flex-wrap items-center gap-3">
-            <Button href="/fix-it" variant="ghost" class="border-white/10" data-track-event="service_cta_clicked" data-track-source="homepage-service-card" data-track-offer-context="service" data-track-cta-variant="primary">Request fix-it help</Button>
-            <span class="text-xs text-slate-400">Custom support available. Great for urgent speed issues tied to leads, revenue, or launch deadlines.</span>
-          </div>
-        </Card>
       </div>
     </div>
   </section>
@@ -111,19 +98,18 @@ const description = "Free website speed scan with business-impact language, prio
   <section class="mt-20 animate-fade-up">
     <div class="grid gap-6 md:grid-cols-3 stagger">
       <Card>
-        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Real browser data</p>
-        <h3 class="mt-4 text-xl text-slate-100">Built on the same signals that affect rankings</h3>
+        <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Performance evidence</p>
+        <h3 class="mt-4 text-xl text-slate-100">See the signals behind a slow page</h3>
         <p class="mt-3 text-sm text-slate-300">
-          We measure the same Core Web Vitals search engines use to judge your site.
-          Every report is accurate, defensible, and actionable.
+          We combine Core Web Vitals data when available with PageSpeed lab results and direct page checks.
+          Reports distinguish unavailable real-user data from lab measurements so you can see what the evidence actually says.
         </p>
       </Card>
       <Card>
         <p class="text-xs uppercase tracking-[0.2em] text-slate-500">No fluff</p>
         <h3 class="mt-4 text-xl text-slate-100">Fixes in plain English</h3>
         <p class="mt-3 text-sm text-slate-300">
-          No jargon. Every insight tells you what's broken, why it matters, and exactly how to fix it.
-          Verified by real developers.
+          No jargon. Every insight explains the issue, why it matters, and the next fix to investigate.
         </p>
       </Card>
       <Card>

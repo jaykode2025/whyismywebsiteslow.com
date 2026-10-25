@@ -26,7 +26,7 @@
 
 import type { APIRoute } from 'astro';
 import { env } from '../../lib/env';
-import { runEnhancedScanner } from '../../lib/scanner/server';
+import { runEnhancedScanner } from '../../lib/scanner/enhanced';
 import type { Device } from '../../lib/scanner/enhanced';
 
 interface ScanRequest {
@@ -82,7 +82,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     // Run the enhanced scanner
-    const result = await runEnhancedScanner(body.url, device, apiKey);
+    const result = await runEnhancedScanner(body.url, device);
 
     return new Response(JSON.stringify(result), {
       status: 200,

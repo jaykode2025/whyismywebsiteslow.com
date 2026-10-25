@@ -165,26 +165,5 @@ const checkoutCanceled = params.get("canceled") === "1";
       </div>
     </div>
 
-    <div class="mt-8">
-      <Card class="border-amber-400/20 bg-amber-400/5">
-        <p class="text-xs uppercase tracking-[0.2em] text-amber-200/80">Need something custom?</p>
-        <div class="mt-3 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 class="text-2xl text-slate-100">Need help implementing fixes?</h2>
-            <p class="mt-2 text-sm text-slate-300">
-              If you want hands-on help, we can scope a custom engagement after you run a scan.
-            </p>
-          </div>
-          <Button href="/fix-it" size="lg" variant="ghost" class="rounded-xl border-white/10" data-track-event="service_cta_clicked" data-track-source="billing-service-card" data-track-offer-context="service" data-track-cta-variant="primary">
-            Request help fixing it
-          </Button>
-        </div>
-        <ul class="mt-4 grid gap-3 text-sm text-slate-300 md:grid-cols-3">
-          <li class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">Caching and server response cleanup</li>
-          <li class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">Image, script, and third-party optimization</li>
-          <li class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">CMS, hosting, and monitoring recommendations</li>
-        </ul>
-      </Card>
-    </div>
   </section>
 </BaseLayout>
